@@ -111,9 +111,6 @@ We welcome your help! Please read [CONTRIBUTING.md](./CONTRIBUTING.md) for:
 - Issue & PR workflow  
 - Branch naming conventions  
 - Testing & linting guidelines  
-
-Label new issues with **ODHack 14** if you’re participating in the hackathon, and pick from `difficulty:easy|medium|hard`.
-
 ---
 
 ## 📜 License
