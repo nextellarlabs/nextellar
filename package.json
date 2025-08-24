@@ -12,7 +12,8 @@
   },
   "dependencies": {
     "commander": "^14.0.0",
-    "fs-extra": "^11.3.0"
+    "fs-extra": "^11.3.0",
+    "execa": "^9.6.0"
   },
   "devDependencies": {
     "@babel/core": "^7.28.0",
@@ -27,7 +28,6 @@
     "@types/node-fetch": "^2.6.13",
     "babel-jest": "^30.0.5",
     "cross-env": "^10.0.0",
-    "execa": "^9.6.0",
     "jest": "^30.0.5",
     "jest-environment-jsdom": "^30.0.5",
     "msw": "^2.10.4",

@@ -57,8 +57,10 @@ Options:
   --horizon-url <url>      Override default Horizon endpoint
   --soroban-url <url>      Override default Soroban RPC endpoint
   -w, --wallets <list>     Comma-separated list of wallet adapters
-  -e, --example <name>     Scaffold with a named example (e.g. `payments-demo`)
   -d, --defaults           Skip prompts and use defaults
+  --skip-install           Skip dependency installation after scaffolding
+  --package-manager <pm>   Choose package manager (npm, yarn, pnpm)
+  --install-timeout <ms>   Installation timeout in milliseconds (default: 1200000)
   -v, --version            Show CLI version
   -h, --help               Show help text
 ```

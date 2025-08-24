@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
-import pkg from '../package.json';
-import { scaffold } from '../src/lib/scaffold';
+import pkg from '../package.json' with { type: "json" };
+import { scaffold } from '../src/lib/scaffold.js';
 
 const program = new Command();
 
@@ -16,7 +16,10 @@ program
   .option('--horizon-url <url>', 'custom Horizon endpoint')
   .option('--soroban-url <url>', 'custom Soroban RPC endpoint')
   .option('-w, --wallets <list>', 'comma-separated wallet adapters (freighter, xbull)', '')
-  .option('-d, --defaults', 'skip prompts and use defaults', false);
+  .option('-d, --defaults', 'skip prompts and use defaults', false)
+  .option('--skip-install', 'skip dependency installation after scaffolding', false)
+  .option('--package-manager <manager>', 'choose package manager (npm, yarn, pnpm)')
+  .option('--install-timeout <ms>', 'installation timeout in milliseconds', '1200000');
 
 
 
@@ -31,8 +34,21 @@ program
       sorobanUrl: options.sorobanUrl,
       wallets,
       defaults: options.defaults,
+      skipInstall: options.skipInstall,
+      packageManager: options.packageManager,
+      installTimeout: parseInt(options.installTimeout),
     });
-    console.log('\n✅ Your Nextellar app is ready! Run `cd ' + projectName + ' && npm run dev`');
+    
+    if (options.skipInstall) {
+      console.log('\n✅ Your Nextellar app is ready!');
+      console.log(`   cd ${projectName}`);
+      console.log('   npm install');
+      console.log('   npm run dev');
+    } else {
+      console.log('\n✅ Your Nextellar app is ready! Run:');
+      console.log(`   cd ${projectName}`);
+      console.log('   npm run dev');
+    }
   } catch (err: any) {
     console.error(`\n❌ Error: ${err.message}`);
     process.exit(1);

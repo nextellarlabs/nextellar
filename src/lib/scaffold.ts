@@ -1,5 +1,10 @@
 import path from "path";
 import fs from "fs-extra";
+import { runInstall } from "./install.js";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export interface ScaffoldOptions {
   appName: string;
@@ -8,12 +13,16 @@ export interface ScaffoldOptions {
   sorobanUrl?: string;
   wallets?: string[];
   defaults?: boolean;
+  skipInstall?: boolean;
+  packageManager?: 'npm' | 'yarn' | 'pnpm';
+  installTimeout?: number;
 }
 
 export async function scaffold(options: ScaffoldOptions) {
-  const { appName } = options;
+  const { appName, skipInstall, packageManager, installTimeout } = options;
 
-  const templateDir = path.resolve(__dirname, "../templates/ts-template");
+  // Point to source templates (from dist/src/lib/ to src/templates/)
+  const templateDir = path.resolve(__dirname, "../../../src/templates/ts-template");
   const targetDir = path.resolve(process.cwd(), appName);
 
   if (await fs.pathExists(targetDir)) {
@@ -29,4 +38,12 @@ export async function scaffold(options: ScaffoldOptions) {
   });
 
   console.log(`✔️  Scaffolded "${appName}" from template.`);
+
+  // Run installation
+  await runInstall({
+    cwd: targetDir,
+    skipInstall,
+    packageManager,
+    timeout: installTimeout,
+  });
 }
