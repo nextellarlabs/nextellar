@@ -13,6 +13,6 @@
     "allowJs": true,
     "outDir": "./dist"
   },
-  "include": ["./src", "./tests", "./bin"],
-  "exclude": ["node_modules", "dist", "src/templates/**/*"]
+  "include": ["./src/lib/**/*", "./src/mocks/**/*", "./tests/**/*", "./bin/**/*"],
+  "exclude": ["node_modules", "dist", "tests/tmp-*"]
 }

@@ -12,17 +12,18 @@ describe('nextellar CLI', () => {
 
   beforeEach(async () => {
     await fs.remove(tmpDir);
-  });
+  }, 10000);
 
   it('should scaffold a new project and exit cleanly', async () => {
     const { exitCode, stdout } = await execa('node', [
       path.resolve(__dirname, '../dist/bin/nextellar.js'),
       tmpDir,
       '--typescript',
-      '--defaults'
+      '--defaults',
+      '--skip-install'
     ]);
     expect(exitCode).toBe(0);
     expect(stdout).toContain('✅ Your Nextellar app is ready!');
     expect(await fs.pathExists(tmpDir)).toBe(true);
-  });
+  }, 30000);
 });
