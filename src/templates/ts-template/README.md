@@ -1,4 +1,69 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+This is a [Next.js](https://nextjs.org) project bootstrapped with [Nextellar](https://github.com/nextellarlabs/nextellar) - a Stellar blockchain dApp starter.
+
+## 🌟 Stellar Integration
+
+This template includes pre-built Stellar blockchain integration:
+
+- **🔗 Wallet Connection**: `useStellarWallet` hook with Freighter wallet support
+- **💰 Balance Display**: Real-time XLM and asset balance fetching
+- **🎨 UI Components**: Ready-to-use `WalletConnectButton` component
+- **🌐 Testnet Ready**: Pre-configured for Stellar testnet development
+
+### Quick Stellar Setup
+
+1. **Install Freighter Wallet**: [Get Freighter](https://www.freighter.app/) browser extension
+2. **Create Testnet Account**: Use [Stellar Laboratory](https://laboratory.stellar.org/#account-creator) 
+3. **Fund with Testnet XLM**: Use the [Friendbot](https://laboratory.stellar.org/#account-creator)
+
+### Usage Example
+
+```tsx
+import WalletConnectButton from '@/components/WalletConnectButton';
+import { useStellarWallet } from '@/hooks/useStellarWallet';
+
+export default function MyDApp() {
+  const { connected, publicKey, balances } = useStellarWallet();
+  
+  return (
+    <div className="p-8">
+      <WalletConnectButton />
+      
+      {connected && (
+        <div className="mt-4">
+          <p>Connected: {publicKey}</p>
+          <p>Balance: {balances[0]?.balance} XLM</p>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+### 🎨 UI Components
+
+The template includes minimal shadcn/ui-inspired components built inline. You can:
+
+1. **Use as-is** - Components work perfectly out of the box
+2. **Upgrade to full shadcn/ui**:
+   ```bash
+   npx shadcn-ui@latest init
+   npx shadcn-ui@latest add button dropdown-menu
+   ```
+   Then replace the inline components in `WalletConnectButton.tsx`
+
+3. **Use your preferred UI library** - Easily swap out Button/Dropdown components
+
+### ⚠️ Development vs Production
+
+**Development Mode:**
+- Includes `connectWithSecret()` for testing with secret keys
+- Shows dev-only UI when Freighter is not available
+- **Never use real secret keys - testnet only!**
+
+**Production Mode:**
+- Remove all `connectWithSecret` usage
+- Implement proper external wallet signing
+- Add error handling for wallet connection failures
 
 ## Getting Started
 

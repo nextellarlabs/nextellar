@@ -1,4 +1,5 @@
 // jest.setup.ts
+import '@testing-library/jest-dom';
 
 // 0) Stub BroadcastChannel (MSW uses it internally)
 class BroadcastChannel {
@@ -39,7 +40,6 @@ global.WritableStream  = WritableStream  as any;
 global.TransformStream = TransformStream as any;
 
 // 4) MSW Setup
-import '@testing-library/jest-dom';
 import { server } from './src/mocks/server';
 
 beforeAll(() => server.listen());

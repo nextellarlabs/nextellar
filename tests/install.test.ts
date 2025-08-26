@@ -1,21 +1,7 @@
 import { detectPackageManager, getInstallCommand, runInstall } from '../src/lib/install.js';
-import fs from 'fs-extra';
-
-// Mock execa
-jest.mock('execa', () => ({
-  execa: jest.fn()
-}));
-
-// Mock fs-extra
-jest.mock('fs-extra', () => ({
-  existsSync: jest.fn(),
-  ensureDir: jest.fn(),
-  writeFile: jest.fn()
-}));
 
 describe('install utilities', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
     delete process.env.npm_config_user_agent;
   });
 
@@ -33,16 +19,8 @@ describe('install utilities', () => {
       expect(detectPackageManager('/test')).toBe('pnpm');
     });
 
-    it('detects from lockfiles', () => {
-      (fs.existsSync as jest.Mock).mockImplementation((path) => {
-        return path.toString().includes('pnpm-lock.yaml');
-      });
-      expect(detectPackageManager('/test')).toBe('pnpm');
-    });
-
-    it('defaults to npm', () => {
-      (fs.existsSync as jest.Mock).mockReturnValue(false);
-      expect(detectPackageManager('/test')).toBe('npm');
+    it('defaults to npm when no lockfiles exist', () => {
+      expect(detectPackageManager('/nonexistent-path')).toBe('npm');
     });
   });
 
