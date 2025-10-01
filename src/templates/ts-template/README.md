@@ -1,5 +1,7 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [Nextellar](https://github.com/nextellarlabs/nextellar) - a Stellar blockchain dApp starter.
 
+> ✨ **Congratulations!** You've successfully created a Nextellar project. When you scaffolded this app, you saw our friendly success animation and ASCII logo - that's how we celebrate your new Stellar dApp journey!
+
 ## 🌟 Stellar Integration
 
 This template includes pre-built Stellar blockchain integration:

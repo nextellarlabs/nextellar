@@ -1,6 +1,7 @@
 import { execa } from "execa";
 import path from "path";
 import fs from "fs-extra";
+import { startProgress } from "./feedback.js";
 
 export interface InstallOptions {
   cwd: string;
@@ -79,6 +80,8 @@ export async function runInstall(options: InstallOptions): Promise<InstallResult
 
   console.log(`\n📦 Installing dependencies with ${packageManager}...`);
 
+  const stopProgress = startProgress();
+
   try {
     const stdio = captureOutput ? 'pipe' : 'inherit';
     
@@ -89,10 +92,12 @@ export async function runInstall(options: InstallOptions): Promise<InstallResult
       timeout,
     });
 
+    if (stopProgress) stopProgress();
     console.log(`✅ Dependencies installed successfully with ${packageManager}`);
     return { success: true, packageManager };
 
   } catch (error: any) {
+    if (stopProgress) stopProgress();
     const errorMessage = error.message || 'Installation failed';
     console.error(`\n❌ Installation failed with ${packageManager}`);
     

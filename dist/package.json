@@ -8,9 +8,7 @@
     "scripts": {
         "build": "npx tsc -p tsconfig.build.json",
         "start": "ts-node bin/nextellar.ts",
-        "test": "cross-env NODE_OPTIONS=\"--experimental-vm-modules --no-warnings\" jest",
-        "demo": "node show-boss.js",
-        "test-hook": "node run-tests.js"
+        "test": "cross-env NODE_OPTIONS=\"--experimental-vm-modules --no-warnings\" jest"
     },
     "dependencies": {
         "@anthropic-ai/claude-code": "^1.0.90",

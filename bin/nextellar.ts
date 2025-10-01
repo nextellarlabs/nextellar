@@ -2,9 +2,9 @@
 import { Command } from 'commander';
 import pkg from '../package.json' with { type: "json" };
 import { scaffold } from '../src/lib/scaffold.js';
+import { displaySuccess } from '../src/lib/feedback.js';
 
 const program = new Command();
-
 
 program
   .name('nextellar')
@@ -21,9 +21,7 @@ program
   .option('--package-manager <manager>', 'choose package manager (npm, yarn, pnpm)')
   .option('--install-timeout <ms>', 'installation timeout in milliseconds', '1200000');
 
-
-
-  program.action(async (projectName, options) => {
+program.action(async (projectName, options) => {
   const useTs = options.typescript && !options.javascript;
   const wallets = options.wallets ? options.wallets.split(',') : [];
   try {
@@ -45,15 +43,12 @@ program
       console.log('   npm install');
       console.log('   npm run dev');
     } else {
-      console.log('\n✅ Your Nextellar app is ready! Run:');
-      console.log(`   cd ${projectName}`);
-      console.log('   npm run dev');
+      await displaySuccess(projectName);
     }
   } catch (err: any) {
     console.error(`\n❌ Error: ${err.message}`);
     process.exit(1);
   }
 });
-
 
 program.parse(process.argv);
