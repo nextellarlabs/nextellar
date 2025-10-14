@@ -2,6 +2,7 @@
 import { Command } from 'commander';
 import pkg from '../package.json' with { type: "json" };
 import { scaffold } from '../src/lib/scaffold.js';
+import { displaySuccess } from '../src/lib/feedback.js';
 const program = new Command();
 program
     .name('nextellar')
@@ -39,9 +40,7 @@ program.action(async (projectName, options) => {
             console.log('   npm run dev');
         }
         else {
-            console.log('\n✅ Your Nextellar app is ready! Run:');
-            console.log(`   cd ${projectName}`);
-            console.log('   npm run dev');
+            await displaySuccess(projectName);
         }
     }
     catch (err) {
