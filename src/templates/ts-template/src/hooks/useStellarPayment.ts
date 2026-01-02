@@ -34,22 +34,6 @@ export type PaymentResult = {
   error?: any 
 };
 
-/**
- * Options for the useStellarPayment hook
- */
-export interface UseStellarPaymentOptions {
-  horizonUrl?: string;
-  network?: 'TESTNET' | 'PUBLIC';
-}
-
-/**
- * Return type for the useStellarPayment hook
- */
-export interface StellarPaymentState {
-  buildPaymentXDR: (params: PaymentParams) => Promise<string>;
-  submitSignedXDR: (signedXdrBase64: string) => Promise<PaymentResult>;
-  signAndSubmitWithSecret: (params: PaymentParams & { secret: string }) => Promise<PaymentResult>;
-}
 
 // Default configuration
 const DEFAULT_HORIZON_URL = 'https://horizon-testnet.stellar.org';
@@ -106,12 +90,16 @@ const DEFAULT_NETWORK = 'TESTNET';
  * ```
  */
 export function useStellarPayment(
-  options: UseStellarPaymentOptions = {}
-): StellarPaymentState {
+  opts?: { horizonUrl?: string; network?: 'TESTNET' | 'PUBLIC' }
+): {
+  buildPaymentXDR: (params: PaymentParams) => Promise<string>;
+  submitSignedXDR: (signedXdrBase64: string) => Promise<PaymentResult>;
+  signAndSubmitWithSecret: (params: PaymentParams & { secret: string }) => Promise<PaymentResult>;
+} {
   const { 
     horizonUrl = DEFAULT_HORIZON_URL, 
     network = DEFAULT_NETWORK 
-  } = options;
+  } = opts || {};
   
   // Refs for persistent instances
   const serverRef = useRef<Horizon.Server | null>(null);
