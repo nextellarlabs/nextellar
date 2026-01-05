@@ -40,9 +40,7 @@ export default function WalletConnectButton({ theme = 'light' }: WalletConnectBu
         // Find and hide elements containing the unwanted text
         const walker = document.createTreeWalker(
           modal,
-          NodeFilter.SHOW_TEXT,
-          null,
-          false
+          NodeFilter.SHOW_TEXT
         );
         
         const textNodes = [];

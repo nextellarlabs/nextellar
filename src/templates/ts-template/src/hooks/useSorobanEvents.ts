@@ -6,12 +6,18 @@ type Options = {
     pollIntervalMs?: number | null
 }
 
+type SorobanEvent = {
+    id?: string;
+    paging_token?: string;
+    [key: string]: unknown;
+};
+
 type UseSorobanEventsReturn = {
-    events: any[]
-    loading: boolean
-    refresh: () => Promise<void>
-    stopPolling: () => void
-    error: Error | null
+    events: SorobanEvent[];
+    loading: boolean;
+    refresh: () => Promise<void>;
+    stopPolling: () => void;
+    error: Error | null;
 }
 
 export function useSorobanEvents(
@@ -20,7 +26,7 @@ export function useSorobanEvents(
 ): UseSorobanEventsReturn {
     const { sorobanRpc = 'https://rpc-futurenet.stellar.org', fromCursor, pollIntervalMs = null } = opts
 
-    const [events, setEvents] = useState<any[]>([])
+    const [events, setEvents] = useState<SorobanEvent[]>([]);
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<Error | null>(null)
     const cursorRef = useRef<string | number | undefined>(fromCursor)
@@ -37,10 +43,10 @@ export function useSorobanEvents(
             if (!res.ok) throw new Error(`RPC error ${res.status}`)
             const data = await res.json()
             const newEvents = data.events || []
-            setEvents((prev: any[]) => {
-                const seen = new Set(prev.map((e: any) => e.id ?? e.paging_token))
-                return [...prev, ...newEvents.filter((e: any) => !seen.has(e.id ?? e.paging_token))]
-            })
+            setEvents((prev: SorobanEvent[]) => {
+                const seen = new Set(prev.map((e: SorobanEvent) => e.id ?? e.paging_token));
+                return [...prev, ...newEvents.filter((e: SorobanEvent) => !seen.has(e.id ?? e.paging_token))];
+            });
             if (newEvents.length > 0) {
                 const last = newEvents[newEvents.length - 1]
                 cursorRef.current = last.paging_token ?? cursorRef.current

@@ -7,27 +7,27 @@ import {
   WalletNetwork,
 } from "@creit.tech/stellar-wallets-kit";
 
-export const kit: StellarWalletsKit = new StellarWalletsKit({
-  network: WalletNetwork.TESTNET,
-  selectedWalletId: FREIGHTER_ID,
-  modules: [new FreighterModule(), new AlbedoModule(), new LobstrModule()],
-  modalParams: {
-    modalTitle: "Connect to your favorite wallet",
-    learnMoreText: "The Stellar SDK has been integrated into this template. Use the reusable Connect Wallet button component in any project.",
-    hideLearnMore: true,
-    theme: {
-      background: 'var(--background)',
-      text: 'var(--foreground)',
-      primary: 'rgb(0, 0, 0)',
-      primaryHover: 'rgb(31, 41, 55)',
-      secondary: 'rgb(243, 244, 246)',
-      secondaryHover: 'rgb(229, 231, 235)',
-      border: 'rgb(229, 231, 235)',
-      borderRadius: '0.75rem',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif'
-    }
+let kitInstance: StellarWalletsKit | null = null;
+
+export const getKit = (): StellarWalletsKit => {
+  if (typeof window === 'undefined') {
+    // Return a mock during SSR
+    return {} as StellarWalletsKit;
   }
-});
+  
+  if (!kitInstance) {
+    kitInstance = new StellarWalletsKit({
+      network: WalletNetwork.TESTNET,
+      selectedWalletId: FREIGHTER_ID,
+      modules: [new FreighterModule(), new AlbedoModule(), new LobstrModule()],
+    });
+  }
+  
+  return kitInstance;
+};
+
+// For backward compatibility
+export const kit = typeof window !== 'undefined' ? getKit() : {} as StellarWalletsKit;
 
 interface signTransactionProps {
   unsignedTransaction: string;
@@ -45,7 +45,7 @@ export const signTransaction = async ({
   const networkPassphrase =
     currentNetwork === "mainnet" ? WalletNetwork.PUBLIC : WalletNetwork.TESTNET;
 
-  const { signedTxXdr } = await kit.signTransaction(unsignedTransaction, {
+  const { signedTxXdr } = await getKit().signTransaction(unsignedTransaction, {
     address,
     networkPassphrase,
   });

@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { 
   Horizon, 
-  Keypair, 
   TransactionBuilder, 
   Operation, 
   Networks, 
@@ -49,7 +48,7 @@ export interface StellarWalletState {
   connect: () => Promise<void>;
   disconnect: () => void;
   refreshBalances: () => Promise<void>;
-  sendPayment?: (opts: PaymentOptions) => Promise<any>;
+  sendPayment?: (opts: PaymentOptions) => Promise<Horizon.HorizonApi.SubmitTransactionResponse>;
 }
 
 /**
@@ -105,15 +104,27 @@ export function useStellarWallet(
           setWalletName(name);
           setConnected(true);
           
-          // Load balances
-          await refreshBalancesForKey(address);
+          // Load balances inline to avoid circular dependency
+          try {
+            const account = await server.accounts().accountId(address).call();
+            setBalances(account.balances);
+          } catch (error: unknown) {
+            // Account doesn't exist on the network yet (needs funding)
+            if (error && typeof error === 'object' && 'response' in error && (error as { response?: { status?: number } }).response?.status === 404) {
+              console.log(`Account ${address} not found on testnet. Fund it with XLM to activate it.`);
+              setBalances([]);
+            } else {
+              console.error('Failed to load balances:', error);
+              setBalances([]);
+            }
+          }
         },
       });
     } catch (error) {
       console.error('Failed to connect wallet:', error);
       throw error;
     }
-  }, []);
+  }, [server]);
 
   /**
    * Disconnect wallet and clear state
@@ -137,9 +148,9 @@ export function useStellarWallet(
     try {
       const account = await server.accounts().accountId(key).call();
       setBalances(account.balances);
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Account doesn't exist on the network yet (needs funding)
-      if (error?.response?.status === 404 || error?.name === 'NotFoundError') {
+      if (error && typeof error === 'object' && 'response' in error && (error as { response?: { status?: number } }).response?.status === 404) {
         console.log(`Account ${key} not found on testnet. Fund it with XLM to activate it.`);
         setBalances([]);
       } else {
@@ -207,7 +218,7 @@ export function useStellarWallet(
       });
 
       // Submit to network
-      const signedTransaction = new Horizon.TransactionBuilder.fromXDR(signedTxXdr, network);
+      const signedTransaction = TransactionBuilder.fromXDR(signedTxXdr, network);
       const result = await server.submitTransaction(signedTransaction);
       
       await refreshBalances(); // Refresh balances after successful payment

@@ -4,8 +4,8 @@ export type Offer = {
     price: string
     amount: string
     seller: string
-    buying: any
-    selling: any
+    buying: Asset
+    selling: Asset
 }
 
 type Asset = { code: string; issuer: string } | 'XLM'
@@ -66,7 +66,7 @@ export function useOfferBook(
             if (!res.ok) throw new Error(`Horizon error ${res.status}`)
             const data = await res.json()
 
-            const mapOffer = (o: any): Offer => ({
+            const mapOffer = (o: { price: string; amount: string; seller?: string }): Offer => ({
                 price: o.price,
                 amount: o.amount,
                 seller: o.seller || '', // Horizon includes seller only for some calls
