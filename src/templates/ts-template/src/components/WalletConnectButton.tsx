@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useStellarWallet } from '../hooks/useStellarWallet';
+import { useWallet } from '../contexts';
 
 // Simple inline SVG icons
 const WalletIcon = () => (
@@ -28,7 +28,7 @@ interface WalletConnectButtonProps {
  * Follows the same design system as the main CTA buttons.
  */
 export default function WalletConnectButton({ theme = 'light' }: WalletConnectButtonProps) {
-  const { connected, connect, disconnect, walletName } = useStellarWallet();
+  const { connected, connect, disconnect, walletName } = useWallet();
   const [isLoading, setIsLoading] = useState(false);
 
   // Custom modal content replacer

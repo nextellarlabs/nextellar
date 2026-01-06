@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { 
-  SorobanRpc, 
+  rpc, 
   TransactionBuilder, 
   Networks, 
   Keypair, 
@@ -25,7 +25,7 @@ export interface SorobanContractOptions {
 export interface SorobanContractReturn {
   callFunction: (name: string, args: unknown[]) => Promise<unknown>;
   buildInvokeXDR: (name: string, args: unknown[]) => Promise<string>;
-  submitInvokeWithSecret: (xdr: string, secret: string) => Promise<SorobanRpc.Api.SendTransactionResponse>;
+  submitInvokeWithSecret: (xdr: string, secret: string) => Promise<rpc.Api.SendTransactionResponse>;
   loading: boolean;
   error?: Error | null;
 }
@@ -88,7 +88,7 @@ export function useSorobanContract(opts: SorobanContractOptions): SorobanContrac
   const networkPassphrase = network === 'TESTNET' ? Networks.TESTNET : Networks.PUBLIC;
 
   // Initialize Soroban RPC client using useMemo to prevent recreation on every render
-  const rpc = useMemo(() => new SorobanRpc.Server(sorobanRpc), [sorobanRpc]);
+  const rpcServer = useMemo(() => new rpc.Server(sorobanRpc), [sorobanRpc]);
 
   /**
    * Convert JavaScript values to Stellar XDR values for contract calls
@@ -194,7 +194,7 @@ export function useSorobanContract(opts: SorobanContractOptions): SorobanContrac
       const transaction = txBuilder.build();
 
       // Simulate the transaction
-      const simulation = await rpc.simulateTransaction(transaction);
+      const simulation = await rpcServer.simulateTransaction(transaction);
 
       if ('error' in simulation && simulation.error) {
         throw new Error(`Simulation failed: ${simulation.error}`);
@@ -213,7 +213,7 @@ export function useSorobanContract(opts: SorobanContractOptions): SorobanContrac
     } finally {
       setLoading(false);
     }
-  }, [contractId, networkPassphrase, rpc, toXdrValue, fromXdrValue]);
+  }, [contractId, networkPassphrase, rpcServer, toXdrValue, fromXdrValue]);
 
   /**
    * Build an unsigned contract invocation XDR
@@ -267,7 +267,7 @@ export function useSorobanContract(opts: SorobanContractOptions): SorobanContrac
    * @param secret - The secret key for signing (DEV-ONLY)
    * @returns Promise resolving to the transaction result
    */
-  const submitInvokeWithSecret = useCallback(async (xdr: string, secret: string): Promise<SorobanRpc.Api.SendTransactionResponse> => {
+  const submitInvokeWithSecret = useCallback(async (xdr: string, secret: string): Promise<rpc.Api.SendTransactionResponse> => {
     setLoading(true);
     setError(null);
 
@@ -280,7 +280,7 @@ export function useSorobanContract(opts: SorobanContractOptions): SorobanContrac
       transaction.sign(keypair);
 
       // Submit the transaction
-      const result = await rpc.sendTransaction(transaction);
+      const result = await rpcServer.sendTransaction(transaction);
       
       return result;
     } catch (err) {
@@ -290,7 +290,7 @@ export function useSorobanContract(opts: SorobanContractOptions): SorobanContrac
     } finally {
       setLoading(false);
     }
-  }, [networkPassphrase, rpc]);
+  }, [networkPassphrase, rpcServer]);
 
   return {
     callFunction,
