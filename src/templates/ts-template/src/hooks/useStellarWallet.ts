@@ -277,7 +277,7 @@ export function useStellarWallet(
               }
             }
           }
-        } catch (error) {
+        } catch {
           console.log('Auto-reconnect failed');
           if (typeof window !== 'undefined') {
             localStorage.removeItem('stellar_wallet_connected');

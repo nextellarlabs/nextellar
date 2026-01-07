@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useWalletConfig } from '../contexts'
 
 export type Offer = {
     price: string
@@ -33,8 +34,10 @@ export function useOfferBook(
     selling: Asset,
     opts: Options = {}
 ): ReturnType {
+    // Auto-consume provider config as fallback
+    const providerConfig = useWalletConfig();
     const {
-        horizonUrl = 'https://horizon.stellar.org',
+        horizonUrl = providerConfig?.horizonUrl ?? 'https://horizon.stellar.org',
         limit = 20,
         pollIntervalMs = null,
     } = opts

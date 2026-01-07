@@ -11,6 +11,7 @@ import {
   BASE_FEE,
   Transaction
 } from '@stellar/stellar-sdk';
+import { useWalletConfig } from '../contexts';
 
 /**
  * Trustline interface representing an account's ability to hold a specific issued asset
@@ -135,8 +136,10 @@ export function useTrustlines(
   publicKey?: string | null,
   options: UseTrustlinesOptions = {}
 ): TrustlinesState {
+  // Auto-consume provider config as fallback
+  const providerConfig = useWalletConfig();
   const { 
-    horizonUrl = DEFAULT_HORIZON_URL, 
+    horizonUrl = providerConfig?.horizonUrl ?? DEFAULT_HORIZON_URL, 
     network = DEFAULT_NETWORK
   } = options;
   

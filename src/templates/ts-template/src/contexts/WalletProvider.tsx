@@ -51,6 +51,14 @@ interface WalletContextState {
 }
 
 /**
+ * Wallet config context - exposes provider settings to hooks
+ */
+interface WalletConfigContextState {
+  horizonUrl: string;
+  network: string;
+}
+
+/**
  * Wallet provider props
  */
 interface WalletProviderProps {
@@ -59,8 +67,9 @@ interface WalletProviderProps {
   network?: string;
 }
 
-// Create context
+// Create contexts
 const WalletContext = createContext<WalletContextState | undefined>(undefined);
+const WalletConfigContext = createContext<WalletConfigContextState | undefined>(undefined);
 
 /**
  * Wallet Provider Component
@@ -266,7 +275,7 @@ export function WalletProvider({
               }
             }
           }
-        } catch (error) {
+        } catch {
           console.log('Auto-reconnect failed');
           if (typeof window !== 'undefined') {
             localStorage.removeItem('stellar_wallet_connected');
@@ -281,7 +290,7 @@ export function WalletProvider({
     autoReconnect();
   }, [server]);
 
-  const value: WalletContextState = {
+  const walletValue: WalletContextState = {
     connected,
     publicKey,
     walletName,
@@ -292,10 +301,17 @@ export function WalletProvider({
     sendPayment: connected ? sendPayment : undefined,
   };
 
+  const configValue: WalletConfigContextState = {
+    horizonUrl,
+    network,
+  };
+
   return (
-    <WalletContext.Provider value={value}>
-      {children}
-    </WalletContext.Provider>
+    <WalletConfigContext.Provider value={configValue}>
+      <WalletContext.Provider value={walletValue}>
+        {children}
+      </WalletContext.Provider>
+    </WalletConfigContext.Provider>
   );
 }
 
@@ -330,4 +346,24 @@ export function useWallet(): WalletContextState {
     throw new Error('useWallet must be used within a WalletProvider');
   }
   return context;
+}
+
+/**
+ * Hook to access wallet provider configuration
+ * 
+ * Use this in standalone hooks to consume the provider's horizonUrl and network settings.
+ * Returns undefined if not within a WalletProvider (allows standalone usage).
+ * 
+ * @example
+ * ```tsx
+ * function MyComponent() {
+ *   const config = useWalletConfig();
+ *   const balances = useStellarBalances({ 
+ *     horizonUrl: config?.horizonUrl // Falls back to hook's default if no provider
+ *   });
+ * }
+ * ```
+ */
+export function useWalletConfig(): WalletConfigContextState | undefined {
+  return useContext(WalletConfigContext);
 }

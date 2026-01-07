@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Horizon } from '@stellar/stellar-sdk';
+import { useWalletConfig } from '../contexts';
 
 /**
  * Operation item type - initially loose, can be refined later for specific operation types
@@ -94,8 +95,10 @@ export function useTransactionHistory(
   publicKey?: string | null,
   options: UseTransactionHistoryOptions = {}
 ): TransactionHistoryState {
+  // Auto-consume provider config as fallback
+  const providerConfig = useWalletConfig();
   const { 
-    horizonUrl = DEFAULT_HORIZON_URL, 
+    horizonUrl = providerConfig?.horizonUrl ?? DEFAULT_HORIZON_URL, 
     pageSize = DEFAULT_PAGE_SIZE,
     type = DEFAULT_TYPE
   } = options;

@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Horizon } from '@stellar/stellar-sdk';
+import { useWalletConfig } from '../contexts';
 
 /**
  * Balance interface matching Stellar Horizon API format
@@ -89,8 +90,10 @@ export function useStellarBalances(
   publicKey?: string | null,
   options: UseStellarBalancesOptions = {}
 ): StellarBalancesState {
+  // Auto-consume provider config as fallback
+  const providerConfig = useWalletConfig();
   const { 
-    horizonUrl = DEFAULT_HORIZON_URL, 
+    horizonUrl = providerConfig?.horizonUrl ?? DEFAULT_HORIZON_URL, 
     pollIntervalMs 
   } = options;
   

@@ -12,6 +12,7 @@ import {
   BASE_FEE,
   Transaction
 } from '@stellar/stellar-sdk';
+import { useWalletConfig } from '../contexts';
 
 /**
  * Payment parameters for building transactions
@@ -96,8 +97,10 @@ export function useStellarPayment(
   submitSignedXDR: (signedXdrBase64: string) => Promise<PaymentResult>;
   signAndSubmitWithSecret: (params: PaymentParams & { secret: string }) => Promise<PaymentResult>;
 } {
+  // Auto-consume provider config as fallback
+  const providerConfig = useWalletConfig();
   const { 
-    horizonUrl = DEFAULT_HORIZON_URL, 
+    horizonUrl = providerConfig?.horizonUrl ?? DEFAULT_HORIZON_URL, 
     network = DEFAULT_NETWORK 
   } = opts || {};
   
