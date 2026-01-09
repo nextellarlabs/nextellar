@@ -11,6 +11,7 @@ import {
   BASE_FEE,
   Transaction
 } from '@stellar/stellar-sdk';
+import { useWalletConfig } from '../contexts';
 
 /**
  * Trustline interface representing an account's ability to hold a specific issued asset
@@ -40,7 +41,7 @@ export interface TrustlinesState {
   error?: Error | null;
   refresh: () => Promise<void>;
   buildChangeTrustXDR: (asset: { code: string; issuer: string; limit?: string }) => Promise<string>;
-  submitChangeTrustWithSecret: (xdr: string, secret: string) => Promise<any>;
+  submitChangeTrustWithSecret: (xdr: string, secret: string) => Promise<{ success: boolean; hash?: string; raw?: unknown; error?: string }>;
 }
 
 // Default configuration
@@ -135,8 +136,10 @@ export function useTrustlines(
   publicKey?: string | null,
   options: UseTrustlinesOptions = {}
 ): TrustlinesState {
+  // Auto-consume provider config as fallback
+  const providerConfig = useWalletConfig();
   const { 
-    horizonUrl = DEFAULT_HORIZON_URL, 
+    horizonUrl = providerConfig?.horizonUrl ?? DEFAULT_HORIZON_URL, 
     network = DEFAULT_NETWORK
   } = options;
   
@@ -188,15 +191,15 @@ export function useTrustlines(
    * Parse trustlines from account balances
    * Maps account.balances entries where asset_type !== 'native' into Trustline[]
    */
-  const parseTrustlinesFromBalances = useCallback((balances: any[]): Trustline[] => {
+  const parseTrustlinesFromBalances = useCallback((balances: Horizon.HorizonApi.BalanceLine[]): Trustline[] => {
     return balances
       .filter(balance => balance.asset_type !== 'native')
       .map(balance => ({
-        asset_code: balance.asset_code,
-        asset_issuer: balance.asset_issuer,
-        limit: balance.limit,
+        asset_code: 'asset_code' in balance ? balance.asset_code : '',
+        asset_issuer: 'asset_issuer' in balance ? balance.asset_issuer : '',
+        limit: 'limit' in balance ? balance.limit : undefined,
         balance: balance.balance,
-        authorized: balance.is_authorized !== undefined ? balance.is_authorized : undefined
+        authorized: 'is_authorized' in balance ? balance.is_authorized : undefined
       }));
   }, []);
 
@@ -224,27 +227,27 @@ export function useTrustlines(
       const parsedTrustlines = parseTrustlinesFromBalances(account.balances);
       
       return parsedTrustlines;
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorObj = err as { response?: { status?: number }; message?: string; name?: string };
       // Handle specific error cases
-      if (err?.response?.status === 404 || err?.name === 'NotFoundError') {
+      if (errorObj?.response?.status === 404 || errorObj?.name === 'NotFoundError') {
         // Account doesn't exist on network (needs funding) - return empty trustlines
         return [];
       }
-      
       // Network or server errors
-      if (err?.message?.includes('fetch') || err?.response?.status >= 500) {
-        throw new Error(`Network error: ${err.message || 'Failed to connect to Horizon'}`);
+      if (errorObj?.message?.includes('fetch') || (errorObj.response?.status && errorObj.response.status >= 500)) {
+        throw new Error(`Network error: ${errorObj.message || 'Failed to connect to Horizon'}`);
       }
       
       // Client errors (400-499)
-      if (err?.response?.status >= 400 && err?.response?.status < 500) {
+      if (errorObj.response?.status && errorObj.response.status >= 400 && errorObj.response.status < 500) {
         console.error('Horizon client error details:', {
-          status: err.response.status,
-          message: err.message,
+          status: errorObj.response.status,
+          message: errorObj.message,
           publicKey: key,
           horizonUrl: lastHorizonUrlRef.current
         });
-        throw new Error(`Client error: ${err.message || 'Invalid request to Horizon'} (Status: ${err.response.status})`);
+        throw new Error(`Client error: ${errorObj.message || 'Invalid request to Horizon'} (Status: ${errorObj.response.status})`);
       }
       
       // Re-throw with more context
@@ -357,16 +360,17 @@ export function useTrustlines(
 
       // Return unsigned XDR
       return transaction.toXDR();
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorObj = err as { response?: { status?: number }; message?: string };
       // Handle specific Horizon errors
-      if (err?.response?.status === 404) {
+      if (errorObj?.response?.status === 404) {
         throw new Error(`Account ${publicKey} not found. Account may need funding.`);
       }
-      if (err?.response?.status >= 500) {
-        throw new Error(`Horizon server error: ${err.message || 'Network unavailable'}`);
+      if (errorObj.response?.status && errorObj.response.status >= 500) {
+        throw new Error(`Horizon server error: ${errorObj.message || 'Network unavailable'}`);
       }
-      if (err?.response?.status >= 400) {
-        throw new Error(`Invalid request: ${err.message || 'Bad request to Horizon'}`);
+      if (errorObj.response?.status && errorObj.response.status >= 400) {
+        throw new Error(`Invalid request: ${errorObj.message || 'Bad request to Horizon'}`);
       }
       
       // Re-throw validation and other errors
@@ -403,7 +407,7 @@ export function useTrustlines(
   const submitChangeTrustWithSecret = useCallback(async (
     xdr: string,
     secret: string
-  ): Promise<any> => {
+  ): Promise<{ success: boolean; hash?: string; raw?: unknown; error?: string }> => {
     if (!serverRef.current) {
       throw new Error('Horizon server not initialized');
     }
@@ -441,26 +445,27 @@ export function useTrustlines(
         hash: result.hash,
         raw: result
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorObj = err as { response?: { status?: number; data?: { extras?: { result_codes?: { transaction?: string; operations?: string[] } } } }; message?: string };
       console.error('Change trust submission failed:', err);
       
       // Handle specific submission errors
       let errorMessage = 'Change trust transaction failed';
-      if (err?.response?.data?.extras?.result_codes) {
-        const codes = err.response.data.extras.result_codes;
+      if (errorObj?.response?.data?.extras?.result_codes) {
+        const codes = errorObj.response.data.extras.result_codes;
         errorMessage = `Transaction failed - ${codes.transaction || codes.operations?.join(', ') || 'Unknown error'}`;
-      } else if (err?.response?.status === 400) {
+      } else if (errorObj?.response?.status === 400) {
         errorMessage = 'Invalid transaction format or content';
-      } else if (err?.response?.status >= 500) {
+      } else if (errorObj.response?.status && errorObj.response.status >= 500) {
         errorMessage = 'Horizon server error during submission';
-      } else if (err?.message) {
-        errorMessage = err.message;
+      } else if (errorObj?.message) {
+        errorMessage = errorObj.message;
       }
       
       return {
         success: false,
         error: errorMessage,
-        raw: err?.response?.data
+        raw: errorObj?.response?.data
       };
     }
   }, [serverRef, isValidSecret, publicKey, getNetworkPassphrase, refresh]);

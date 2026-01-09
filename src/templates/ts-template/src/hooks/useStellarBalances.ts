@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Horizon } from '@stellar/stellar-sdk';
+import { useWalletConfig } from '../contexts';
 
 /**
  * Balance interface matching Stellar Horizon API format
@@ -89,8 +90,10 @@ export function useStellarBalances(
   publicKey?: string | null,
   options: UseStellarBalancesOptions = {}
 ): StellarBalancesState {
+  // Auto-consume provider config as fallback
+  const providerConfig = useWalletConfig();
   const { 
-    horizonUrl = DEFAULT_HORIZON_URL, 
+    horizonUrl = providerConfig?.horizonUrl ?? DEFAULT_HORIZON_URL, 
     pollIntervalMs 
   } = options;
   
@@ -157,43 +160,37 @@ export function useStellarBalances(
       }
       
       // Map Horizon balance format to our Balance interface
-      const mappedBalances: Balance[] = account.balances.map((balance: any) => {
-        // Validate individual balance structure
-        if (typeof balance.balance !== 'string' || typeof balance.asset_type !== 'string') {
-          throw new Error('Invalid balance structure in account data');
-        }
-        
-        return {
-          asset_type: balance.asset_type,
-          asset_code: balance.asset_code,
-          asset_issuer: balance.asset_issuer,
-          balance: balance.balance,
-          limit: balance.limit,
-        };
-      });
+      const mappedBalances: Balance[] = account.balances.map((balance) => ({
+        asset_type: balance.asset_type,
+        asset_code: 'asset_code' in balance ? balance.asset_code : undefined,
+        asset_issuer: 'asset_issuer' in balance ? balance.asset_issuer : undefined,
+        balance: balance.balance,
+        limit: 'limit' in balance ? balance.limit : undefined,
+      }));
 
       return mappedBalances;
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Handle specific error cases
-      if (err?.response?.status === 404 || err?.name === 'NotFoundError') {
+      if (err && typeof err === 'object' && 'response' in err && (err as { response?: { status?: number } }).response?.status === 404) {
         // Account doesn't exist on network (needs funding) - this is not an error
         return [];
       }
       
       // Network or server errors
-      if (err?.message?.includes('fetch') || err?.response?.status >= 500) {
-        throw new Error(`Network error: ${err.message || 'Failed to connect to Horizon'}`);
+      const errorObj = err as { message?: string; response?: { status?: number } };
+      if (errorObj?.message?.includes('fetch') || (errorObj.response?.status && errorObj.response.status >= 500)) {
+        throw new Error(`Network error: ${errorObj.message || 'Failed to connect to Horizon'}`);
       }
       
       // Client errors (400-499)
-      if (err?.response?.status >= 400 && err?.response?.status < 500) {
+      if (errorObj.response?.status && errorObj.response.status >= 400 && errorObj.response.status < 500) {
         console.error('Horizon client error details:', {
-          status: err.response.status,
-          message: err.message,
+          status: errorObj.response.status,
+          message: errorObj.message,
           publicKey: key,
           horizonUrl: lastHorizonUrlRef.current
         });
-        throw new Error(`Client error: ${err.message || 'Invalid request to Horizon'} (Status: ${err.response.status})`);
+        throw new Error(`Client error: ${errorObj.message || 'Invalid request to Horizon'} (Status: ${errorObj.response.status})`);
       }
       
       // Re-throw with more context
@@ -281,7 +278,7 @@ export function useStellarBalances(
     return () => {
       stopPolling();
     };
-  }, [publicKey, pollIntervalMs, refresh]);
+  }, [publicKey, pollIntervalMs, refresh, stopPolling]);
 
   // Cleanup on unmount
   useEffect(() => {

@@ -12,6 +12,7 @@ import {
   BASE_FEE,
   Transaction
 } from '@stellar/stellar-sdk';
+import { useWalletConfig } from '../contexts';
 
 /**
  * Payment parameters for building transactions
@@ -30,8 +31,8 @@ export type PaymentParams = {
 export type PaymentResult = { 
   success: boolean; 
   txHash?: string; 
-  raw?: any; 
-  error?: any 
+  raw?: unknown; 
+  error?: string 
 };
 
 
@@ -96,8 +97,10 @@ export function useStellarPayment(
   submitSignedXDR: (signedXdrBase64: string) => Promise<PaymentResult>;
   signAndSubmitWithSecret: (params: PaymentParams & { secret: string }) => Promise<PaymentResult>;
 } {
+  // Auto-consume provider config as fallback
+  const providerConfig = useWalletConfig();
   const { 
-    horizonUrl = DEFAULT_HORIZON_URL, 
+    horizonUrl = providerConfig?.horizonUrl ?? DEFAULT_HORIZON_URL, 
     network = DEFAULT_NETWORK 
   } = opts || {};
   
@@ -216,16 +219,17 @@ export function useStellarPayment(
 
       // Return unsigned XDR
       return transaction.toXDR();
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorObj = err as { response?: { status?: number }; message?: string };
       // Handle specific Horizon errors
-      if (err?.response?.status === 404) {
+      if (errorObj?.response?.status === 404) {
         throw new Error(`Account ${params.from} not found. Account may need funding.`);
       }
-      if (err?.response?.status >= 500) {
-        throw new Error(`Horizon server error: ${err.message || 'Network unavailable'}`);
+      if (errorObj?.response?.status && errorObj.response.status >= 500) {
+        throw new Error(`Horizon server error: ${errorObj.message || 'Network unavailable'}`);
       }
-      if (err?.response?.status >= 400) {
-        throw new Error(`Invalid request: ${err.message || 'Bad request to Horizon'}`);
+      if (errorObj?.response?.status && errorObj.response.status >= 400) {
+        throw new Error(`Invalid request: ${errorObj.message || 'Bad request to Horizon'}`);
       }
       
       // Re-throw validation and other errors
@@ -263,26 +267,27 @@ export function useStellarPayment(
         txHash: result.hash,
         raw: result
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorObj = err as { response?: { status?: number; data?: { extras?: { result_codes?: { transaction?: string; operations?: string[] } } } }; message?: string };
       console.error('Transaction submission failed:', err);
       
       // Handle specific submission errors
       let errorMessage = 'Transaction failed';
-      if (err?.response?.data?.extras?.result_codes) {
-        const codes = err.response.data.extras.result_codes;
+      if (errorObj?.response?.data?.extras?.result_codes) {
+        const codes = errorObj.response.data.extras.result_codes;
         errorMessage = `Transaction failed - ${codes.transaction || codes.operations?.join(', ') || 'Unknown error'}`;
-      } else if (err?.response?.status === 400) {
+      } else if (errorObj?.response?.status === 400) {
         errorMessage = 'Invalid transaction format or content';
-      } else if (err?.response?.status >= 500) {
+      } else if (errorObj?.response?.status && errorObj.response.status >= 500) {
         errorMessage = 'Horizon server error during submission';
-      } else if (err?.message) {
-        errorMessage = err.message;
+      } else if (errorObj?.message) {
+        errorMessage = errorObj.message;
       }
       
       return {
         success: false,
         error: errorMessage,
-        raw: err?.response?.data
+        raw: errorObj?.response?.data
       };
     }
   }, [serverRef, getNetworkPassphrase]);
@@ -341,7 +346,7 @@ export function useStellarPayment(
       const result = await submitSignedXDR(transaction.toXDR());
       
       return result;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Sign and submit failed:', err);
       return {
         success: false,

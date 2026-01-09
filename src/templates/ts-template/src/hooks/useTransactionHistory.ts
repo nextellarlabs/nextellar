@@ -2,11 +2,12 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Horizon } from '@stellar/stellar-sdk';
+import { useWalletConfig } from '../contexts';
 
 /**
  * Operation item type - initially loose, can be refined later for specific operation types
  */
-export type OperationItem = any;
+export type OperationItem = Horizon.ServerApi.OperationRecord;
 
 /**
  * Options for the useTransactionHistory hook
@@ -94,8 +95,10 @@ export function useTransactionHistory(
   publicKey?: string | null,
   options: UseTransactionHistoryOptions = {}
 ): TransactionHistoryState {
+  // Auto-consume provider config as fallback
+  const providerConfig = useWalletConfig();
   const { 
-    horizonUrl = DEFAULT_HORIZON_URL, 
+    horizonUrl = providerConfig?.horizonUrl ?? DEFAULT_HORIZON_URL, 
     pageSize = DEFAULT_PAGE_SIZE,
     type = DEFAULT_TYPE
   } = options;
@@ -187,28 +190,28 @@ export function useTransactionHistory(
         records: response.records,
         next: nextCursor
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorObj = err as { response?: { status?: number }; message?: string; name?: string };
       // Handle specific error cases
-      if (err?.response?.status === 404 || err?.name === 'NotFoundError') {
+      if (errorObj?.response?.status === 404 || errorObj?.name === 'NotFoundError') {
         // Account doesn't exist on network (needs funding) - return empty results
         return { records: [], next: null };
       }
-      
       // Network or server errors
-      if (err?.message?.includes('fetch') || err?.response?.status >= 500) {
-        throw new Error(`Network error: ${err.message || 'Failed to connect to Horizon'}`);
+      if (errorObj?.message?.includes('fetch') || (errorObj.response?.status && errorObj.response.status >= 500)) {
+        throw new Error(`Network error: ${errorObj.message || 'Failed to connect to Horizon'}`);
       }
       
       // Client errors (400-499)
-      if (err?.response?.status >= 400 && err?.response?.status < 500) {
+      if (errorObj.response?.status && errorObj.response.status >= 400 && errorObj.response.status < 500) {
         console.error('Horizon client error details:', {
-          status: err.response.status,
-          message: err.message,
+          status: errorObj.response.status,
+          message: errorObj.message,
           publicKey: key,
           horizonUrl: lastHorizonUrlRef.current,
           type
         });
-        throw new Error(`Client error: ${err.message || 'Invalid request to Horizon'} (Status: ${err.response.status})`);
+        throw new Error(`Client error: ${errorObj.message || 'Invalid request to Horizon'} (Status: ${errorObj.response.status})`);
       }
       
       // Re-throw with more context

@@ -65,7 +65,7 @@ export default function Home() {
             fill
             className="object-cover"
             priority
-            onError={(e) => console.log('Light mode background failed to load')}
+            onError={() => console.log('Light mode background failed to load')}
           />
         ) : (
           <Image
@@ -74,7 +74,7 @@ export default function Home() {
             fill
             className="object-cover"
             priority
-            onError={(e) => console.log('Dark mode background failed to load')}
+            onError={() => console.log('Dark mode background failed to load')}
           />
         )}
       </div>

@@ -1,8 +1,7 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { 
-  SorobanRpc, 
+  rpc, 
   TransactionBuilder, 
-  Operation, 
   Networks, 
   Keypair, 
   xdr,
@@ -24,9 +23,9 @@ export interface SorobanContractOptions {
  * Return type for the useSorobanContract hook
  */
 export interface SorobanContractReturn {
-  callFunction: (name: string, args: any[]) => Promise<any>;
-  buildInvokeXDR: (name: string, args: any[]) => Promise<string>;
-  submitInvokeWithSecret: (xdr: string, secret: string) => Promise<any>;
+  callFunction: (name: string, args: unknown[]) => Promise<unknown>;
+  buildInvokeXDR: (name: string, args: unknown[]) => Promise<string>;
+  submitInvokeWithSecret: (xdr: string, secret: string) => Promise<rpc.Api.SendTransactionResponse>;
   loading: boolean;
   error?: Error | null;
 }
@@ -88,13 +87,13 @@ export function useSorobanContract(opts: SorobanContractOptions): SorobanContrac
   // Get network passphrase based on network selection
   const networkPassphrase = network === 'TESTNET' ? Networks.TESTNET : Networks.PUBLIC;
 
-  // Initialize Soroban RPC client
-  const rpc = new SorobanRpc.Server(sorobanRpc);
+  // Initialize Soroban RPC client using useMemo to prevent recreation on every render
+  const rpcServer = useMemo(() => new rpc.Server(sorobanRpc), [sorobanRpc]);
 
   /**
    * Convert JavaScript values to Stellar XDR values for contract calls
    */
-  const toXdrValue = (value: any): xdr.ScVal => {
+  const toXdrValue = useCallback((value: unknown): xdr.ScVal => {
     if (typeof value === 'string') {
       return xdr.ScVal.scvString(value);
     } else if (typeof value === 'number') {
@@ -103,9 +102,9 @@ export function useSorobanContract(opts: SorobanContractOptions): SorobanContrac
       return xdr.ScVal.scvBool(value);
     } else if (value instanceof Address) {
       return value.toScVal();
-    } else if (value && typeof value === 'object' && value._address) {
+    } else if (value && typeof value === 'object' && '_address' in value) {
       // Handle Address objects
-      return value.toScVal();
+      return (value as unknown as { toScVal: () => xdr.ScVal }).toScVal();
     } else if (Array.isArray(value)) {
       return xdr.ScVal.scvVec(value.map(toXdrValue));
     } else if (value && typeof value === 'object') {
@@ -118,15 +117,14 @@ export function useSorobanContract(opts: SorobanContractOptions): SorobanContrac
       );
       return xdr.ScVal.scvMap(entries);
     }
-    
     // Default to string representation
     return xdr.ScVal.scvString(String(value));
-  };
+  }, []);
 
   /**
    * Convert Stellar XDR values back to JavaScript values
    */
-  const fromXdrValue = (scVal: xdr.ScVal): any => {
+  const fromXdrValue = useCallback((scVal: xdr.ScVal): unknown => {
     switch (scVal.switch()) {
       case xdr.ScValType.scvBool():
         return scVal.b();
@@ -146,13 +144,13 @@ export function useSorobanContract(opts: SorobanContractOptions): SorobanContrac
         return scVal.vec()?.map(fromXdrValue) || [];
       case xdr.ScValType.scvMap():
         const map = scVal.map();
-        const result: any = {};
+        const result: Record<string, unknown> = {};
         if (map) {
           for (let i = 0; i < map.length; i++) {
             const entry = map[i];
             const key = fromXdrValue(entry.key());
             const val = fromXdrValue(entry.val());
-            result[key] = val;
+            result[String(key)] = val;
           }
         }
         return result;
@@ -161,7 +159,7 @@ export function useSorobanContract(opts: SorobanContractOptions): SorobanContrac
       default:
         return scVal.toString();
     }
-  };
+  }, []);
 
   /**
    * Call a contract function in read-only mode (simulate)
@@ -172,7 +170,7 @@ export function useSorobanContract(opts: SorobanContractOptions): SorobanContrac
    * @param args - Array of arguments to pass to the function
    * @returns Promise resolving to the function result
    */
-  const callFunction = useCallback(async (name: string, args: any[] = []): Promise<any> => {
+  const callFunction = useCallback(async (name: string, args: unknown[] = []): Promise<unknown> => {
     setLoading(true);
     setError(null);
 
@@ -196,7 +194,7 @@ export function useSorobanContract(opts: SorobanContractOptions): SorobanContrac
       const transaction = txBuilder.build();
 
       // Simulate the transaction
-      const simulation = await rpc.simulateTransaction(transaction);
+      const simulation = await rpcServer.simulateTransaction(transaction);
 
       if ('error' in simulation && simulation.error) {
         throw new Error(`Simulation failed: ${simulation.error}`);
@@ -215,7 +213,7 @@ export function useSorobanContract(opts: SorobanContractOptions): SorobanContrac
     } finally {
       setLoading(false);
     }
-  }, [contractId, networkPassphrase, rpc]);
+  }, [contractId, networkPassphrase, rpcServer, toXdrValue, fromXdrValue]);
 
   /**
    * Build an unsigned contract invocation XDR
@@ -225,7 +223,7 @@ export function useSorobanContract(opts: SorobanContractOptions): SorobanContrac
    * @param args - Array of arguments to pass to the function
    * @returns Promise resolving to the unsigned XDR string
    */
-  const buildInvokeXDR = useCallback(async (name: string, args: any[] = []): Promise<string> => {
+  const buildInvokeXDR = useCallback(async (name: string, args: unknown[] = []): Promise<string> => {
     setLoading(true);
     setError(null);
 
@@ -256,7 +254,7 @@ export function useSorobanContract(opts: SorobanContractOptions): SorobanContrac
     } finally {
       setLoading(false);
     }
-  }, [contractId, networkPassphrase]);
+  }, [contractId, networkPassphrase, toXdrValue]);
 
   /**
    * Submit a signed contract invocation transaction
@@ -269,7 +267,7 @@ export function useSorobanContract(opts: SorobanContractOptions): SorobanContrac
    * @param secret - The secret key for signing (DEV-ONLY)
    * @returns Promise resolving to the transaction result
    */
-  const submitInvokeWithSecret = useCallback(async (xdr: string, secret: string): Promise<any> => {
+  const submitInvokeWithSecret = useCallback(async (xdr: string, secret: string): Promise<rpc.Api.SendTransactionResponse> => {
     setLoading(true);
     setError(null);
 
@@ -282,7 +280,7 @@ export function useSorobanContract(opts: SorobanContractOptions): SorobanContrac
       transaction.sign(keypair);
 
       // Submit the transaction
-      const result = await rpc.sendTransaction(transaction);
+      const result = await rpcServer.sendTransaction(transaction);
       
       return result;
     } catch (err) {
@@ -292,7 +290,7 @@ export function useSorobanContract(opts: SorobanContractOptions): SorobanContrac
     } finally {
       setLoading(false);
     }
-  }, [networkPassphrase, rpc]);
+  }, [networkPassphrase, rpcServer]);
 
   return {
     callFunction,
