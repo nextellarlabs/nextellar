@@ -1,7 +1,8 @@
 import { execa } from "execa";
 import path from "path";
 import fs from "fs-extra";
-import { startProgress } from "./feedback.js";
+import pc from "picocolors";
+import ora from "ora";
 
 export interface InstallOptions {
   cwd: string;
@@ -90,12 +91,13 @@ export async function runInstall(
   const packageManager = detectPackageManager(cwd, options.packageManager);
   const [command, args] = getInstallCommand(packageManager);
 
-  console.log(`\n📦 Installing dependencies with ${packageManager}...`);
+  const spinner = ora({
+    text: `Installing dependencies with ${pc.cyan(packageManager)}...`,
+    color: "magenta",
+    spinner: "dots",
+  }).start();
 
-  const stdio = captureOutput ? "pipe" : "inherit";
-
-  // Only start progress if we're not inheriting stdio (which shows real npm output)
-  const stopProgress = stdio !== "inherit" ? startProgress() : null;
+  const stdio = captureOutput ? "pipe" : "ignore"; // Use ignore to keep spinner visible
 
   try {
     await execa(command, args, {
@@ -105,15 +107,15 @@ export async function runInstall(
       timeout,
     });
 
-    if (stopProgress) stopProgress();
-    console.log(
-      `✅ Dependencies installed successfully with ${packageManager}`
+    spinner.succeed(
+      pc.green(
+        `Dependencies installed successfully with ${pc.bold(packageManager)}`
+      )
     );
     return { success: true, packageManager };
   } catch (error: any) {
-    if (stopProgress) stopProgress();
+    spinner.fail(pc.red(`Installation failed with ${pc.bold(packageManager)}`));
     const errorMessage = error.message || "Installation failed";
-    console.error(`\n❌ Installation failed with ${packageManager}`);
 
     // Save detailed error log
     const logPath = await saveInstallLog(cwd, error, packageManager);

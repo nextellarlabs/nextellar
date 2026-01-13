@@ -36,7 +36,6 @@ export async function scaffold(options) {
         }
         await fs.writeFile(filePath, newContent, "utf8");
     };
-    // Determine configuration
     const config = {
         "{{APP_NAME}}": appName,
         "{{HORIZON_URL}}": horizonUrl || "https://horizon-testnet.stellar.org",
@@ -46,8 +45,6 @@ export async function scaffold(options) {
             ? JSON.stringify(wallets)
             : JSON.stringify(["freighter", "albedo", "lobstr"]),
     };
-    console.log(`Resource configuration:`, config);
-    console.log(`ℹ️  Injecting configuration...`);
     // Files to update
     const filesToProcess = [
         path.join(targetDir, "package.json"),

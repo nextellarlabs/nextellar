@@ -1,6 +1,6 @@
 # {{APP_NAME}}
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [Nextellar](https://github.com/nextellarlabs/nextellar) - a Stellar blockchain dApp starter.
+This is a [Next.js 16](https://nextjs.org) project bootstrapped with [Nextellar](https://github.com/nextellarlabs/nextellar) - a Stellar blockchain dApp starter using **Tailwind CSS v4**.
 
 > ✨ **Congratulations!** You've successfully created a Nextellar project. When you scaffolded this app, you saw our friendly success animation and ASCII logo - that's how we celebrate your new Stellar dApp journey!
 
