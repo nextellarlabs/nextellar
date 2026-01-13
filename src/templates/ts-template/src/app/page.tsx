@@ -146,24 +146,32 @@ export default function Home() {
 
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-4 items-center justify-center">
-              <button className={`w-full sm:w-auto px-8 py-4 font-semibold rounded-full transition-all hover:scale-105 active:scale-95 ${theme === 'light' ? 'bg-black text-white hover:bg-gray-800 shadow-lg' : 'bg-white text-black hover:bg-gray-200 shadow-[0_0_20px_rgba(255,255,255,0.2)]'}`}>
-                <span className="flex items-center justify-center gap-2">
-                  <Image
-                    src="/deploy.svg"
-                    alt=""
-                    width={20}
-                    height={20}
-                    className={theme === 'light' ? 'filter brightness-0 invert' : ''}
-                  />
-                  Deploy to Stellar
-                </span>
-              </button>
+              <a
+                href="https://developers.stellar.org/docs/build/smart-contracts/getting-started/deploy-to-testnet"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`w-full sm:w-auto px-8 py-4 font-semibold rounded-full transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-2 ${theme === 'light' ? 'bg-black text-white hover:bg-gray-800 shadow-lg' : 'bg-white text-black hover:bg-gray-200 shadow-[0_0_20px_rgba(255,255,255,0.2)]'}`}
+              >
+                <Image
+                  src="/deploy.svg"
+                  alt=""
+                  width={20}
+                  height={20}
+                  className={theme === 'light' ? 'filter brightness-0 invert' : ''}
+                />
+                Deploy to Stellar
+              </a>
 
               <WalletConnectButton theme={theme} />
 
-              <button className={`w-full sm:w-auto px-8 py-4 backdrop-blur-md font-semibold rounded-full border transition-all hover:scale-105 active:scale-95 ${theme === 'light' ? 'bg-white/30 text-black border-gray-300/50 hover:bg-white/40' : 'bg-white/5 text-white border-white/10 hover:bg-white/10'}`}>
+              <a
+                href="https://github.com/nextellarlabs/nextellar"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`w-full sm:w-auto px-8 py-4 backdrop-blur-md font-semibold rounded-full border transition-all hover:scale-105 active:scale-95 flex items-center justify-center ${theme === 'light' ? 'bg-white/30 text-black border-gray-300/50 hover:bg-white/40' : 'bg-white/5 text-white border-white/10 hover:bg-white/10'}`}
+              >
                 View Docs
-              </button>
+              </a>
             </div>
           </div>
         </main>
