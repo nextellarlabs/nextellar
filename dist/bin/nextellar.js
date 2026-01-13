@@ -9,7 +9,20 @@ import { scaffold } from "../src/lib/scaffold.js";
 import { displaySuccess, NEXTELLAR_LOGO } from "../src/lib/feedback.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const pkg = fs.readJsonSync(path.join(__dirname, "../package.json"));
+// Find package.json regardless of whether we are in src/bin or dist/bin
+const findPkg = () => {
+    const paths = [
+        path.join(__dirname, "../package.json"),
+        path.join(__dirname, "../../package.json"),
+    ];
+    for (const p of paths) {
+        if (fs.existsSync(p)) {
+            return fs.readJsonSync(p);
+        }
+    }
+    return { version: "0.0.0" }; // Fallback
+};
+const pkg = findPkg();
 const program = new Command();
 program
     .name("nextellar")
