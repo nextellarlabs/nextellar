@@ -8,10 +8,41 @@
     "scripts": {
         "build": "npx tsc -p tsconfig.build.json",
         "start": "ts-node bin/nextellar.ts",
-        "test": "cross-env NODE_OPTIONS=\"--experimental-vm-modules --no-warnings\" jest"
+        "test": "cross-env NODE_OPTIONS=\"--experimental-vm-modules --no-warnings\" jest",
+        "clean": "rimraf dist",
+        "prepublishOnly": "npm run clean && npm run build"
     },
+    "engines": {
+        "node": ">=20.0.0"
+    },
+    "description": "One-step CLI toolkit to bootstrap production-ready Next.js + Stellar applications.",
+    "keywords": [
+        "stellar",
+        "blockchain",
+        "nextjs",
+        "scaffold",
+        "cli",
+        "dapp",
+        "starter",
+        "kit"
+    ],
+    "author": "Nextellar Labs",
+    "license": "MIT",
+    "homepage": "https://nextellar.dev",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/nextellarlabs/nextellar.git"
+    },
+    "bugs": {
+        "url": "https://github.com/nextellarlabs/nextellar/issues"
+    },
+    "files": [
+        "dist",
+        "src/templates",
+        "README.md",
+        "LICENSE"
+    ],
     "dependencies": {
-        "@anthropic-ai/claude-code": "^1.0.90",
         "@stellar/stellar-sdk": "^12.0.0",
         "commander": "^14.0.0",
         "execa": "^9.6.0",
@@ -35,6 +66,7 @@
         "jest-environment-jsdom": "^30.0.5",
         "msw": "^2.10.4",
         "node-fetch": "^2.7.0",
+        "rimraf": "^6.1.2",
         "ts-jest": "^29.4.1",
         "ts-node": "^10.9.2",
         "typescript": "^5.9.2",
