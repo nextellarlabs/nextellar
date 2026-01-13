@@ -1,6 +1,6 @@
 {
   "name": "nextellar",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "type": "module",
   "bin": {
     "nextellar": "dist/bin/nextellar.js"
