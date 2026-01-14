@@ -7,6 +7,7 @@ import pc from "picocolors";
 import gradient from "gradient-string";
 import { scaffold } from "../src/lib/scaffold.js";
 import { displaySuccess, NEXTELLAR_LOGO } from "../src/lib/feedback.js";
+import { detectPackageManager } from "../src/lib/install.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 // Find package.json regardless of whether we are in src/bin or dist/bin
@@ -42,7 +43,7 @@ program.action(async (projectName, options) => {
     // Clear console and show welcome banner
     if (process.stdout.isTTY) {
         process.stdout.write("\x1Bc");
-        console.log(gradient(["#4c30e2", "#4c30e2", "#FFFFFF"])(NEXTELLAR_LOGO));
+        console.log(gradient(["#FFFFFF", "#000000"])(NEXTELLAR_LOGO));
         console.log(`\n  ${pc.bold(pc.white("Nextellar CLI"))} ${pc.dim(`v${pkg.version}`)}`);
         console.log(`  ${pc.dim("Modern Next.js + Stellar toolkit")}\n`);
         console.log(`  ${pc.magenta("◆")} Project: ${pc.cyan(projectName)}`);
@@ -62,15 +63,8 @@ program.action(async (projectName, options) => {
             packageManager: options.packageManager,
             installTimeout: parseInt(options.installTimeout),
         });
-        if (options.skipInstall) {
-            console.log("\n✅ Your Nextellar app is ready!");
-            console.log(`   cd ${projectName}`);
-            console.log("   npm install");
-            console.log("   npm run dev");
-        }
-        else {
-            await displaySuccess(projectName);
-        }
+        const pkgManager = detectPackageManager(path.join(process.cwd(), projectName), options.packageManager);
+        await displaySuccess(projectName, pkgManager, options.skipInstall);
     }
     catch (err) {
         console.error(`\n❌ Error: ${err.message}`);

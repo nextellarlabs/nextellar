@@ -101,10 +101,16 @@ export async function scaffold(options: ScaffoldOptions) {
   console.log(`✔️  Scaffolded "${appName}" from template.`);
 
   // Run installation
-  await runInstall({
+  const result = await runInstall({
     cwd: targetDir,
     skipInstall,
     packageManager,
     timeout: installTimeout,
   });
+
+  if (!result.success && !skipInstall) {
+    throw new Error(
+      `Dependency installation failed. Please run "${result.packageManager} install" manually in "${appName}".`
+    );
+  }
 }

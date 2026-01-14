@@ -16,12 +16,19 @@ const brandColor = (text: string) => pc.magenta(text);
 
 const frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
-export async function displaySuccess(appName: string): Promise<void> {
+export async function displaySuccess(
+  appName: string,
+  packageManager: string = "npm",
+  skipInstall: boolean = false
+): Promise<void> {
   if (!process.stdout.isTTY || process.env.CI) {
     console.log(`\n${pc.green("✔")} Nextellar scaffold complete!`);
     console.log(`\n${pc.bold("Next steps:")}`);
     console.log(`  cd ${appName}`);
-    console.log(`  npm run dev\n`);
+    if (skipInstall) {
+      console.log(`  ${packageManager} install`);
+    }
+    console.log(`  ${packageManager} run dev\n`);
     return;
   }
 
@@ -33,8 +40,11 @@ export async function displaySuccess(appName: string): Promise<void> {
   );
   console.log(`  ${pc.bold("Next steps:")}`);
   console.log(`  ${brandColor("1.")} cd ${pc.cyan(appName)}`);
-  console.log(`  ${brandColor("2.")} npm install`);
-  console.log(`  ${brandColor("3.")} npm run dev`);
+  let step = 2;
+  if (skipInstall) {
+    console.log(`  ${brandColor(`${step++}.`)} ${packageManager} install`);
+  }
+  console.log(`  ${brandColor(`${step++}.`)} ${packageManager} run dev`);
   console.log(
     `  ${pc.dim("──────────────────────────────────────────────────")}\n`
   );
