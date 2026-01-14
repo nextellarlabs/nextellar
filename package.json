@@ -1,6 +1,6 @@
 {
   "name": "nextellar",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "type": "module",
   "bin": {
     "nextellar": "dist/bin/nextellar.js"
@@ -10,7 +10,7 @@
     "start": "ts-node bin/nextellar.ts",
     "test": "cross-env NODE_OPTIONS=\"--experimental-vm-modules --no-warnings\" jest",
     "clean": "rimraf dist",
-    "prepublishOnly": "npm run clean ; npm run build"
+    "prepublishOnly": "npm run clean && npm run build"
   },
   "engines": {
     "node": ">=20.0.0"
