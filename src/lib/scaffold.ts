@@ -14,21 +14,43 @@ export interface ScaffoldOptions {
   wallets?: string[];
   defaults?: boolean;
   skipInstall?: boolean;
-  packageManager?: 'npm' | 'yarn' | 'pnpm';
+  packageManager?: "npm" | "yarn" | "pnpm";
   installTimeout?: number;
 }
 
 export async function scaffold(options: ScaffoldOptions) {
-  const { appName, skipInstall, packageManager, installTimeout } = options;
+  const {
+    appName,
+    useTs,
+    horizonUrl,
+    sorobanUrl,
+    wallets,
+    skipInstall,
+    packageManager,
+    installTimeout,
+  } = options;
 
-  // Point to source templates (from dist/src/lib/ to src/templates/)
-  const templateDir = path.resolve(__dirname, "../../../src/templates/ts-template");
+  if (!useTs) {
+    throw new Error(
+      "JavaScript support is coming soon! Please use TypeScript for now."
+    );
+  }
+
+  // Point to source templates
+  // Resolve relative to this file's location in either src/lib or dist/src/lib
+  const templateDir = path.resolve(
+    __dirname,
+    fs.existsSync(path.resolve(__dirname, "../../templates"))
+      ? "../../templates/ts-template" // Development (src/lib -> src/templates)
+      : "../../../src/templates/ts-template" // Production (dist/src/lib -> src/templates)
+  );
   const targetDir = path.resolve(process.cwd(), appName);
 
   if (await fs.pathExists(targetDir)) {
     throw new Error(`Directory "${appName}" already exists.`);
   }
 
+  // Copy template
   await fs.copy(templateDir, targetDir, {
     filter: (src) => {
       const basename = path.basename(src);
@@ -37,13 +59,58 @@ export async function scaffold(options: ScaffoldOptions) {
     preserveTimestamps: true,
   });
 
+  // --- TEMPLATE SUBSTITUTION LOGIC ---
+  const replaceInFile = async (
+    filePath: string,
+    replacements: Record<string, string>
+  ) => {
+    const content = await fs.readFile(filePath, "utf8");
+    let newContent = content;
+    for (const [key, value] of Object.entries(replacements)) {
+      newContent = newContent.replaceAll(key, value);
+    }
+    await fs.writeFile(filePath, newContent, "utf8");
+  };
+
+  const config = {
+    "{{APP_NAME}}": appName,
+    "{{HORIZON_URL}}": horizonUrl || "https://horizon-testnet.stellar.org",
+    "{{SOROBAN_URL}}": sorobanUrl || "https://soroban-testnet.stellar.org",
+    "{{NETWORK}}":
+      horizonUrl && horizonUrl.includes("public") ? "PUBLIC" : "TESTNET",
+    "{{WALLETS}}":
+      wallets && wallets.length > 0
+        ? JSON.stringify(wallets)
+        : JSON.stringify(["freighter", "albedo", "lobstr"]),
+  };
+
+  // Files to update
+  const filesToProcess = [
+    path.join(targetDir, "package.json"),
+    path.join(targetDir, "src/contexts/WalletProvider.tsx"),
+    path.join(targetDir, "src/lib/stellar-wallet-kit.ts"),
+    path.join(targetDir, "src/hooks/useSorobanContract.ts"), // If we add placeholders there later
+  ];
+
+  for (const file of filesToProcess) {
+    if (await fs.pathExists(file)) {
+      await replaceInFile(file, config);
+    }
+  }
+
   console.log(`✔️  Scaffolded "${appName}" from template.`);
 
   // Run installation
-  await runInstall({
+  const result = await runInstall({
     cwd: targetDir,
     skipInstall,
     packageManager,
     timeout: installTimeout,
   });
+
+  if (!result.success && !skipInstall) {
+    throw new Error(
+      `Dependency installation failed. Please run "${result.packageManager} install" manually in "${appName}".`
+    );
+  }
 }

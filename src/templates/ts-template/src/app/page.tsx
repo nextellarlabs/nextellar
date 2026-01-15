@@ -14,16 +14,16 @@ function useTheme() {
     const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
     const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     const initialTheme = savedTheme || systemTheme;
-    
+
     setTheme(initialTheme);
-    
+
     // Force update the document class
     if (initialTheme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
-    
+
     console.log('Theme initialized:', initialTheme);
   }, []);
 
@@ -31,14 +31,14 @@ function useTheme() {
     const newTheme = theme === 'dark' ? 'light' : 'dark';
     setTheme(newTheme);
     localStorage.setItem('theme', newTheme);
-    
+
     // Force update the document class
     if (newTheme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
-    
+
     console.log('Theme switched to:', newTheme);
   };
 
@@ -80,21 +80,23 @@ export default function Home() {
       </div>
 
       {/* Content */}
-      <div className="relative z-10 h-full flex flex-col">
+      <div className="relative z-10 min-h-screen flex flex-col">
         {/* Header */}
-        <header className="px-6 py-8">
-          <div className="flex justify-between items-center">
-            <Image
-              src={theme === 'dark' ? "/dark-mode-logo.svg" : "/light-mode-logo.svg"}
-              alt="Nextellar Logo"
-              width={180}
-              height={40}
-              priority
-            />
-            
+        <header className="px-6 py-6 sm:py-8">
+          <div className="flex justify-between items-center max-w-7xl mx-auto w-full">
+            <div className="relative w-[140px] h-[32px] sm:w-[180px] sm:h-[40px]">
+              <Image
+                src={theme === 'dark' ? "/dark-mode-logo.svg" : "/light-mode-logo.svg"}
+                alt="Nextellar Logo"
+                fill
+                className="object-contain"
+                priority
+              />
+            </div>
+
             <button
               onClick={toggleTheme}
-              className="p-2 rounded-lg hover:bg-white/10 dark:hover:bg-black/20 transition-colors"
+              className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
               aria-label="Toggle theme"
             >
               {theme === 'dark' ? (
@@ -111,91 +113,99 @@ export default function Home() {
         </header>
 
         {/* Main Content - Centered */}
-        <main className="flex-1 flex items-center justify-center px-6">
-          <div className="max-w-4xl mx-auto text-center">
+        <main className="flex-1 flex items-center justify-center px-6 py-12">
+          <div className="max-w-4xl mx-auto w-full">
             {/* Steps */}
-            <div className="mb-16 space-y-6 px-4 sm:px-0">
-              <div className="flex items-center text-left">
-                <span className={`lg:text-xl sm:text-lg mr-4 sm:mr-6 flex-shrink-0 ${theme === 'light' ? 'text-black' : 'text-white'}`}>1.</span>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className={`text-base sm:text-lg md:text-xl text-wrap ${theme === 'light' ? 'text-black' : 'text-white'}`}>
-                    Start with &nbsp;
-                  
-                  <code className={`px-3 py-2 rounded-lg text-sm sm:text-base  ${theme === 'light' ? 'bg-gray-200 text-black' : 'bg-gray-700 text-white'}`}>
+            <div className="mb-12 sm:mb-16 space-y-8 sm:space-y-6">
+              <div className="flex items-start sm:items-center text-left">
+                <span className={`text-xl sm:text-2xl mr-4 sm:mr-6 flex-shrink-0 font-medium ${theme === 'light' ? 'text-black' : 'text-white'}`}>1.</span>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                  <span className={`text-lg sm:text-xl md:text-2xl ${theme === 'light' ? 'text-black' : 'text-white'}`}>
+                    Start with
+                  </span>
+                  <code className={`px-4 py-2 rounded-xl text-sm sm:text-base font-mono inline-block w-fit ${theme === 'light' ? 'bg-gray-100 text-black border border-gray-200' : 'bg-white/10 text-white border border-white/10'}`}>
                     npx nextellar my-app
                   </code>
-                  </span>
                 </div>
               </div>
-              
-              <div className="flex items-center text-left">
-                <span className={`lg:text-xl sm:text-lg mr-4 sm:mr-6 flex-shrink-0 ${theme === 'light' ? 'text-black' : 'text-white'}`}>2.</span>
-                <span className={`text-base sm:text-lg md:text-xl ${theme === 'light' ? 'text-black' : 'text-white'}`}>
+
+              <div className="flex items-start sm:items-center text-left">
+                <span className={`text-xl sm:text-2xl mr-4 sm:mr-6 flex-shrink-0 font-medium ${theme === 'light' ? 'text-black' : 'text-white'}`}>2.</span>
+                <span className={`text-lg sm:text-xl md:text-2xl ${theme === 'light' ? 'text-black' : 'text-white'}`}>
                   Stellar SDK integrated - use reusable wallet components
                 </span>
               </div>
-              
-              <div className="flex items-center text-left">
-                <span className={`lg:text-xl sm:text-lg mr-4 sm:mr-6 flex-shrink-0 ${theme === 'light' ? 'text-black' : 'text-white'}`}>3.</span>
-                <span className={`text-base sm:text-lg md:text-xl ${theme === 'light' ? 'text-black' : 'text-white'}`}>
+
+              <div className="flex items-start sm:items-center text-left">
+                <span className={`text-xl sm:text-2xl mr-4 sm:mr-6 flex-shrink-0 font-medium ${theme === 'light' ? 'text-black' : 'text-white'}`}>3.</span>
+                <span className={`text-lg sm:text-xl md:text-2xl ${theme === 'light' ? 'text-black' : 'text-white'}`}>
                   Connect wallets, send payments, deploy to any project
                 </span>
               </div>
             </div>
 
             {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 items-center justify-center mb-16">
-              <button className={`px-8 py-3 font-medium rounded-full transition-colors ${theme === 'light' ? 'bg-black text-white hover:bg-gray-800' : 'bg-white text-black hover:bg-gray-200'}`}>
-                <span className="flex items-center gap-2">
-                  <Image 
-                    src="/deploy.svg" 
-                    alt="" 
-                    width={20} 
-                    height={20} 
-                    className={theme === 'light' ? 'filter brightness-0 invert' : ''}
-                  />
-                  Deploy to Stellar
-                </span>
-              </button>
-              
+            <div className="flex flex-col sm:flex-row gap-4 items-center justify-center">
+              <a
+                href="https://developers.stellar.org/docs/build/smart-contracts/getting-started/deploy-to-testnet"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`w-full sm:w-auto px-8 py-4 font-semibold rounded-full transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-2 ${theme === 'light' ? 'bg-black text-white hover:bg-gray-800 shadow-lg' : 'bg-white text-black hover:bg-gray-200 shadow-[0_0_20px_rgba(255,255,255,0.2)]'}`}
+              >
+                <Image
+                  src="/deploy.svg"
+                  alt=""
+                  width={20}
+                  height={20}
+                  className={theme === 'light' ? 'filter brightness-0 invert' : ''}
+                />
+                Deploy to Stellar
+              </a>
+
               <WalletConnectButton theme={theme} />
-              
-              <button className={`px-8 py-3 backdrop-blur-sm font-medium rounded-full border transition-colors ${theme === 'light' ? 'bg-white/10 text-black border-gray-300/50 hover:bg-white/20' : 'bg-black/10 text-white border-gray-600/50 hover:bg-black/20'}`}>
+
+              <a
+                href="https://github.com/nextellarlabs/nextellar"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`w-full sm:w-auto px-8 py-4 backdrop-blur-md font-semibold rounded-full border transition-all hover:scale-105 active:scale-95 flex items-center justify-center ${theme === 'light' ? 'bg-white/30 text-black border-gray-300/50 hover:bg-white/40' : 'bg-white/5 text-white border-white/10 hover:bg-white/10'}`}
+              >
                 View Docs
-              </button>
+              </a>
             </div>
           </div>
         </main>
 
         {/* Footer */}
-        <footer className="px-6 py-8">
-          <div className="max-w-4xl mx-auto">
+        <footer className="px-6 py-8 mt-auto">
+          <div className="max-w-7xl mx-auto">
             <div className="flex flex-col items-center gap-4 text-sm sm:flex-row sm:justify-center">
-              {/* First Row - Learn and Examples on mobile, all buttons on desktop */}
-              <div className="flex justify-center items-center gap-4 sm:contents">
+              <div className="flex items-center gap-4">
                 <a
-                  href="#"
-                  className={`px-4 py-2 rounded-full transition-colors flex items-center gap-2 ${theme === 'light' ? 'text-black' : 'text-white'}`}
-                  style={{ backgroundColor: theme === 'light' ? '#E6E6E6' : '#2D2D2D' }}
+                  href="https://nextellar.dev/docs"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`px-5 py-2.5 rounded-full transition-all hover:scale-105 flex items-center gap-2 font-medium ${theme === 'light' ? 'text-gray-900 bg-gray-100 hover:bg-gray-200' : 'text-white bg-white/10 hover:bg-white/20'}`}
                 >
                   <Image src="/library.svg" alt="" width={16} height={16} />
                   Learn
                 </a>
                 <a
-                  href="#"
-                  className={`px-4 py-2 rounded-full transition-colors flex items-center gap-2 ${theme === 'light' ? 'text-black' : 'text-white'}`}
-                  style={{ backgroundColor: theme === 'light' ? '#E6E6E6' : '#2D2D2D' }}
+                  href="https://github.com/nextellarlabs/nextellar/tree/main/examples"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`px-5 py-2.5 rounded-full transition-all hover:scale-105 flex items-center gap-2 font-medium ${theme === 'light' ? 'text-gray-900 bg-gray-100 hover:bg-gray-200' : 'text-white bg-white/10 hover:bg-white/20'}`}
                 >
                   <Image src="/example.svg" alt="" width={16} height={16} />
                   Examples
                 </a>
               </div>
-              
-              {/* Second Row - Go to nextstellar.dev centered on mobile, inline on desktop */}
+
               <a
-                href="#"
-                className={`px-4 py-2 rounded-full transition-colors flex items-center gap-2 ${theme === 'light' ? 'text-black' : 'text-white'}`}
-                style={{ backgroundColor: theme === 'light' ? '#E6E6E6' : '#2D2D2D' }}
+                href="https://nextellar.dev"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`px-5 py-2.5 rounded-full transition-all hover:scale-105 flex items-center gap-2 font-medium ${theme === 'light' ? 'text-gray-900 bg-gray-100 hover:bg-gray-200' : 'text-white bg-white/10 hover:bg-white/20'}`}
               >
                 <Image src="/globe.svg" alt="" width={16} height={16} />
                 Go to nextstellar.dev

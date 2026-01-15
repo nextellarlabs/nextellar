@@ -1,76 +1,56 @@
-const NEXTELLAR_LOGO = `                                                                                                                                                      
-                                                                                                                                                      
-                                                                                                                                                      
-                                                                                                                                                      
-                                                                                                                                                      
-                                                                                                                                                      
-                                                                                                                                                      
-                                                                                                                                                      
-                                                                                                                                                      
-                                                                                                                                                      
-                                                                                                                                                      
-                                                                                                                                                      
-                                                                                                                                                      
-                                    :+                                                                                                                
-                    :*##*-        .#%-                                                                                                                
-                  :*%%##%%#:    :+%%#                                                                                                                 
-                 .#%*:..:+=.  :*%%%%:    =*+     .++. =*+++++=  =++     **:.++++++++++++++++++= :*=       -*-          =++.    :+++++++=.             
-                 #%+        .*@%#*%*     #%%+    .%%. *%%%%%%%= :%%=   *%* :%%%%%%%%%%%%%%%%%%* :@*       +%=         .%%%=    -%%%%%%%%%.            
-                -%#.      :+%%#=.#%:     *%#%=   .%%. *%- .....  -%%: =%#:  ..:%* .. -%#......  :%*       +%=         =%+#%    -%#....:#%+            
-                +%-      +%%#-. =%+      *%=%%-  .%%. *%:         -%#-%%:     :%*    :%#        :%*       +%=        .#%.+%=   -%#     =%+            
-                *@.     :%%=   .#%-      *%--%#. .%%. *%=:-----    +%%%=      :%*    :%%------. :%*       +%=        :%* -%#   -%#.....#%:            
-                *@. :+. *=.    =%*       *%- =%* .%%. *%%%%%%%%    :%%#.      :%*    :%%%%%%%%= :%*       +%=        #%:  #%-  -%#####%%=             
-                +%+*%-  .     .#@.       *%-  +%*.#%. *%-......    *%%%*      :%*    :%#......  :%*       +%=       -%#++=*%*  -%#====*%#.            
-                =%%%#         -%+        *%-  .#%+#%. *%:         =%%=%%=     :%*    :%#.       :%*       +%=       #%%%%%%%%: -%#     #%-            
-              :+#%#=.        .%%.        *%-   .#%%%. *%-......  -%%- +%%-    :%*    :%#....... :%*.....: +%+..... :%%:....+%* -%#     +@-            
-            :*%%#-           +%+         *%-    :%%%. *%%%%%%%= :%%=   #%#.   :%#    :%%%%%%%%#.:%%%%%%%%.+%%%%%%% +%*     .%%.-%#     +@=            
-            :*%%#-.         .%%:         =+:     -++. =++++++=  =++     *+=   .*=    .++++++++= :++++++++ -+++++++ +*.      =*-:++     :*=            
-              :+%%#=        +%+                                                                                                                       
-                .#@%%=     .#%.                                                                                                                       
-                  :*#%#-   =%=                                                                                                                        
-                    ::::   ::                                                                                                                         
-                                                                                                                                                      
-                                                                                                                                                      
-                                                                                                                                                      
-                                                                                                                                                      
-                                                                                                                                                      
-                                                                                                                                                      
-                                                                                                                                                      
-                                                                                                                                                      
-                                                                                                                                                      
-                                                                                                                                                      
-                                                                                                                                                      
-                                                                                                                                                      
-`;
+import pc from "picocolors";
 
-const frames = ['[●       ]', '[ ●      ]', '[  ●     ]', '[   ●    ]', '[    ●   ]', '[     ●  ]', '[      ● ]', '[       ●]'];
+export const NEXTELLAR_LOGO = [
+  "",
+  "  ███╗   ██╗███████╗██╗  ██╗████████╗███████╗██╗     ██╗      █████╗ ██████╗ ",
+  "  ████╗  ██║██╔════╝╚██╗██╔╝╚══██╔══╝██╔════╝██║     ██║     ██╔══██╗██╔══██╗",
+  "  ██╔██╗ ██║█████╗   ╚███╔╝    ██║   █████╗  ██║     ██║     ███████║██████╔╝",
+  "  ██║╚██╗██║██╔══╝   ██╔██╗    ██║   ██╔══╝  ██║     ██║     ██╔══██║██╔══██╗",
+  "  ██║ ╚████║███████╗██╔╝ ██╗   ██║   ███████╗███████╗███████╗██║  ██║██║  ██║",
+  "  ╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝╚══════╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝",
+  "",
+].join("\n");
 
-export async function displaySuccess(appName: string): Promise<void> {
+// Figma brand color is approximately magenta/indigo in ANSI
+const brandColor = (text: string) => pc.magenta(text);
+
+const frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+
+export async function displaySuccess(
+  appName: string,
+  packageManager: string = "npm",
+  skipInstall: boolean = false
+): Promise<void> {
   if (!process.stdout.isTTY || process.env.CI) {
-    console.log('');
-    console.log('✅ Nextellar scaffold complete!');
-    console.log(`To get started:`);
+    console.log(`\n${pc.green("✔")} Nextellar scaffold complete!`);
+    console.log(`\n${pc.bold("Next steps:")}`);
     console.log(`  cd ${appName}`);
-    console.log('  npm run dev');
-    console.log('');
+    if (skipInstall) {
+      console.log(`  ${packageManager} install`);
+    }
+    console.log(`  ${packageManager} run dev\n`);
     return;
   }
 
-  console.log('');
-  
-  for (let i = 0; i < 16; i++) {
-    process.stdout.write(`\r${frames[i % frames.length]} Finalizing setup...`);
-    await new Promise(r => setTimeout(r, 100));
+  console.log(
+    `\n  ${pc.green("✔")} ${pc.bold("Project scaffolded successfully!")}`
+  );
+  console.log(
+    `\n  ${pc.dim("──────────────────────────────────────────────────")}`
+  );
+  console.log(`  ${pc.bold("Next steps:")}`);
+  console.log(`  ${brandColor("1.")} cd ${pc.cyan(appName)}`);
+  let step = 2;
+  if (skipInstall) {
+    console.log(`  ${brandColor(`${step++}.`)} ${packageManager} install`);
   }
+  console.log(`  ${brandColor(`${step++}.`)} ${packageManager} run dev`);
+  console.log(
+    `  ${pc.dim("──────────────────────────────────────────────────")}\n`
+  );
 
-  process.stdout.write('\r\x1b[K');
-  console.log(NEXTELLAR_LOGO);
-  console.log('✅ Nextellar scaffold complete!');
-  console.log('');
-  console.log('Next steps:');
-  console.log(`  cd ${appName}`);
-  console.log('  npm run dev');
-  console.log('');
+  console.log(`  ${pc.magenta("✦")} ${pc.italic("Deployment:")}`);
+  console.log(`  ${pc.dim("Check out nextellar.dev for more guides.")}\n`);
 }
 
 export function startProgress() {
@@ -78,12 +58,16 @@ export function startProgress() {
 
   let i = 0;
   const timer = setInterval(() => {
-    process.stdout.write(`\r${frames[i % frames.length]} Installing dependencies...`);
+    process.stdout.write(
+      `\r  ${brandColor(frames[i % frames.length])} ${pc.dim(
+        "Developing something Stellar..."
+      )}`
+    );
     i++;
-  }, 120);
+  }, 80);
 
   return () => {
     clearInterval(timer);
-    process.stdout.write('\r\x1b[K');
+    process.stdout.write("\r\x1b[K");
   };
 }

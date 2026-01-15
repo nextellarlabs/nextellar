@@ -1,11 +1,11 @@
 'use client';
 
 import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
-import { 
-  Horizon, 
-  TransactionBuilder, 
-  Operation, 
-  Networks, 
+import {
+  Horizon,
+  TransactionBuilder,
+  Operation,
+  Networks,
   Asset,
   Memo,
   BASE_FEE
@@ -85,10 +85,10 @@ const WalletConfigContext = createContext<WalletConfigContextState | undefined>(
  * </WalletProvider>
  * ```
  */
-export function WalletProvider({ 
-  children, 
+export function WalletProvider({
+  children,
   horizonUrl = 'https://horizon-testnet.stellar.org',
-  network = Networks.TESTNET 
+  network = Networks.TESTNET
 }: WalletProviderProps) {
   const [connected, setConnected] = useState(false);
   const [publicKey, setPublicKey] = useState<string>();
@@ -101,18 +101,21 @@ export function WalletProvider({
    */
   const connect = useCallback(async () => {
     try {
-      await kit.openModal({
+      // Get fresh kit instance (handles dynamic options)
+      const currentKit = kit();
+
+      await currentKit.openModal({
         modalTitle: "Connect to your favorite wallet",
         onWalletSelected: async (option: ISupportedWallet) => {
-          kit.setWallet(option.id);
+          currentKit.setWallet(option.id);
 
-          const { address } = await kit.getAddress();
+          const { address } = await currentKit.getAddress();
           const { name } = option;
 
           setPublicKey(address);
           setWalletName(name);
           setConnected(true);
-          
+
           // Save connection to localStorage for persistence
           if (typeof window !== 'undefined') {
             localStorage.setItem('stellar_wallet_connected', 'true');
@@ -120,14 +123,14 @@ export function WalletProvider({
             localStorage.setItem('stellar_wallet_address', address);
             localStorage.setItem('stellar_wallet_name', name);
           }
-          
+
           // Load balances
           try {
             const account = await server.accounts().accountId(address).call();
             setBalances(account.balances);
           } catch (error: unknown) {
             if (error && typeof error === 'object' && 'response' in error && (error as { response?: { status?: number } }).response?.status === 404) {
-              console.log(`Account ${address} not found on testnet. Fund it with XLM to activate it.`);
+              console.log(`Account ${address} not found. Fund it with XLM.`);
               setBalances([]);
             } else {
               console.error('Failed to load balances:', error);
@@ -147,12 +150,12 @@ export function WalletProvider({
    */
   const disconnect = useCallback(async () => {
     try {
-      await kit.disconnect();
+      await kit().disconnect();
       setConnected(false);
       setPublicKey(undefined);
       setWalletName(undefined);
       setBalances([]);
-      
+
       // Clear localStorage on disconnect
       if (typeof window !== 'undefined') {
         localStorage.removeItem('stellar_wallet_connected');
@@ -170,7 +173,7 @@ export function WalletProvider({
    */
   const refreshBalances = useCallback(async () => {
     if (!publicKey) return;
-    
+
     try {
       const account = await server.accounts().accountId(publicKey).call();
       setBalances(account.balances);
@@ -195,8 +198,8 @@ export function WalletProvider({
 
     try {
       const account = await server.loadAccount(publicKey);
-      const asset = opts.asset === 'XLM' || !opts.asset 
-        ? Asset.native() 
+      const asset = opts.asset === 'XLM' || !opts.asset
+        ? Asset.native()
         : new Asset(opts.asset.code, opts.asset.issuer);
 
       const txBuilder = new TransactionBuilder(account, {
@@ -234,7 +237,7 @@ export function WalletProvider({
 
       const signedTransaction = TransactionBuilder.fromXDR(signedTxXdr, network);
       const result = await server.submitTransaction(signedTransaction);
-      
+
       await refreshBalances();
       return result;
     } catch (error) {
@@ -247,22 +250,23 @@ export function WalletProvider({
   useEffect(() => {
     const autoReconnect = async () => {
       if (typeof window === 'undefined') return;
-      
+
       const wasConnected = localStorage.getItem('stellar_wallet_connected');
       const savedWalletId = localStorage.getItem('stellar_wallet_id');
       const savedAddress = localStorage.getItem('stellar_wallet_address');
       const savedName = localStorage.getItem('stellar_wallet_name');
-      
+
       if (wasConnected === 'true' && savedWalletId && savedAddress) {
         try {
-          kit.setWallet(savedWalletId);
-          const { address } = await kit.getAddress();
-          
+          const currentKit = kit();
+          currentKit.setWallet(savedWalletId);
+          const { address } = await currentKit.getAddress();
+
           if (address === savedAddress) {
             setPublicKey(address);
             setWalletName(savedName || 'Unknown');
             setConnected(true);
-            
+
             try {
               const account = await server.accounts().accountId(address).call();
               setBalances(account.balances);
@@ -286,7 +290,7 @@ export function WalletProvider({
         }
       }
     };
-    
+
     autoReconnect();
   }, [server]);
 

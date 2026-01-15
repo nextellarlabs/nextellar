@@ -5,75 +5,15 @@
   --foreground: #171717;
 }
 
-.dark {
-  --background: #000000;
-  --foreground: #ededed;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-html {
-  scroll-behavior: smooth;
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
 }
 
 body {
-  background: transparent;
   color: var(--foreground);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif;
-  transition: color 0.3s ease;
-}
-
-* {
-  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  transition-duration: 300ms;
-}
-
-/* Custom scrollbar for webkit browsers */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(156, 163, 175, 0.3);
-  border-radius: 10px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(156, 163, 175, 0.5);
-}
-
-.dark ::-webkit-scrollbar-thumb {
-  background: rgba(75, 85, 99, 0.3);
-}
-
-.dark ::-webkit-scrollbar-thumb:hover {
-  background: rgba(75, 85, 99, 0.5);
-}
-
-/* Prevent flash of unstyled content */
-.no-js {
-  visibility: hidden;
-}
-
-/* Smooth transitions for theme changes */
-html,
-html *,
-html *:before,
-html *:after {
-  -webkit-transition: all 0.3s !important;
-  -moz-transition: all 0.3s !important;
-  -ms-transition: all 0.3s !important;
-  -o-transition: all 0.3s !important;
-  transition: all 0.3s !important;
+  background: var(--background);
+  font-family: Arial, Helvetica, sans-serif;
 }

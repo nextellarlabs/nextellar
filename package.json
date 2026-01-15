@@ -1,6 +1,6 @@
 {
   "name": "nextellar",
-  "version": "1.0.0",
+  "version": "1.0.4",
   "type": "module",
   "bin": {
     "nextellar": "dist/bin/nextellar.js"
@@ -8,14 +8,48 @@
   "scripts": {
     "build": "npx tsc -p tsconfig.build.json",
     "start": "ts-node bin/nextellar.ts",
-    "test": "cross-env NODE_OPTIONS=\"--experimental-vm-modules --no-warnings\" jest"
+    "test": "cross-env NODE_OPTIONS=\"--experimental-vm-modules --no-warnings\" jest",
+    "clean": "rimraf dist",
+    "prepublishOnly": "npm run clean && npm run build"
   },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "description": "One-step CLI toolkit to bootstrap production-ready Next.js + Stellar applications.",
+  "keywords": [
+    "stellar",
+    "blockchain",
+    "nextjs",
+    "scaffold",
+    "cli",
+    "dapp",
+    "starter",
+    "kit"
+  ],
+  "author": "Nextellar Labs",
+  "license": "MIT",
+  "homepage": "https://nextellar.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nextellarlabs/nextellar.git"
+  },
+  "bugs": {
+    "url": "https://github.com/nextellarlabs/nextellar/issues"
+  },
+  "files": [
+    "dist",
+    "src/templates",
+    "README.md",
+    "LICENSE"
+  ],
   "dependencies": {
-    "@anthropic-ai/claude-code": "^1.0.90",
     "@stellar/stellar-sdk": "^12.0.0",
     "commander": "^14.0.0",
     "execa": "^9.6.0",
-    "fs-extra": "^11.3.0"
+    "fs-extra": "^11.3.0",
+    "gradient-string": "^3.0.0",
+    "ora": "^8.0.1",
+    "picocolors": "^1.1.1"
   },
   "devDependencies": {
     "@babel/core": "^7.28.0",
@@ -25,6 +59,7 @@
     "@testing-library/react": "^16.3.0",
     "@types/commander": "^2.12.0",
     "@types/fs-extra": "^11.0.4",
+    "@types/gradient-string": "^1.1.6",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.1.0",
     "@types/node-fetch": "^2.6.13",
@@ -35,6 +70,7 @@
     "jest-environment-jsdom": "^30.0.5",
     "msw": "^2.10.4",
     "node-fetch": "^2.7.0",
+    "rimraf": "^6.1.2",
     "ts-jest": "^29.4.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.2",
