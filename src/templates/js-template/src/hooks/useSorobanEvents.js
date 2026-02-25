@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { rpc } from '@stellar/stellar-sdk';
+import { useWalletConfig } from '../contexts';
 // ── Constants ──────────────────────────────────────────────────────────────────
 const DEFAULT_SOROBAN_RPC = 'https://soroban-testnet.stellar.org';
 const DEFAULT_POLL_INTERVAL_MS = 10000;
@@ -72,7 +73,8 @@ function mapEvent(raw) {
  * ```
  */
 export function useSorobanEvents(contractId, opts = {}) {
-    const { sorobanRpc = DEFAULT_SOROBAN_RPC, fromCursor, pollIntervalMs = DEFAULT_POLL_INTERVAL_MS, topics, limit = 100, } = opts;
+    const providerConfig = useWalletConfig();
+    const { sorobanRpc = providerConfig?.sorobanUrl ?? DEFAULT_SOROBAN_RPC, fromCursor, pollIntervalMs = DEFAULT_POLL_INTERVAL_MS, topics, limit = 100, } = opts;
     // ── State ──────────────────────────────────────────────────────────────────
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(false);

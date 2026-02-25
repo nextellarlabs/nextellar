@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { rpc } from '@stellar/stellar-sdk';
+import { useWalletConfig } from '../contexts';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -137,8 +138,9 @@ export function useSorobanEvents(
   contractId: string,
   opts: Options = {}
 ): UseSorobanEventsReturn {
+  const providerConfig = useWalletConfig();
   const {
-    sorobanRpc = DEFAULT_SOROBAN_RPC,
+    sorobanRpc = providerConfig?.sorobanUrl ?? DEFAULT_SOROBAN_RPC,
     fromCursor,
     pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
     topics,

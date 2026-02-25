@@ -224,6 +224,7 @@ export function WalletProvider({ children, horizonUrl = 'https://horizon-testnet
     const configValue = {
         horizonUrl,
         network,
+        sorobanUrl: process.env.NEXT_PUBLIC_SOROBAN_URL || 'https://soroban-testnet.stellar.org',
     };
     return (<WalletConfigContext.Provider value={configValue}>
       <WalletContext.Provider value={walletValue}>

@@ -56,6 +56,7 @@ interface WalletContextState {
 interface WalletConfigContextState {
   horizonUrl: string;
   network: string;
+  sorobanUrl: string;
 }
 
 /**
@@ -64,6 +65,7 @@ interface WalletConfigContextState {
 interface WalletProviderProps {
   children: ReactNode;
   horizonUrl?: string;
+  sorobanUrl?: string;
   network?: string;
 }
 
@@ -87,8 +89,9 @@ const WalletConfigContext = createContext<WalletConfigContextState | undefined>(
  */
 export function WalletProvider({
   children,
-  horizonUrl = 'https://horizon-testnet.stellar.org',
-  network = Networks.TESTNET
+  horizonUrl = process.env.NEXT_PUBLIC_HORIZON_URL || 'https://horizon-testnet.stellar.org',
+  sorobanUrl = process.env.NEXT_PUBLIC_SOROBAN_URL || 'https://soroban-testnet.stellar.org',
+  network = (process.env.NEXT_PUBLIC_NETWORK === 'PUBLIC' ? Networks.PUBLIC : Networks.TESTNET)
 }: WalletProviderProps) {
   const [connected, setConnected] = useState(false);
   const [publicKey, setPublicKey] = useState<string>();
@@ -304,6 +307,7 @@ export function WalletProvider({
   const configValue: WalletConfigContextState = {
     horizonUrl,
     network,
+    sorobanUrl,
   };
 
   return (
