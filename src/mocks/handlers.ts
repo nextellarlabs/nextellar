@@ -111,4 +111,38 @@ export const handlers = [
       );
     }
   ),
+
+  // Horizon Orderbook
+  http.get("*/order_book", ({ request }) => {
+    const url = new URL(request.url);
+    const buyingCode = url.searchParams.get("buying_asset_code");
+    
+    // Simulate error for invalid asset
+    if (buyingCode === "INVALID") {
+      return new HttpResponse(null, { status: 400, statusText: "Bad Request" });
+    }
+
+    // Simulate empty orderbook
+    if (buyingCode === "EMPTY") {
+      return HttpResponse.json({
+        bids: [],
+        asks: [],
+        base: { asset_type: "native" },
+        counter: { asset_type: "credit_alphanum4", asset_code: "EMPTY", asset_issuer: "ISSUER" }
+      });
+    }
+
+    return HttpResponse.json({
+      bids: [
+        { price: "0.0800000", amount: "100.0000000", seller: "GA..." },
+        { price: "0.0750000", amount: "50.0000000", seller: "GB..." },
+      ],
+      asks: [
+        { price: "0.0850000", amount: "20.0000000", seller: "GC..." },
+        { price: "0.0900000", amount: "10.0000000", seller: "GD..." },
+      ],
+      base: { asset_type: "native" },
+      counter: { asset_type: "credit_alphanum4", asset_code: "USDC", asset_issuer: "ISSUER" }
+    });
+  }),
 ];
