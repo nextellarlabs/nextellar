@@ -9,7 +9,7 @@ export default {
     }
   },
   transform: {
-    '^.+\\.[tj]s$': ['ts-jest', {
+    '^.+\\.[tj]sx?$': ['ts-jest', {
       useESM: true,
       tsconfig: {
         module: 'ESNext',
@@ -25,9 +25,10 @@ export default {
   },
   moduleNameMapper: {
     '^@stellar/stellar-sdk$': '<rootDir>/src/mocks/stellar-sdk-mock.ts',
+    '^.*/contexts.*$': '<rootDir>/src/mocks/contexts-mock.ts',
     '^(\\.{1,2}/.*)\\.js$': '$1'
   },
-  moduleFileExtensions: ['ts', 'js'],
+  moduleFileExtensions: ['ts', 'js', 'tsx', 'jsx'],
   testMatch: [
     '**/tests/**/*.test.ts',
     '**/tests/**/*.test.tsx',

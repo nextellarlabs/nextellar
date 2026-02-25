@@ -8,7 +8,7 @@
   "scripts": {
     "build": "npx tsc -p tsconfig.build.json",
     "start": "ts-node bin/nextellar.ts",
-    "test": "cross-env NODE_OPTIONS=\"--experimental-vm-modules --no-warnings\" jest",
+    "test": "cross-env NODE_OPTIONS=\"--max-old-space-size=4096 --experimental-vm-modules --no-warnings\" jest",
     "clean": "rimraf dist",
     "prepublishOnly": "npm run clean && npm run build"
   },
