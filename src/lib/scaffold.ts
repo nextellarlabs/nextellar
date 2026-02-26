@@ -4,6 +4,7 @@ import { detectPackageManager, runInstall } from "./install.js";
 import { trackScaffoldEvent } from "./telemetry.js";
 import { fileURLToPath } from "url";
 import { confirm } from "@clack/prompts";
+import { validateHorizonUrl, validateSorobanUrl } from "./validate.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -53,11 +54,19 @@ export async function scaffold(options: ScaffoldOptions) {
   const templateName = template || "default";
   if (!useTs && templateName !== "default") {
     throw new Error(
-      `Template "${templateName}" is not available for JavaScript yet. Please use the default template with --javascript.`
+      `Template "${templateName}" is not available for JavaScript yet. Please use the default template with --javascript.`,
     );
   }
 
   const resolvedTemplateName = useTs ? templateName : "js-template";
+
+  // Validate custom URL overrides if provided
+  if (horizonUrl) {
+    validateHorizonUrl(horizonUrl);
+  }
+  if (sorobanUrl) {
+    validateSorobanUrl(sorobanUrl);
+  }
 
   // Resolve templates across src/dist and nested workspace layouts.
   const templateRoots = [
@@ -69,7 +78,7 @@ export async function scaffold(options: ScaffoldOptions) {
   ];
   const templateRoot =
     templateRoots.find((candidate) =>
-      fs.existsSync(path.join(candidate, resolvedTemplateName, "package.json"))
+      fs.existsSync(path.join(candidate, resolvedTemplateName, "package.json")),
     ) || templateRoots[templateRoots.length - 1];
   const templateDir = path.join(templateRoot, resolvedTemplateName);
 
@@ -112,7 +121,10 @@ export async function scaffold(options: ScaffoldOptions) {
     });
 
     if (withContracts) {
-      const contractsTemplateDir = path.join(templateRoot, "contracts-template");
+      const contractsTemplateDir = path.join(
+        templateRoot,
+        "contracts-template",
+      );
 
       if (await fs.pathExists(contractsTemplateDir)) {
         await fs.copy(contractsTemplateDir, targetDir, {
@@ -133,13 +145,13 @@ export async function scaffold(options: ScaffoldOptions) {
       const envExamplePath = path.join(targetDir, ".env.example");
       await fs.appendFile(
         envExamplePath,
-        `\n# Soroban Smart Contracts\nNEXT_PUBLIC_HELLO_WORLD_CONTRACT_ID=C_REPLACE_WITH_YOUR_CONTRACT_ID\n`
+        `\n# Soroban Smart Contracts\nNEXT_PUBLIC_HELLO_WORLD_CONTRACT_ID=C_REPLACE_WITH_YOUR_CONTRACT_ID\n`,
       );
     }
 
     const replaceInFile = async (
       filePath: string,
-      replacements: Record<string, string>
+      replacements: Record<string, string>,
     ) => {
       const content = await fs.readFile(filePath, "utf8");
       let newContent = content;
@@ -163,7 +175,9 @@ export async function scaffold(options: ScaffoldOptions) {
         cliVersion ||
         (() => {
           try {
-            const pkgPath = fs.existsSync(path.resolve(__dirname, "../../package.json"))
+            const pkgPath = fs.existsSync(
+              path.resolve(__dirname, "../../package.json"),
+            )
               ? path.resolve(__dirname, "../../package.json")
               : path.resolve(__dirname, "../../../package.json");
             const myPkg = fs.readJsonSync(pkgPath);
@@ -206,7 +220,7 @@ export async function scaffold(options: ScaffoldOptions) {
 
     if (!result.success && !skipInstall) {
       throw new Error(
-        `Dependency installation failed. Please run "${result.packageManager} install" manually in "${appName}".`
+        `Dependency installation failed. Please run "${result.packageManager} install" manually in "${appName}".`,
       );
     }
 
@@ -224,7 +238,7 @@ export async function scaffold(options: ScaffoldOptions) {
         nodeVersion: process.versions.node,
         os: process.platform,
       },
-      { noTelemetryFlag: telemetryEnabled === false }
+      { noTelemetryFlag: telemetryEnabled === false },
     );
   } catch (error) {
     void trackScaffoldEvent(
@@ -241,7 +255,7 @@ export async function scaffold(options: ScaffoldOptions) {
         nodeVersion: process.versions.node,
         os: process.platform,
       },
-      { noTelemetryFlag: telemetryEnabled === false }
+      { noTelemetryFlag: telemetryEnabled === false },
     );
     throw error;
   }
