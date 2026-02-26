@@ -2,12 +2,14 @@
  * @jest-environment jsdom
  */
 import { renderHook, act } from '@testing-library/react';
+import * as StellarMock from '../../src/mocks/stellar-sdk-mock.cjs';
+const SDKMock = (StellarMock as unknown as { default?: unknown }).default || StellarMock;
+const { mockGetEvents, mockServerConstructor } = SDKMock as {
+  mockGetEvents: jest.Mock;
+  mockServerConstructor: jest.Mock;
+};
 
-// Import the shared SDK mock – gives us control over rpc.Server.getEvents()
-import { mockGetEvents, mockServerConstructor } from '../../src/mocks/stellar-sdk-mock.js';
-
-// Import the REAL hook – its '@stellar/stellar-sdk' dependency is resolved to
-// the shared mock above via jest.config moduleNameMapper.
+// Import the REAL hook; @stellar/stellar-sdk is mocked above.
 import { useSorobanEvents } from '../../src/templates/default/src/hooks/useSorobanEvents.js';
 
 // ── Types (declared locally to avoid circular import issues) ─────────────────

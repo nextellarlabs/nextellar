@@ -2,7 +2,6 @@ import { execa } from "execa";
 import path from "path";
 import fs from "fs-extra";
 import pc from "picocolors";
-import ora from "ora";
 
 export interface InstallOptions {
   cwd: string;
@@ -17,6 +16,28 @@ export interface InstallResult {
   packageManager: string;
   error?: string;
   logPath?: string;
+}
+
+type SpinnerLike = {
+  succeed: (text?: string) => void;
+  fail: (text?: string) => void;
+};
+
+async function createSpinner(text: string): Promise<SpinnerLike> {
+  try {
+    const oraMod = await import("ora");
+    const oraFactory = (oraMod.default ?? oraMod) as any;
+    return oraFactory({
+      text,
+      color: "magenta",
+      spinner: "dots",
+    }).start();
+  } catch {
+    return {
+      succeed: () => {},
+      fail: () => {},
+    };
+  }
 }
 
 /**
@@ -91,11 +112,9 @@ export async function runInstall(
   const packageManager = detectPackageManager(cwd, options.packageManager);
   const [command, args] = getInstallCommand(packageManager);
 
-  const spinner = ora({
-    text: `Installing dependencies with ${pc.cyan(packageManager)}...`,
-    color: "magenta",
-    spinner: "dots",
-  }).start();
+  const spinner = await createSpinner(
+    `Installing dependencies with ${pc.cyan(packageManager)}...`
+  );
 
   const stdio = captureOutput ? "pipe" : "ignore"; // Use ignore to keep spinner visible
 
