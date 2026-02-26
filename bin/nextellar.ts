@@ -200,6 +200,11 @@ program
     false,
   )
   .option(
+    "--force",
+    "overwrite existing directory",
+    false,
+  )
+  .option(
     "--install-timeout <ms>",
     "installation timeout in milliseconds",
     "1200000",
@@ -319,6 +324,7 @@ program.action(async (projectName, options) => {
       installTimeout: parseInt(options.installTimeout),
       telemetryEnabled: options.telemetry,
       cliVersion: pkg.version,
+      force: options.force,
     });
 
     const pkgManager = detectPackageManager(

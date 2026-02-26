@@ -3,6 +3,7 @@ import fs from "fs-extra";
 import { detectPackageManager, runInstall } from "./install.js";
 import { trackScaffoldEvent } from "./telemetry.js";
 import { fileURLToPath } from "url";
+import { confirm } from "@clack/prompts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -21,6 +22,7 @@ export interface ScaffoldOptions {
   installTimeout?: number;
   telemetryEnabled?: boolean;
   cliVersion?: string;
+  force?: boolean;
 }
 
 export async function scaffold(options: ScaffoldOptions) {
@@ -37,6 +39,8 @@ export async function scaffold(options: ScaffoldOptions) {
     installTimeout,
     telemetryEnabled,
     cliVersion,
+    force,
+    defaults,
   } = options;
 
   const telemetryTemplate = template || "default";
@@ -73,7 +77,29 @@ export async function scaffold(options: ScaffoldOptions) {
   const finalPackageManager = detectPackageManager(targetDir, packageManager);
 
   if (await fs.pathExists(targetDir)) {
-    throw new Error(`Directory "${appName}" already exists.`);
+    if (!force) {
+      throw new Error(`Directory "${appName}" already exists.`);
+    }
+
+    // Handle force flag
+    const shouldPrompt =
+      process.stdout.isTTY &&
+      process.stdin.isTTY &&
+      !defaults &&
+      !process.env.CI;
+
+    if (shouldPrompt) {
+      const overwrite = await confirm({
+        message: `Directory "${appName}" already exists. Overwrite?`,
+      });
+
+      if (overwrite !== true) {
+        process.exit(0);
+      }
+    }
+
+    // Remove existing directory
+    await fs.remove(targetDir);
   }
 
   try {
