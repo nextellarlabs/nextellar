@@ -4,6 +4,29 @@ import { xdr } from "@stellar/stellar-sdk";
 
 const defaultRetval = xdr.ScVal.scvString("ok").toXDR("base64");
 
+/**
+ * Build a mock Horizon operation record for payments/operations responses.
+ */
+function makeOperationRecord(index: number, type: "payment" | "create_account" = "payment") {
+  return {
+    id: `op-${index}`,
+    paging_token: `cursor-${index}`,
+    type,
+    type_i: type === "payment" ? 1 : 0,
+    created_at: new Date(Date.now() - index * 60_000).toISOString(),
+    transaction_hash: `txhash-${index}`,
+    source_account: "GABC1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234",
+    amount: `${(10 + index).toFixed(7)}`,
+    asset_type: "native",
+    ...(type === "payment"
+      ? {
+          from: "GABC1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234",
+          to: "GDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234",
+        }
+      : {}),
+  };
+}
+
 export const handlers = [
   http.get<{ accountId: string }>(
     "https://horizon-testnet.stellar.org/accounts/:accountId",
@@ -16,6 +39,50 @@ export const handlers = [
         },
         { status: 200 }
       );
+    }
+  ),
+
+  // Horizon payments endpoint with pagination support
+  http.get<{ accountId: string }>(
+    "https://horizon-testnet.stellar.org/accounts/:accountId/payments",
+    ({ request, params }) => {
+      const url = new URL(request.url);
+      const limit = Number(url.searchParams.get("limit") || "10");
+      const cursor = url.searchParams.get("cursor");
+      const startIndex = cursor ? Number(cursor.replace("cursor-", "")) + 1 : 0;
+
+      const records = Array.from({ length: limit }, (_, i) =>
+        makeOperationRecord(startIndex + i, "payment")
+      );
+
+      return HttpResponse.json({
+        _embedded: { records },
+        _links: {
+          next: { href: `https://horizon-testnet.stellar.org/accounts/${params.accountId}/payments?cursor=cursor-${startIndex + limit - 1}&limit=${limit}&order=desc` },
+        },
+      });
+    }
+  ),
+
+  // Horizon operations endpoint with pagination support
+  http.get<{ accountId: string }>(
+    "https://horizon-testnet.stellar.org/accounts/:accountId/operations",
+    ({ request, params }) => {
+      const url = new URL(request.url);
+      const limit = Number(url.searchParams.get("limit") || "10");
+      const cursor = url.searchParams.get("cursor");
+      const startIndex = cursor ? Number(cursor.replace("cursor-", "")) + 1 : 0;
+
+      const records = Array.from({ length: limit }, (_, i) =>
+        makeOperationRecord(startIndex + i, "create_account")
+      );
+
+      return HttpResponse.json({
+        _embedded: { records },
+        _links: {
+          next: { href: `https://horizon-testnet.stellar.org/accounts/${params.accountId}/operations?cursor=cursor-${startIndex + limit - 1}&limit=${limit}&order=desc` },
+        },
+      });
     }
   ),
 
