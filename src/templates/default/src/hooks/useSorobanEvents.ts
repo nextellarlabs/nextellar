@@ -1,8 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { rpc } from '@stellar/stellar-sdk';
-import { useWalletConfig } from '../contexts';
+import * as StellarSDK from '@stellar/stellar-sdk';
+
+const SDK = ((StellarSDK as unknown as { default?: unknown }).default ||
+  StellarSDK) as typeof StellarSDK;
+const { rpc } = SDK;
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -26,6 +29,7 @@ export interface SorobanEvent {
   contractId: string;
   topic: string[];
   value: unknown;
+  pagingToken: string;
   txHash: string;
   inSuccessfulContractCall: boolean;
 }
@@ -87,6 +91,7 @@ function mapEvent(raw: rpc.Api.EventResponse): SorobanEvent {
     contractId: raw.contractId?.toString() ?? '',
     topic: raw.topic.map((t) => t.toXDR('base64')),
     value: raw.value.toXDR('base64'),
+    pagingToken: raw.pagingToken,
     txHash: raw.txHash,
     inSuccessfulContractCall: raw.inSuccessfulContractCall,
   };
@@ -138,9 +143,8 @@ export function useSorobanEvents(
   contractId: string,
   opts: Options = {}
 ): UseSorobanEventsReturn {
-  const providerConfig = useWalletConfig();
   const {
-    sorobanRpc = providerConfig?.sorobanUrl ?? DEFAULT_SOROBAN_RPC,
+    sorobanRpc = DEFAULT_SOROBAN_RPC,
     fromCursor,
     pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
     topics,
@@ -192,9 +196,12 @@ export function useSorobanEvents(
       return [...prev, ...newEvents.filter((e) => !seen.has(e.id))];
     });
 
-    // Advance cursor using the response-level cursor for next page
+    // Advance cursor, preferring response-level cursor and falling back to the
+    // last event paging token for SDK responses that omit `cursor`.
     if (response.cursor) {
       cursorRef.current = response.cursor;
+    } else if (newEvents.length > 0) {
+      cursorRef.current = newEvents[newEvents.length - 1].pagingToken;
     }
   }, [contractId, rpcServer, topics, limit]);
 

@@ -2,10 +2,10 @@
  * @jest-environment jsdom
  */
 import { renderHook, act, waitFor } from "@testing-library/react";
-import { setupServer } from "msw/node";
 import { http, HttpResponse } from "msw";
 import * as StellarSDK from "@stellar/stellar-sdk";
 import { useSorobanContract } from "../../src/templates/js-template/src/hooks/useSorobanContract.js";
+import { server } from "../../src/mocks/server.js";
 
 const SDK = ((StellarSDK as unknown as { default?: unknown }).default ||
   StellarSDK) as typeof StellarSDK;
@@ -15,55 +15,11 @@ const SOROBAN_RPC_URL = "https://soroban-testnet.stellar.org";
 const VALID_CONTRACT_ID = "CAAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQC526";
 const VALID_ACCOUNT_ADDRESS = "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN";
 
-const server = setupServer(
-  http.post(SOROBAN_RPC_URL, async ({ request }) => {
-    const body = (await request.json()) as { id?: number; method?: string };
-
-    if (body.method === "simulateTransaction") {
-      return HttpResponse.json({
-        jsonrpc: "2.0",
-        id: body.id ?? 1,
-        result: {
-          latestLedger: 123,
-          minResourceFee: "100",
-          transactionData: "AAAAAQAAAAA=",
-          results: [],
-          result: {
-            auth: [],
-            retval: xdr.ScVal.scvString("ok").toXDR("base64"),
-          },
-        },
-      });
-    }
-
-    if (body.method === "sendTransaction") {
-      return HttpResponse.json({
-        jsonrpc: "2.0",
-        id: body.id ?? 1,
-        result: { status: "PENDING", hash: "mock-hash" },
-      });
-    }
-
-    return HttpResponse.json(
-      {
-        jsonrpc: "2.0",
-        id: body.id ?? 1,
-        error: { code: -32601, message: "Unsupported RPC method" },
-      },
-      { status: 400 }
-    );
-  })
-);
-
 describe("useSorobanContract", () => {
-  beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
-
   afterEach(() => {
     server.resetHandlers();
     jest.restoreAllMocks();
   });
-
-  afterAll(() => server.close());
 
   it("invokeContract read-only flow returns parsed result", async () => {
     jest.spyOn(rpc.Server.prototype, "simulateTransaction").mockResolvedValue({

@@ -1,8 +1,9 @@
 // src/mocks/handlers.ts
 import { http, HttpResponse } from "msw";
-import { xdr } from "@stellar/stellar-sdk";
 
-const defaultRetval = xdr.ScVal.scvString("ok").toXDR("base64");
+// Hardcoded XDR value for a string "ok" - avoids importing from @stellar/stellar-sdk
+// which is mocked in tests via moduleNameMapper
+const defaultRetval = "AAAAFgAAAAAAAAAAbw==";
 
 export const handlers = [
   http.get<{ accountId: string }>(

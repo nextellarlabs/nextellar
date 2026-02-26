@@ -4,7 +4,6 @@ import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs-extra";
 import pc from "picocolors";
-import gradient from "gradient-string";
 import { scaffold } from "../src/lib/scaffold.js";
 import { upgrade } from "../src/lib/upgrade.js";
 import { runDeploy } from "../src/lib/deploy.js";
@@ -41,6 +40,16 @@ const findPkg = () => {
 const pkg = findPkg();
 
 const program = new Command();
+
+async function renderLogo(text: string): Promise<string> {
+  try {
+    const gradientMod = await import("gradient-string");
+    const gradient = (gradientMod.default ?? gradientMod) as any;
+    return gradient(["#FFFFFF", "#000000"])(text);
+  } catch {
+    return text;
+  }
+}
 
 // Register a dedicated `doctor` subcommand so Commander handles `--json`.
 program
@@ -234,7 +243,7 @@ program.action(async (projectName, options) => {
   // Clear console and show welcome banner
   if (process.stdout.isTTY) {
     process.stdout.write("\x1Bc");
-    console.log(gradient(["#FFFFFF", "#000000"])(NEXTELLAR_LOGO));
+    console.log(await renderLogo(NEXTELLAR_LOGO));
     console.log(
       `\n  ${pc.bold(pc.white("Nextellar CLI"))} ${pc.dim(`v${pkg.version}`)}`,
     );

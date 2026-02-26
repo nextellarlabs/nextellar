@@ -24,10 +24,11 @@ export default {
     }]
   },
   moduleNameMapper: {
-    '^@stellar/stellar-sdk$': '<rootDir>/src/mocks/stellar-sdk-mock.ts',
+    '^@stellar/stellar-sdk$': '<rootDir>/src/mocks/stellar-sdk-mock.cjs',
+    '^@creit.tech/stellar-wallets-kit$': '<rootDir>/src/mocks/stellar-wallets-kit-mock.cjs',
     '^(\\.{1,2}/.*)\\.js$': '$1'
   },
-  moduleFileExtensions: ['ts', 'js'],
+  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
   testMatch: [
     '**/tests/**/*.test.ts',
     '**/tests/**/*.test.tsx',

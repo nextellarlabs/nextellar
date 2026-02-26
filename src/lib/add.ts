@@ -3,7 +3,6 @@ import fs from "fs-extra";
 import { fileURLToPath } from "url";
 import { execa } from "execa";
 import pc from "picocolors";
-import ora from "ora";
 import {
   getFeature,
   resolveFeatureWithDeps,
@@ -23,6 +22,28 @@ export interface AddOptions {
   skipInstall?: boolean;
   /** Package manager override */
   packageManager?: string;
+}
+
+type SpinnerLike = {
+  succeed: (text?: string) => void;
+  fail: (text?: string) => void;
+};
+
+async function createSpinner(text: string): Promise<SpinnerLike> {
+  try {
+    const oraMod = await import("ora");
+    const oraFactory = (oraMod.default ?? oraMod) as any;
+    return oraFactory({
+      text,
+      color: "magenta",
+      spinner: "dots",
+    }).start();
+  } catch {
+    return {
+      succeed: () => {},
+      fail: () => {},
+    };
+  }
 }
 
 /**
@@ -63,11 +84,9 @@ async function installPackages(
     args = ["add", ...deduped];
   }
 
-  const spinner = ora({
-    text: `Installing ${deduped.length} package(s) with ${pc.cyan(pm)}...`,
-    color: "magenta",
-    spinner: "dots",
-  }).start();
+  const spinner = await createSpinner(
+    `Installing ${deduped.length} package(s) with ${pc.cyan(pm)}...`
+  );
 
   try {
     await execa(cmd, args, { cwd, stdio: "pipe" });

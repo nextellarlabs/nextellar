@@ -148,6 +148,11 @@ export async function scaffold(options: ScaffoldOptions) {
         })(),
       "{{TEMPLATE_NAME}}": templateName,
       "{{TIMESTAMP}}": new Date().toISOString(),
+      // Backward compatibility when templates use inline default wallets.
+      '["freighter", "albedo", "lobstr"]':
+        wallets && wallets.length > 0
+          ? JSON.stringify(wallets)
+          : JSON.stringify(["freighter", "albedo", "lobstr"]),
     };
 
     const filesToProcess = [
