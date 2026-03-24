@@ -56,7 +56,7 @@ export function WalletProvider({ children, horizonUrl = 'https://horizon-testnet
                     }
                     catch (error) {
                         if (error && typeof error === 'object' && 'response' in error && error.response?.status === 404) {
-                            console.log(`Account ${address} not found. Fund it with XLM.`);
+                            console.error(`Account ${address} not found. Fund it with XLM.`);
                             setBalances([]);
                         }
                         else {
@@ -106,7 +106,7 @@ export function WalletProvider({ children, horizonUrl = 'https://horizon-testnet
         }
         catch (error) {
             if (error && typeof error === 'object' && 'response' in error && error.response?.status === 404) {
-                console.log(`Account ${publicKey} not found on testnet. Fund it with XLM to activate it.`);
+                console.error(`Account ${publicKey} not found on testnet. Fund it with XLM to activate it.`);
                 setBalances([]);
             }
             else {
@@ -189,7 +189,7 @@ export function WalletProvider({ children, horizonUrl = 'https://horizon-testnet
                         }
                         catch (error) {
                             if (error && typeof error === 'object' && 'response' in error && error.response?.status === 404) {
-                                console.log(`Account ${address} not found. Fund it to activate.`);
+                                console.error(`Account ${address} not found. Fund it to activate.`);
                                 setBalances([]);
                             }
                             else {
@@ -199,7 +199,7 @@ export function WalletProvider({ children, horizonUrl = 'https://horizon-testnet
                     }
                 }
                 catch {
-                    console.log('Auto-reconnect failed');
+                    console.error('Auto-reconnect failed');
                     if (typeof window !== 'undefined') {
                         localStorage.removeItem('stellar_wallet_connected');
                         localStorage.removeItem('stellar_wallet_id');
@@ -227,9 +227,9 @@ export function WalletProvider({ children, horizonUrl = 'https://horizon-testnet
         sorobanUrl: process.env.NEXT_PUBLIC_SOROBAN_URL || 'https://soroban-testnet.stellar.org',
     };
     return (<WalletConfigContext.Provider value={configValue}>
-      <WalletContext.Provider value={walletValue}>
-        {children}
-      </WalletContext.Provider>
+        <WalletContext.Provider value={walletValue}>
+            {children}
+        </WalletContext.Provider>
     </WalletConfigContext.Provider>);
 }
 /**

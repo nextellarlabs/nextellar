@@ -19,7 +19,6 @@ function useTheme() {
         else {
             document.documentElement.classList.remove('dark');
         }
-        console.log('Theme initialized:', initialTheme);
     }, []);
     const toggleTheme = () => {
         const newTheme = theme === 'dark' ? 'light' : 'dark';
@@ -32,7 +31,6 @@ function useTheme() {
         else {
             document.documentElement.classList.remove('dark');
         }
-        console.log('Theme switched to:', newTheme);
     };
     return { theme, toggleTheme, mounted };
 }
@@ -41,11 +39,10 @@ export default function Home() {
     if (!mounted) {
         return null;
     }
-    console.log('Current theme:', theme, 'Document classes:', document.documentElement.className);
     return (<div className="h-screen relative overflow-hidden">
       {/* Background Images */}
       <div className="absolute inset-0">
-        {theme === 'light' ? (<Image src="/ligt-mode-bg.svg" alt="Light mode background" fill className="object-cover" priority onError={() => console.log('Light mode background failed to load')}/>) : (<Image src="/dark-mode-bg.svg" alt="Dark mode background" fill className="object-cover" priority onError={() => console.log('Dark mode background failed to load')}/>)}
+        {theme === 'light' ? (<Image src="/ligt-mode-bg.svg" alt="Light mode background" fill className="object-cover" priority onError={() => console.error('Light mode background failed to load')}/>) : (<Image src="/dark-mode-bg.svg" alt="Dark mode background" fill className="object-cover" priority onError={() => console.error('Dark mode background failed to load')}/>)}
       </div>
 
       {/* Content */}
