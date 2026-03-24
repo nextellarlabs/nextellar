@@ -94,6 +94,15 @@ async function copyFile(
   const src = path.join(templateDir, "src", relativePath);
   const dest = path.join(targetDir, "src", relativePath);
 
+  // Validate that dest doesn't escape targetDir
+  const resolvedDest = path.resolve(dest);
+  const resolvedTarget = path.resolve(targetDir);
+  const relative = path.relative(resolvedTarget, resolvedDest);
+
+  if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new Error(`Feature file path escapes project directory: ${relativePath}`);
+  }
+
   if (!(await fs.pathExists(src))) {
     return { result: "missing", path: relativePath };
   }
