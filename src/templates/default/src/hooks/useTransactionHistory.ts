@@ -38,9 +38,7 @@ const DEFAULT_TYPE = 'operations';
 // Maximum items to keep in memory (prevents excessive memory usage)
 const MAX_ITEMS_IN_MEMORY = 1000;
 
-// Module-level request coordination to prevent duplicate requests
-let globalRefreshInFlight = false;
-let globalFetchNextInFlight = false;
+
 
 /**
  * Custom React hook for fetching and paginating Stellar transaction history
@@ -234,7 +232,7 @@ export function useTransactionHistory(
     }
 
     // Prevent duplicate refresh requests
-    if (globalRefreshInFlight || isRequestInFlightRef.current) {
+    if (isRequestInFlightRef.current) {
       return;
     }
 
@@ -247,7 +245,6 @@ export function useTransactionHistory(
 
     setLoading(true);
     setError(null);
-    globalRefreshInFlight = true;
     isRequestInFlightRef.current = true;
     
     try {
@@ -265,7 +262,6 @@ export function useTransactionHistory(
       // Keep previous items on error (don't wipe them)
     } finally {
       setLoading(false);
-      globalRefreshInFlight = false;
       isRequestInFlightRef.current = false;
     }
   }, [publicKey, fetchTransactionHistory, pageSize]);
@@ -280,7 +276,7 @@ export function useTransactionHistory(
     }
 
     // Prevent duplicate fetch requests
-    if (globalFetchNextInFlight || isRequestInFlightRef.current) {
+    if (isRequestInFlightRef.current) {
       return;
     }
 
@@ -292,7 +288,6 @@ export function useTransactionHistory(
 
     setLoading(true);
     setError(null);
-    globalFetchNextInFlight = true;
     isRequestInFlightRef.current = true;
     
     try {
@@ -320,7 +315,6 @@ export function useTransactionHistory(
       console.error('Error fetching next page:', error);
     } finally {
       setLoading(false);
-      globalFetchNextInFlight = false;
       isRequestInFlightRef.current = false;
     }
   }, [publicKey, hasMore, fetchTransactionHistory, pageSize]);
@@ -365,12 +359,7 @@ export function useTransactionHistory(
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      // Reset global state on unmount
-      if (isRequestInFlightRef.current) {
-        globalRefreshInFlight = false;
-        globalFetchNextInFlight = false;
-        isRequestInFlightRef.current = false;
-      }
+      isRequestInFlightRef.current = false;
     };
   }, []);
 
