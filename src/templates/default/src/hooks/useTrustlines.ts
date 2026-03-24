@@ -484,7 +484,7 @@ export function useTrustlines(
 
     // Initial load
     refresh();
-  }, [publicKey, refresh]);
+  }, [publicKey, refresh, horizonUrl]);
 
   // Cleanup on unmount
   useEffect(() => {

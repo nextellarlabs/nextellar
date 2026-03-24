@@ -278,7 +278,7 @@ export function useStellarBalances(
     return () => {
       stopPolling();
     };
-  }, [publicKey, pollIntervalMs, refresh, stopPolling]);
+  }, [publicKey, pollIntervalMs, refresh, stopPolling, horizonUrl]);
 
   // Cleanup on unmount
   useEffect(() => {
