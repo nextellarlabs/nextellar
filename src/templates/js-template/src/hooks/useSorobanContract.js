@@ -122,7 +122,7 @@ export function useSorobanContract(opts) {
             case xdr.ScValType.scvAddress():
                 return scVal.address().toString();
             default:
-                return scVal.toString();
+                throw new Error(`Unsupported Soroban XDR type: ${scVal.switch().name}. Please open an issue at https://github.com/nextellarlabs/nextellar/issues`);
         }
     }, []);
     /**
