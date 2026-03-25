@@ -91,6 +91,10 @@ async function copyFile(
   relativePath: string,
   force: boolean
 ): Promise<{ result: CopyResult; path: string }> {
+  if (path.isAbsolute(relativePath)) {
+    throw new Error(`Feature file path escapes project directory: ${relativePath}`);
+  }
+
   const src = path.join(templateDir, "src", relativePath);
   const dest = path.join(targetDir, "src", relativePath);
 
