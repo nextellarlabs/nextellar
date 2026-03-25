@@ -93,9 +93,9 @@ const WalletConfigContext = createContext<WalletConfigContextState | undefined>(
  */
 export function WalletProvider({
   children,
-  horizonUrl = process.env.NEXT_PUBLIC_HORIZON_URL || 'https://horizon-testnet.stellar.org',
-  sorobanUrl = process.env.NEXT_PUBLIC_SOROBAN_URL || 'https://soroban-testnet.stellar.org',
-  network = (process.env.NEXT_PUBLIC_NETWORK === 'PUBLIC' ? Networks.PUBLIC : Networks.TESTNET)
+  horizonUrl: initialHorizonUrl = process.env.NEXT_PUBLIC_HORIZON_URL || 'https://horizon-testnet.stellar.org',
+  sorobanUrl: initialSorobanUrl = process.env.NEXT_PUBLIC_SOROBAN_URL || 'https://soroban-testnet.stellar.org',
+  network: initialNetwork = (process.env.NEXT_PUBLIC_NETWORK === 'PUBLIC' ? Networks.PUBLIC : Networks.TESTNET)
 }: WalletProviderProps) {
   const [activeNetworkKey, setActiveNetworkKey] = useState<string>('testnet');
   const [connected, setConnected] = useState(false);
@@ -116,7 +116,7 @@ export function WalletProvider({
   // Derive active settings from config or props
   const config = NETWORKS[activeNetworkKey] || NETWORKS.testnet;
   const horizonUrl = initialHorizonUrl || config.horizonUrl;
-  const sorobanUrl = config.sorobanUrl;
+  const sorobanUrl = initialSorobanUrl || config.sorobanUrl;
   const network = initialNetwork || config.passphrase;
 
   const [server, setServer] = useState(() => new Server(horizonUrl));
@@ -356,7 +356,6 @@ export function WalletProvider({
     horizonUrl,
     sorobanUrl,
     network,
-    sorobanUrl,
     switchNetwork,
   };
 
