@@ -2,16 +2,34 @@
  * Shared mock for @stellar/stellar-sdk used by template hook tests.
  * The jest.config moduleNameMapper redirects '@stellar/stellar-sdk' to this file.
  * Tests import mockGetEvents / mockServerConstructor to control behavior.
+ *
+ * Re-exports real SDK symbols so hooks that import Address, xdr, Contract, etc.
+ * can function normally while rpc.Server is fully mocked.
  */
+export {
+  xdr,
+  Address,
+  Contract,
+  Account,
+  TransactionBuilder,
+  Networks,
+  Keypair,
+} from "../../node_modules/@stellar/stellar-sdk/lib/index.js";
 
 export const mockGetEvents = jest.fn();
+export const mockSimulateTransaction = jest.fn();
+export const mockSendTransaction = jest.fn();
 
-export const mockServerConstructor = jest.fn().mockImplementation(() => ({
-  getEvents: mockGetEvents,
-}));
+class MockRpcServer {
+  simulateTransaction(...args: unknown[]) { return mockSimulateTransaction(...args); }
+  sendTransaction(...args: unknown[]) { return mockSendTransaction(...args); }
+  getEvents(...args: unknown[]) { return mockGetEvents(...args); }
+}
+
+export const mockServerConstructor = MockRpcServer;
 
 export const rpc = {
-  Server: mockServerConstructor,
+  Server: MockRpcServer,
 };
 
 // ── Horizon mock for useTransactionHistory ──────────────────────────────────

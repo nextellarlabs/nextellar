@@ -503,7 +503,7 @@ export function useSorobanContract(
       return map;
     }
 
-    return scVal.toString();
+    throw new Error(`Unsupported Soroban XDR type: ${scVal.switch().name}. Please open an issue at https://github.com/nextellarlabs/nextellar/issues`);
   }, []);
 
   // ── callFunction ───────────────────────────────────────────────────────────
