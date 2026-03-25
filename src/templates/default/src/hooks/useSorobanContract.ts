@@ -503,7 +503,7 @@ export function useSorobanContract(
       return map;
     }
 
-    return scVal.toString();
+    throw new Error(`Unsupported Soroban XDR type: ${scVal.switch().name}. Please open an issue at https://github.com/nextellarlabs/nextellar/issues`);
   }, []);
 
   // ── callFunction ───────────────────────────────────────────────────────────
@@ -547,7 +547,7 @@ export function useSorobanContract(
 
         return null;
       } catch (err) {
-        const error = err as Error;
+        const error = err instanceof Error ? err : new Error(String(err));
         setError(error);
         throw error;
       } finally {
@@ -587,7 +587,7 @@ export function useSorobanContract(
 
         return txBuilder.build().toXDR();
       } catch (err) {
-        const error = err as Error;
+        const error = err instanceof Error ? err : new Error(String(err));
         setError(error);
         throw error;
       } finally {
@@ -624,7 +624,7 @@ export function useSorobanContract(
         transaction.sign(keypair);
         return await rpcServer.sendTransaction(transaction);
       } catch (err) {
-        const error = err as Error;
+        const error = err instanceof Error ? err : new Error(String(err));
         setError(error);
         throw error;
       } finally {

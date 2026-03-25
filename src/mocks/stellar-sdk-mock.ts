@@ -3,12 +3,53 @@
  * The jest.config moduleNameMapper redirects '@stellar/stellar-sdk' to this file.
  * Tests import mockGetEvents / mockServerConstructor to control behavior.
  */
+import * as StellarSDK from "../../node_modules/@stellar/stellar-sdk/lib/index.js";
+
+export const {
+  xdr,
+  Address,
+  Contract,
+  Account,
+  TransactionBuilder,
+  Networks,
+} = StellarSDK;
+
+// Mock Keypair to avoid noble-curves crypto issues in Jest/jsdom
+export const Keypair = {
+  ...StellarSDK.Keypair,
+  fromSecret: (secret: string) => ({
+    publicKey: () => "GD6QX7A2B5LOGNTBRSE7FOKD7VZYE7E74BE33NNZCR2HEFRMUBJTKHSP",
+    secret: () => secret,
+    sign: (data: any) => Buffer.alloc(64),
+    canSign: () => true,
+  }),
+  random: () => ({
+    publicKey: () => "GD6QX7A2B5LOGNTBRSE7FOKD7VZYE7E74BE33NNZCR2HEFRMUBJTKHSP",
+    secret: () => "SA3BIFV52MUCXKI52NWZ35ILXBQWZPH3QSNO3KGPWKTQJFZQCLBG7AA4",
+    sign: (data: any) => Buffer.alloc(64),
+    canSign: () => true,
+  }),
+  fromRawEd25519Seed: (seed: any) => ({
+    publicKey: () => "GD6QX7A2B5LOGNTBRSE7FOKD7VZYE7E74BE33NNZCR2HEFRMUBJTKHSP",
+    secret: () => "SA3BIFV52MUCXKI52NWZ35ILXBQWZPH3QSNO3KGPWKTQJFZQCLBG7AA4",
+    sign: (data: any) => Buffer.alloc(64),
+    canSign: () => true,
+  })
+};
 
 export const mockGetEvents = jest.fn();
+export const mockSimulateTransaction = jest.fn();
+export const mockSendTransaction = jest.fn();
 
-export const mockServerConstructor = jest.fn().mockImplementation(() => ({
-  getEvents: mockGetEvents,
-}));
+class MockRpcServer {
+  simulateTransaction(...args: unknown[]) { return mockSimulateTransaction(...args); }
+  sendTransaction(...args: unknown[]) { return mockSendTransaction(...args); }
+  getEvents(...args: unknown[]) { return mockGetEvents(...args); }
+}
+
+export const mockServerConstructor = jest.fn().mockImplementation(() => new MockRpcServer());
+// Maintain prototype for jest.spyOn(rpc.Server.prototype, ...)
+mockServerConstructor.prototype = MockRpcServer.prototype;
 
 export const rpc = {
   Server: mockServerConstructor,
