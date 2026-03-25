@@ -55,7 +55,7 @@ export default function Home() {
       <div className="absolute inset-0">
         {theme === 'light' ? (
           <Image
-            src="/ligt-mode-bg.svg"
+            src="/light-mode-bg.svg"
             alt="Light mode background"
             fill
             className="object-cover"

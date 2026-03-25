@@ -45,7 +45,7 @@ export default function Home() {
     return (<div className="h-screen relative overflow-hidden">
       {/* Background Images */}
       <div className="absolute inset-0">
-        {theme === 'light' ? (<Image src="/ligt-mode-bg.svg" alt="Light mode background" fill className="object-cover" priority onError={() => console.log('Light mode background failed to load')}/>) : (<Image src="/dark-mode-bg.svg" alt="Dark mode background" fill className="object-cover" priority onError={() => console.log('Dark mode background failed to load')}/>)}
+        {theme === 'light' ? (<Image src="/light-mode-bg.svg" alt="Light mode background" fill className="object-cover" priority onError={() => console.log('Light mode background failed to load')}/>) : (<Image src="/dark-mode-bg.svg" alt="Dark mode background" fill className="object-cover" priority onError={() => console.log('Dark mode background failed to load')}/>)}
       </div>
 
       {/* Content */}
