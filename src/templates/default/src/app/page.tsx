@@ -44,32 +44,42 @@ function useTheme() {
 
 export default function Home() {
   const { theme, toggleTheme, mounted } = useTheme();
+  const [bgImgError, setBgImgError] = useState<Record<'light' | 'dark', boolean>>({ light: false, dark: false });
 
   if (!mounted) {
     return null;
   }
 
+  const bgFailed = bgImgError[theme];
+
   return (
-    <div className="h-screen relative overflow-hidden">
-      {/* Background Images */}
+    <div
+      className="h-screen relative overflow-hidden"
+      style={bgFailed
+        ? { backgroundColor: theme === 'light' ? '#ffffff' : '#0a0a0a' }
+        : {}
+      }
+    >
+      {/* Background Images — unmount entirely on error to stop retry loop */}
       <div className="absolute inset-0">
-        {theme === 'light' ? (
+        {theme === 'light' && !bgImgError.light && (
           <Image
-            src="/ligt-mode-bg.svg"
+            src="/light-mode-bg.svg"
             alt="Light mode background"
             fill
             className="object-cover"
             priority
-            onError={() => {}}
+            onError={() => setBgImgError(prev => ({ ...prev, light: true }))}
           />
-        ) : (
+        )}
+        {theme === 'dark' && !bgImgError.dark && (
           <Image
             src="/dark-mode-bg.svg"
             alt="Dark mode background"
             fill
             className="object-cover"
             priority
-            onError={() => {}}
+            onError={() => setBgImgError(prev => ({ ...prev, dark: true }))}
           />
         )}
       </div>
@@ -158,7 +168,7 @@ export default function Home() {
               </a>
 
               <WalletConnectButton theme={theme} />
-              
+
               <NetworkSwitcher />
 
               <a
