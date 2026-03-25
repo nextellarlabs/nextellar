@@ -164,7 +164,7 @@ export function useSorobanContract(opts) {
             return null;
         }
         catch (err) {
-            const error = err;
+            const error = err instanceof Error ? err : new Error(String(err));
             setError(error);
             throw error;
         }
@@ -201,7 +201,7 @@ export function useSorobanContract(opts) {
             return transaction.toXDR();
         }
         catch (err) {
-            const error = err;
+            const error = err instanceof Error ? err : new Error(String(err));
             setError(error);
             throw error;
         }
@@ -234,7 +234,7 @@ export function useSorobanContract(opts) {
             return result;
         }
         catch (err) {
-            const error = err;
+            const error = err instanceof Error ? err : new Error(String(err));
             setError(error);
             throw error;
         }
