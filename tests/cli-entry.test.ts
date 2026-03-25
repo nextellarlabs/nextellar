@@ -23,7 +23,7 @@ describe('nextellar CLI', () => {
       '--skip-install'
     ]);
     expect(exitCode).toBe(0);
-    expect(stdout).toContain('✅ Your Nextellar app is ready!');
+    expect(stdout).toContain('Nextellar scaffold complete!');
     expect(await fs.pathExists(tmpDir)).toBe(true);
   }, 30000);
 });
