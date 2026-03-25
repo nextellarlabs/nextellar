@@ -103,7 +103,6 @@ export async function runInstall(
     await execa(command, args, {
       cwd,
       stdio,
-      shell: true,
       timeout,
     });
 
