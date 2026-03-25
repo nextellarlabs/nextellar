@@ -1,8 +1,22 @@
 // jest.setup.ts
 
-// 1) Add TextEncoder/TextDecoder polyfill FIRST
+// 1) Add TextEncoder/TextDecoder and crypto polyfill FIRST
 import { TextEncoder, TextDecoder } from 'util';
-Object.assign(global, { TextEncoder, TextDecoder });
+import { webcrypto } from 'node:crypto';
+import { Buffer } from 'buffer';
+
+Object.assign(global, { 
+  TextEncoder, 
+  TextDecoder, 
+  Buffer,
+});
+
+if (!global.crypto) {
+  Object.defineProperty(global, 'crypto', {
+    value: webcrypto,
+    configurable: true,
+  });
+}
 
 // 2) Import Jest globals for ESM
 import { jest } from '@jest/globals';
@@ -42,13 +56,3 @@ Object.assign(globalThis, {
   Response: undici.Response,
   fetch: undici.fetch,
 });
-
-// 5) MSW Setup (optional - may not exist, commented out for ESM compatibility)
-// try {
-//   const { server } = require('./src/mocks/server');
-//   beforeAll(() => server.listen());
-//   afterEach(() => server.resetHandlers());
-//   afterAll(() => server.close());
-// } catch (error) {
-//   // MSW server not available, skip
-// }

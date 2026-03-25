@@ -3,11 +3,12 @@ import fs from "fs-extra";
 import { detectPackageManager, runInstall } from "./install.js";
 import { trackScaffoldEvent } from "./telemetry.js";
 import { fileURLToPath } from "url";
+import { confirm } from "@clack/prompts";
 import { validateHorizonUrl, validateSorobanUrl } from "./validate.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 export async function scaffold(options) {
-    const { appName, useTs, template, withContracts, horizonUrl, sorobanUrl, wallets, skipInstall, packageManager, installTimeout, telemetryEnabled, cliVersion, } = options;
+    const { appName, useTs, template, withContracts, horizonUrl, sorobanUrl, wallets, skipInstall, packageManager, installTimeout, telemetryEnabled, cliVersion, force, defaults, } = options;
     const telemetryTemplate = template || "default";
     const telemetryLanguage = useTs ? "typescript" : "javascript";
     const telemetryNetwork = horizonUrl && horizonUrl.includes("public") ? "public" : "testnet";
@@ -37,7 +38,24 @@ export async function scaffold(options) {
     const targetDir = path.resolve(process.cwd(), appName);
     const finalPackageManager = detectPackageManager(targetDir, packageManager);
     if (await fs.pathExists(targetDir)) {
-        throw new Error(`Directory "${appName}" already exists.`);
+        if (!force) {
+            throw new Error(`Directory "${appName}" already exists.`);
+        }
+        // Handle force flag
+        const shouldPrompt = process.stdout.isTTY &&
+            process.stdin.isTTY &&
+            !defaults &&
+            !process.env.CI;
+        if (shouldPrompt) {
+            const overwrite = await confirm({
+                message: `Directory "${appName}" already exists. Overwrite?`,
+            });
+            if (overwrite !== true) {
+                process.exit(0);
+            }
+        }
+        // Remove existing directory
+        await fs.remove(targetDir);
     }
     try {
         await fs.copy(templateDir, targetDir, {
