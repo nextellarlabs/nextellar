@@ -246,16 +246,29 @@ export function useTransactionHistory(
     setLoading(true);
     setError(null);
     isRequestInFlightRef.current = true;
-    
+
+    // Capture the current publicKey to detect changes during fetch
+    const requestPublicKey = publicKey;
+
     try {
       const result = await fetchTransactionHistory(publicKey, null);
-      
+
+      // Discard result if publicKey changed during fetch
+      if (requestPublicKey !== publicKey) {
+        return;
+      }
+
       setItems(result.records);
       nextCursorRef.current = result.next;
       setHasMore(result.records.length === pageSize && !!result.next);
       setError(null);
       currentPublicKeyRef.current = publicKey;
     } catch (err) {
+      // Discard error if publicKey changed during fetch
+      if (requestPublicKey !== publicKey) {
+        return;
+      }
+
       const error = err instanceof Error ? err : new Error('Failed to fetch transaction history');
       setError(error);
       console.error('Error fetching transaction history:', error);
@@ -289,27 +302,40 @@ export function useTransactionHistory(
     setLoading(true);
     setError(null);
     isRequestInFlightRef.current = true;
-    
+
+    // Capture the current publicKey to detect changes during fetch
+    const requestPublicKey = publicKey;
+
     try {
       const result = await fetchTransactionHistory(publicKey, nextCursorRef.current);
-      
+
+      // Discard result if publicKey changed during fetch
+      if (requestPublicKey !== publicKey) {
+        return;
+      }
+
       setItems(prevItems => {
         const newItems = [...prevItems, ...result.records];
-        
+
         // Memory management: limit total items in memory
         if (newItems.length > MAX_ITEMS_IN_MEMORY) {
           const trimmedItems = newItems.slice(-MAX_ITEMS_IN_MEMORY);
           console.warn(`Transaction history trimmed to ${MAX_ITEMS_IN_MEMORY} items to prevent excessive memory usage`);
           return trimmedItems;
         }
-        
+
         return newItems;
       });
-      
+
       nextCursorRef.current = result.next;
       setHasMore(result.records.length === pageSize && !!result.next);
       setError(null);
     } catch (err) {
+      // Discard error if publicKey changed during fetch
+      if (requestPublicKey !== publicKey) {
+        return;
+      }
+
       const error = err instanceof Error ? err : new Error('Failed to fetch next page');
       setError(error);
       console.error('Error fetching next page:', error);

@@ -41,7 +41,7 @@ export function useOfferBook(buying, selling, opts = {}) {
             setError(null);
         }
         catch (err) {
-            setError(err);
+            setError(err instanceof Error ? err : new Error(String(err)));
         }
         finally {
             setLoading(false);
