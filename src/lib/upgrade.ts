@@ -3,6 +3,7 @@ import fs from "fs-extra";
 import pc from "picocolors";
 import readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
+import { fileURLToPath } from "url";
 
 interface UpgradeOptions {
   dryRun?: boolean;
@@ -16,7 +17,7 @@ const STELLAR_PKGS = [
 
 function findTemplateDir(templateName: string) {
   const base = path.resolve(
-    path.dirname(new URL(import.meta.url).pathname),
+    path.dirname(fileURLToPath(import.meta.url)),
   );
   const devPath = path.resolve(base, "../../templates", templateName);
   const prodPath = path.resolve(base, "../../../src/templates", templateName);
@@ -175,7 +176,7 @@ export async function upgrade(opts: UpgradeOptions = {}) {
 
   // Update config nextellarVersion
   try {
-    const myPkg = await fs.readJson(path.join(path.dirname(new URL(import.meta.url).pathname), "../../package.json"));
+    const myPkg = await fs.readJson(path.join(path.dirname(fileURLToPath(import.meta.url)), "../../package.json"));
     projectConfig.nextellarVersion = myPkg.version || projectConfig.nextellarVersion;
     projectConfig.updatedAt = new Date().toISOString();
     await fs.writeJson(configPath, projectConfig, { spaces: 2 });
