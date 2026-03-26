@@ -248,11 +248,14 @@ export function useStellarPayment(
       throw new Error('Horizon server not initialized');
     }
 
-    if (!signedXdrBase64 || typeof signedXdrBase64 !== 'string') {
-      return {
-        success: false,
-        error: 'Invalid XDR: must be a non-empty string'
-      };
+    const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+    if (
+      !signedXdrBase64 || 
+      typeof signedXdrBase64 !== 'string' || 
+      signedXdrBase64.length <= 50 || 
+      !base64Regex.test(signedXdrBase64)
+    ) {
+      throw new Error('Invalid signed transaction XDR. The wallet may have returned a corrupted response.');
     }
 
     try {
