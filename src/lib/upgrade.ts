@@ -132,12 +132,18 @@ export async function upgrade(opts: UpgradeOptions = {}) {
   if (!opts.yes) {
     // Prompt the user with Node built-ins to avoid extra runtime deps.
     const rl = readline.createInterface({ input, output });
-    const answer =
-      (await rl.question(pc.yellow("Apply these changes? (y/N) "))) || "";
-    rl.close();
-    if (!/^y(es)?$/i.test(answer.trim())) {
-      console.log("Aborted by user.");
+    try {
+      const answer =
+        (await rl.question(pc.yellow("Apply these changes? (y/N) "))) || "";
+      if (!/^y(es)?$/i.test(answer.trim())) {
+        console.log("Aborted by user.");
+        return;
+      }
+    } catch {
+      console.log("\nUpgrade cancelled.");
       return;
+    } finally {
+      rl.close();
     }
   }
 
