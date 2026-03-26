@@ -223,11 +223,11 @@ async function checkDisk(): Promise<CheckResult> {
   const ok = free > 1_000_000_000; // > 1GB
   return {
     id: "disk",
-    name: "Disk / Memory",
+    name: "Free Memory (RAM)",
     required: true,
     ok,
-    detail: ok ? `${Math.round(free / (1024 * 1024))} MB free` : `${Math.round(free / (1024 * 1024))} MB free`,
-    fix: "Free up at least 1GB of memory/disk space",
+    detail: ok ? `${Math.round(free / (1024 * 1024))} MB RAM free` : `${Math.round(free / (1024 * 1024))} MB RAM free`,
+    fix: "Free up at least 1GB of RAM",
   };
 }
 
