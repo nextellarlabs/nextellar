@@ -178,4 +178,21 @@ export const handlers = [
       );
     }
   ),
+
+  // Horizon order_book endpoint for useOfferBook
+  http.get(
+    "https://horizon-testnet.stellar.org/order_book",
+    () => {
+      return HttpResponse.json({
+        bids: [
+          { price: "0.5000000", amount: "100.0000000" },
+          { price: "0.4900000", amount: "200.0000000" },
+        ],
+        asks: [
+          { price: "0.5100000", amount: "150.0000000" },
+          { price: "0.5200000", amount: "250.0000000" },
+        ],
+      });
+    }
+  ),
 ];
