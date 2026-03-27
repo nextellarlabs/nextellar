@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from 'react';
 import {
   Horizon,
   TransactionBuilder,
@@ -120,10 +120,13 @@ export function WalletProvider({
   const network = initialNetwork || config.passphrase;
 
   const [server, setServer] = useState(() => new Server(horizonUrl));
+  const serverRef = useRef(server);
 
   // Update server when network changes
   useEffect(() => {
-    setServer(new Server(horizonUrl));
+    const nextServer = new Server(horizonUrl);
+    setServer(nextServer);
+    serverRef.current = nextServer;
   }, [horizonUrl]);
 
   /**
@@ -157,7 +160,7 @@ export function WalletProvider({
 
           // Load balances
           try {
-            const account = await server.accounts().accountId(address).call();
+            const account = await serverRef.current.accounts().accountId(address).call();
             setBalances(account.balances);
           } catch (error: unknown) {
             if (error && typeof error === 'object' && 'response' in error && (error as { response?: { status?: number } }).response?.status === 404) {
@@ -173,7 +176,7 @@ export function WalletProvider({
       console.error('Failed to connect wallet:', error);
       throw error;
     }
-  }, [server]);
+  }, [activeNetworkKey]);
 
   /**
    * Disconnect wallet and clear state
@@ -223,7 +226,7 @@ export function WalletProvider({
     if (!publicKey) return;
 
     try {
-      const account = await server.accounts().accountId(publicKey).call();
+      const account = await serverRef.current.accounts().accountId(publicKey).call();
       setBalances(account.balances);
     } catch (error: unknown) {
       if (error && typeof error === 'object' && 'response' in error && (error as { response?: { status?: number } }).response?.status === 404) {
@@ -233,7 +236,7 @@ export function WalletProvider({
         setBalances([]);
       }
     }
-  }, [publicKey, server]);
+  }, [publicKey]);
 
   /**
    * Send a payment transaction
@@ -244,7 +247,7 @@ export function WalletProvider({
     }
 
     try {
-      const account = await server.loadAccount(publicKey);
+      const account = await serverRef.current.loadAccount(publicKey);
       const asset = opts.asset === 'XLM' || !opts.asset
         ? Asset.native()
         : new Asset(opts.asset.code, opts.asset.issuer);
@@ -283,7 +286,7 @@ export function WalletProvider({
       }
 
       const signedTransaction = TransactionBuilder.fromXDR(signedTxXdr, network);
-      const result = await server.submitTransaction(signedTransaction);
+      const result = await serverRef.current.submitTransaction(signedTransaction);
 
       await refreshBalances();
       return result;
@@ -291,7 +294,7 @@ export function WalletProvider({
       console.error('Payment failed:', error);
       throw error;
     }
-  }, [publicKey, connected, server, network, refreshBalances]);
+  }, [publicKey, connected, network, refreshBalances]);
 
   // Auto-reconnect wallet on mount if previously connected
   useEffect(() => {
@@ -316,7 +319,7 @@ export function WalletProvider({
             setConnected(true);
 
             try {
-              const account = await server.accounts().accountId(address).call();
+              const account = await serverRef.current.accounts().accountId(address).call();
               setBalances(account.balances);
             } catch (error: unknown) {
               if (error && typeof error === 'object' && 'response' in error && (error as { response?: { status?: number } }).response?.status === 404) {
@@ -338,7 +341,7 @@ export function WalletProvider({
     };
 
     autoReconnect();
-  }, [server]);
+  }, [activeNetworkKey]);
 
   const walletValue: WalletContextState = {
     connected,

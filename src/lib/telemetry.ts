@@ -35,9 +35,16 @@ interface TelemetryEvent {
   properties: ScaffoldTelemetryProperties;
 }
 
+const TELEMETRY_TIMEOUT_MS = 3000;
+const pendingTelemetryRequests = new Set<Promise<void>>();
+
 export function isTelemetryDisabledByEnv(): boolean {
   const value = process.env.NEXTELLAR_TELEMETRY_DISABLED;
-  return value === "1" || value === "true";
+  if (!value) {
+    return false;
+  }
+
+  return /^(1|true|yes|on)$/i.test(value.trim());
 }
 
 export async function readTelemetryConfig(): Promise<TelemetryConfig> {
@@ -106,7 +113,7 @@ export async function maybeShowTelemetryNotice(options?: {
 
   console.log("\nNextellar collects anonymous usage data to improve the tool.");
   console.log(
-    "You can disable this with --no-telemetry or NEXTELLAR_TELEMETRY_DISABLED=1"
+    "You can disable this with --no-telemetry or NEXTELLAR_TELEMETRY_DISABLED=1|true|yes|on"
   );
   console.log("Learn more: https://nextellar.dev/telemetry\n");
 
@@ -159,7 +166,7 @@ function shouldSkipTelemetry(noTelemetryFlag?: boolean): boolean {
 async function postTelemetryEvent(event: TelemetryEvent): Promise<void> {
   const endpoint = process.env.NEXTELLAR_TELEMETRY_ENDPOINT || DEFAULT_ENDPOINT;
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 3000);
+  const timeout = setTimeout(() => controller.abort(), TELEMETRY_TIMEOUT_MS);
 
   try {
     await fetch(endpoint, {
@@ -174,6 +181,28 @@ async function postTelemetryEvent(event: TelemetryEvent): Promise<void> {
     // Silent failure: telemetry should never block scaffolding.
   } finally {
     clearTimeout(timeout);
+  }
+}
+
+export async function flushTelemetry(): Promise<void> {
+  if (isTelemetryDisabledByEnv() || pendingTelemetryRequests.size === 0) {
+    return;
+  }
+
+  const timeoutPromise = new Promise<void>((resolve) => {
+    const timeout = setTimeout(() => {
+      clearTimeout(timeout);
+      resolve();
+    }, TELEMETRY_TIMEOUT_MS);
+  });
+
+  try {
+    await Promise.race([
+      Promise.allSettled(Array.from(pendingTelemetryRequests)).then(() => undefined),
+      timeoutPromise,
+    ]);
+  } catch {
+    // Never allow telemetry flush to break CLI commands.
   }
 }
 
@@ -195,10 +224,15 @@ export async function trackScaffoldEvent(
     return;
   }
 
-  void postTelemetryEvent({
+  const request = postTelemetryEvent({
     event: "scaffold",
     anonymousId,
     properties,
+  });
+
+  pendingTelemetryRequests.add(request);
+  void request.finally(() => {
+    pendingTelemetryRequests.delete(request);
   });
 }
 
