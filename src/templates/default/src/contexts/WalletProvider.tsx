@@ -13,6 +13,7 @@ import {
 import { ISupportedWallet, WalletNetwork } from "@creit.tech/stellar-wallets-kit";
 import { kit } from '../lib/stellar-wallet-kit';
 import { NETWORKS } from '../config/networks';
+import { storage } from '../lib/storage';
 
 const Server = Horizon.Server;
 
@@ -105,11 +106,9 @@ export function WalletProvider({
 
   // Load saved network on mount
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedNetwork = localStorage.getItem('stellar_network');
-      if (savedNetwork && NETWORKS[savedNetwork]) {
-        setActiveNetworkKey(savedNetwork);
-      }
+    const savedNetwork = storage.get('stellar_network');
+    if (savedNetwork && NETWORKS[savedNetwork]) {
+      setActiveNetworkKey(savedNetwork);
     }
   }, []);
 
@@ -150,13 +149,10 @@ export function WalletProvider({
           setWalletName(name);
           setConnected(true);
 
-          // Save connection to localStorage for persistence
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('stellar_wallet_connected', 'true');
-            localStorage.setItem('stellar_wallet_id', option.id);
-            localStorage.setItem('stellar_wallet_address', address);
-            localStorage.setItem('stellar_wallet_name', name);
-          }
+          storage.set('stellar_wallet_connected', 'true');
+          storage.set('stellar_wallet_id', option.id);
+          storage.set('stellar_wallet_address', address);
+          storage.set('stellar_wallet_name', name);
 
           // Load balances
           try {
@@ -189,13 +185,10 @@ export function WalletProvider({
       setWalletName(undefined);
       setBalances([]);
 
-      // Clear localStorage on disconnect
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('stellar_wallet_connected');
-        localStorage.removeItem('stellar_wallet_id');
-        localStorage.removeItem('stellar_wallet_address');
-        localStorage.removeItem('stellar_wallet_name');
-      }
+      storage.remove('stellar_wallet_connected');
+      storage.remove('stellar_wallet_id');
+      storage.remove('stellar_wallet_address');
+      storage.remove('stellar_wallet_name');
     } catch (error) {
       console.error('Failed to disconnect wallet:', error);
     }
@@ -213,9 +206,7 @@ export function WalletProvider({
       disconnect();
     }
     
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('stellar_network', networkKey);
-    }
+    storage.set('stellar_network', networkKey);
     setActiveNetworkKey(networkKey);
   }, [connected, disconnect]);
 
@@ -299,12 +290,10 @@ export function WalletProvider({
   // Auto-reconnect wallet on mount if previously connected
   useEffect(() => {
     const autoReconnect = async () => {
-      if (typeof window === 'undefined') return;
-
-      const wasConnected = localStorage.getItem('stellar_wallet_connected');
-      const savedWalletId = localStorage.getItem('stellar_wallet_id');
-      const savedAddress = localStorage.getItem('stellar_wallet_address');
-      const savedName = localStorage.getItem('stellar_wallet_name');
+      const wasConnected = storage.get('stellar_wallet_connected');
+      const savedWalletId = storage.get('stellar_wallet_id');
+      const savedAddress = storage.get('stellar_wallet_address');
+      const savedName = storage.get('stellar_wallet_name');
 
       if (wasConnected === 'true' && savedWalletId && savedAddress) {
         try {
@@ -330,12 +319,10 @@ export function WalletProvider({
             }
           }
         } catch {
-          if (typeof window !== 'undefined') {
-            localStorage.removeItem('stellar_wallet_connected');
-            localStorage.removeItem('stellar_wallet_id');
-            localStorage.removeItem('stellar_wallet_address');
-            localStorage.removeItem('stellar_wallet_name');
-          }
+          storage.remove('stellar_wallet_connected');
+          storage.remove('stellar_wallet_id');
+          storage.remove('stellar_wallet_address');
+          storage.remove('stellar_wallet_name');
         }
       }
     };

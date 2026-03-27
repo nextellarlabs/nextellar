@@ -9,6 +9,7 @@ import { useWalletConfig } from '../contexts';
 const DEFAULT_SOROBAN_RPC = 'https://soroban-testnet.stellar.org';
 const DEFAULT_POLL_INTERVAL_MS = 10_000;
 const ERROR_POLL_MULTIPLIER = 2;       // poll at 2× normal interval after errors
+export const MAX_BACKOFF_MS = 30_000;
 const MAX_RETRIES = 3;
 const BACKOFF_BASE_MS = 1_000;         // 1s → 3s → 9s (exponential ×3)
 
@@ -254,7 +255,7 @@ export function useSorobanEvents(
       if (!pollIntervalMs || !isMountedRef.current) return;
 
       const interval = errorMode
-        ? pollIntervalMs * ERROR_POLL_MULTIPLIER
+        ? Math.min(pollIntervalMs * ERROR_POLL_MULTIPLIER, MAX_BACKOFF_MS)
         : pollIntervalMs;
 
       pollTimerRef.current = setTimeout(async () => {
