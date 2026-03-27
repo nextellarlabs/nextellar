@@ -1,6 +1,6 @@
 import path from "path";
 import fs from "fs-extra";
-import { spawn } from "child_process";
+import { execa } from "execa";
 import pc from "picocolors";
 
 export interface DeployOptions {
@@ -123,27 +123,15 @@ async function createBundle(projectRoot: string, bundlePath: string): Promise<vo
     ".",
   ];
 
-  await new Promise<void>((resolve, reject) => {
-    const child = spawn("tar", args, {
-      stdio: "inherit",
+  try {
+    await execa("tar", args, {
+      cwd: projectRoot,
     });
-
-    child.on("error", (error) => {
-      reject(
-        new Error(
-          `Failed to run tar while creating deployment bundle: ${error.message}`
-        )
-      );
-    });
-
-    child.on("close", (code) => {
-      if (code === 0) {
-        resolve();
-        return;
-      }
-      reject(new Error(`Failed to create deployment bundle (tar exit code ${code}).`));
-    });
-  });
+  } catch (error: any) {
+    const stderr = typeof error?.stderr === "string" ? error.stderr.trim() : "";
+    const details = stderr.length > 0 ? ` Details: ${stderr}` : "";
+    throw new Error(`Failed to create deployment bundle with tar.${details}`);
+  }
 }
 
 async function writeBundleState(
