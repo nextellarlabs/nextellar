@@ -542,9 +542,11 @@ export function useSorobanContract(
         }
 
         if ("result" in simulation && simulation.result?.retval) {
+          setError(null);
           return fromXdrValue(simulation.result.retval);
         }
 
+        setError(null);
         return null;
       } catch (err) {
         const error = err as Error;
@@ -585,7 +587,9 @@ export function useSorobanContract(
           .addOperation(operation)
           .setTimeout(30);
 
-        return txBuilder.build().toXDR();
+        const xdrResult = txBuilder.build().toXDR();
+        setError(null);
+        return xdrResult;
       } catch (err) {
         const error = err as Error;
         setError(error);
@@ -622,7 +626,9 @@ export function useSorobanContract(
         const transaction = TransactionBuilder.fromXDR(xdr, networkPassphrase);
         const keypair = Keypair.fromSecret(secret);
         transaction.sign(keypair);
-        return await rpcServer.sendTransaction(transaction);
+        const result = await rpcServer.sendTransaction(transaction);
+        setError(null);
+        return result;
       } catch (err) {
         const error = err as Error;
         setError(error);

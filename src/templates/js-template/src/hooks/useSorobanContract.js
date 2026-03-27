@@ -159,8 +159,10 @@ export function useSorobanContract(opts) {
             }
             // Extract and convert the result
             if ("result" in simulation && simulation.result?.retval) {
+                setError(null);
                 return fromXdrValue(simulation.result.retval);
             }
+            setError(null);
             return null;
         }
         catch (err) {
@@ -198,7 +200,9 @@ export function useSorobanContract(opts) {
                 .addOperation(operation)
                 .setTimeout(30);
             const transaction = txBuilder.build();
-            return transaction.toXDR();
+            const xdrResult = transaction.toXDR();
+            setError(null);
+            return xdrResult;
         }
         catch (err) {
             const error = err;
@@ -229,8 +233,8 @@ export function useSorobanContract(opts) {
             // Sign with the provided secret key (DEV-ONLY)
             const keypair = Keypair.fromSecret(secret);
             transaction.sign(keypair);
-            // Submit the transaction
             const result = await rpcServer.sendTransaction(transaction);
+            setError(null);
             return result;
         }
         catch (err) {
