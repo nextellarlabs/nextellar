@@ -222,7 +222,7 @@ program
   )
   .option(
     "--install-timeout <ms>",
-    "installation timeout in milliseconds",
+    "timeout in ms for package install (default: 1200000 / 20 minutes)",
     "1200000",
   )
   .option("--no-telemetry", "disable telemetry for this invocation");
