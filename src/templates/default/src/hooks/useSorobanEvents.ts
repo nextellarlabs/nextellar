@@ -319,6 +319,7 @@ export function useSorobanEvents(
 
   useEffect(() => {
     isMountedRef.current = true;
+    isFetchingRef.current = false;
     cursorRef.current = fromCursor;
 
     // Run initial fetch immediately, then let refresh schedule polling
