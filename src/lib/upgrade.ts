@@ -34,20 +34,7 @@ export async function upgrade(opts: UpgradeOptions = {}) {
     throw new Error("Not a Nextellar project: missing .nextellar/config.json");
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let projectConfig: Record<string, any> = {};
-  try {
-    projectConfig = await fs.readJson(configPath);
-  } catch (err: unknown) {
-    const isNotFound =
-      err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT";
-    if (!isNotFound) {
-      const reason = err instanceof Error ? err.message : String(err);
-      console.warn(
-        pc.yellow(`Warning: Could not read .nextellar.json: ${reason}. Proceeding with defaults.`),
-      );
-    }
-  }
+  const projectConfig = await fs.readJson(configPath).catch(() => ({}));
   const templateName = projectConfig.template || "default";
   const currentVersion = projectConfig.nextellarVersion || "unknown";
 

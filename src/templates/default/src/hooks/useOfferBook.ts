@@ -81,7 +81,7 @@ export function useOfferBook(
             setAsks((data.asks || []).map(mapOffer))
             setError(null)
         } catch (err) {
-            setError(err instanceof Error ? err : new Error(String(err)))
+            setError(err as Error)
         } finally {
             setLoading(false)
         }

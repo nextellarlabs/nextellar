@@ -1,6 +1,6 @@
 import { StellarWalletsKit, FREIGHTER_ID, FreighterModule, AlbedoModule, LobstrModule, xBullModule, HanaModule, WalletNetwork, } from "@creit.tech/stellar-wallets-kit";
 // Placeholder for injected wallets
-const INJECTED_WALLETS = {{WALLETS}};
+const INJECTED_WALLETS = ["freighter", "albedo", "lobstr"];
 let kitInstance = null;
 export const getKit = () => {
     if (typeof window === 'undefined') {

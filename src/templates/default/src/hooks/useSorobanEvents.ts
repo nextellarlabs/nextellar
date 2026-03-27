@@ -20,7 +20,6 @@ const BACKOFF_BASE_MS = 1_000;         // 1s → 3s → 9s (exponential ×3)
  */
 export interface SorobanEvent {
   id: string;
-  pagingToken: string;
   type: string;
   ledger: number;
   ledgerClosedAt: string;
@@ -82,7 +81,6 @@ function sleep(ms: number): Promise<void> {
 function mapEvent(raw: rpc.Api.EventResponse): SorobanEvent {
   return {
     id: raw.id,
-    pagingToken: (raw as any).pagingToken || raw.id,
     type: raw.type,
     ledger: raw.ledger,
     ledgerClosedAt: raw.ledgerClosedAt,
@@ -187,18 +185,16 @@ export function useSorobanEvents(
 
     if (!isMountedRef.current) return;
 
-    const nextEvents = response.events.map(mapEvent);
+    const newEvents = response.events.map(mapEvent);
 
     setEvents((prev) => {
       const seen = new Set(prev.map((e) => e.id));
-      return [...prev, ...nextEvents.filter((e) => !seen.has(e.id))];
+      return [...prev, ...newEvents.filter((e) => !seen.has(e.id))];
     });
 
     // Advance cursor using the response-level cursor for next page
-    // Fallback to the last event's pagingToken for mock compatibility
-    const nextCursor = response.cursor || nextEvents[nextEvents.length - 1]?.pagingToken;
-    if (nextCursor) {
-      cursorRef.current = nextCursor;
+    if (response.cursor) {
+      cursorRef.current = response.cursor;
     }
   }, [contractId, rpcServer, topics, limit]);
 

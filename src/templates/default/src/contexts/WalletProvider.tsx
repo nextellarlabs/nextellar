@@ -59,6 +59,7 @@ interface WalletConfigContextState {
   horizonUrl: string;
   sorobanUrl: string;
   network: string;
+  sorobanUrl: string;
   switchNetwork: (networkKey: string) => void;
 }
 
@@ -92,9 +93,9 @@ const WalletConfigContext = createContext<WalletConfigContextState | undefined>(
  */
 export function WalletProvider({
   children,
-  horizonUrl: initialHorizonUrl = process.env.NEXT_PUBLIC_HORIZON_URL || 'https://horizon-testnet.stellar.org',
+  horizonUrl = process.env.NEXT_PUBLIC_HORIZON_URL || 'https://horizon-testnet.stellar.org',
   sorobanUrl = process.env.NEXT_PUBLIC_SOROBAN_URL || 'https://soroban-testnet.stellar.org',
-  network: initialNetwork = (process.env.NEXT_PUBLIC_NETWORK === 'PUBLIC' ? Networks.PUBLIC : Networks.TESTNET)
+  network = (process.env.NEXT_PUBLIC_NETWORK === 'PUBLIC' ? Networks.PUBLIC : Networks.TESTNET)
 }: WalletProviderProps) {
   const [activeNetworkKey, setActiveNetworkKey] = useState<string>('testnet');
   const [connected, setConnected] = useState(false);
@@ -114,16 +115,16 @@ export function WalletProvider({
 
   // Derive active settings from config or props
   const config = NETWORKS[activeNetworkKey] || NETWORKS.testnet;
-  const activeHorizonUrl = initialHorizonUrl || config.horizonUrl;
-  const activeSorobanUrl = config.sorobanUrl;
-  const activeNetworkPassphrase = initialNetwork || config.passphrase;
+  const horizonUrl = initialHorizonUrl || config.horizonUrl;
+  const sorobanUrl = config.sorobanUrl;
+  const network = initialNetwork || config.passphrase;
 
-  const [server, setServer] = useState(() => new Server(activeHorizonUrl));
+  const [server, setServer] = useState(() => new Server(horizonUrl));
 
-  // Update server when activeNetworkPassphrase changes
+  // Update server when network changes
   useEffect(() => {
-    setServer(new Server(activeHorizonUrl));
-  }, [activeHorizonUrl]);
+    setServer(new Server(horizonUrl));
+  }, [horizonUrl]);
 
   /**
    * Connect to a Stellar wallet using the modal interface
@@ -198,13 +199,13 @@ export function WalletProvider({
   }, []);
 
   /**
-   * Switch the active activeNetworkPassphrase
+   * Switch the active network
    */
   const switchNetwork = useCallback((networkKey: string) => {
     if (!NETWORKS[networkKey]) return;
     
-    // Changing activeNetworkPassphrase requires disconnecting the current session 
-    // since accounts/balances are activeNetworkPassphrase-specific
+    // Changing network requires disconnecting the current session 
+    // since accounts/balances are network-specific
     if (connected) {
       disconnect();
     }
@@ -250,7 +251,7 @@ export function WalletProvider({
 
       const txBuilder = new TransactionBuilder(account, {
         fee: BASE_FEE,
-        networkPassphrase: activeNetworkPassphrase,
+        networkPassphrase: network,
       }).addOperation(
         Operation.payment({
           destination: opts.to,
@@ -281,7 +282,7 @@ export function WalletProvider({
         });
       }
 
-      const signedTransaction = TransactionBuilder.fromXDR(signedTxXdr, activeNetworkPassphrase);
+      const signedTransaction = TransactionBuilder.fromXDR(signedTxXdr, network);
       const result = await server.submitTransaction(signedTransaction);
 
       await refreshBalances();
@@ -290,7 +291,7 @@ export function WalletProvider({
       console.error('Payment failed:', error);
       throw error;
     }
-  }, [publicKey, connected, server, activeNetworkPassphrase, refreshBalances]);
+  }, [publicKey, connected, server, network, refreshBalances]);
 
   // Auto-reconnect wallet on mount if previously connected
   useEffect(() => {
@@ -352,9 +353,10 @@ export function WalletProvider({
 
   const configValue: WalletConfigContextState = {
     activeNetworkKey,
-    horizonUrl: activeHorizonUrl,
-    sorobanUrl: activeSorobanUrl,
-    network: activeNetworkPassphrase,
+    horizonUrl,
+    sorobanUrl,
+    network,
+    sorobanUrl,
     switchNetwork,
   };
 
@@ -403,7 +405,7 @@ export function useWallet(): WalletContextState {
 /**
  * Hook to access wallet provider configuration
  * 
- * Use this in standalone hooks to consume the provider's horizonUrl: initialHorizonUrl and network settings.
+ * Use this in standalone hooks to consume the provider's horizonUrl and network settings.
  * Returns undefined if not within a WalletProvider (allows standalone usage).
  * 
  * @example
@@ -411,7 +413,7 @@ export function useWallet(): WalletContextState {
  * function MyComponent() {
  *   const config = useWalletConfig();
  *   const balances = useStellarBalances({ 
- *     horizonUrl: initialHorizonUrl: config?.horizonUrl: initialHorizonUrl // Falls back to hook's default if no provider
+ *     horizonUrl: config?.horizonUrl // Falls back to hook's default if no provider
  *   });
  * }
  * ```

@@ -48,7 +48,8 @@ export interface TrustlinesState {
 const DEFAULT_HORIZON_URL = 'https://horizon-testnet.stellar.org';
 const DEFAULT_NETWORK = 'TESTNET';
 
-
+// Module-level request coordination to prevent duplicate requests
+let globalRequestInFlight = false;
 
 /**
  * Custom React hook for managing Stellar account trustlines
@@ -266,8 +267,8 @@ export function useTrustlines(
       return;
     }
 
-    // Prevent duplicate requests within this hook instance
-    if (isRequestInFlightRef.current) {
+    // Prevent duplicate requests across hook instances
+    if (globalRequestInFlight || isRequestInFlightRef.current) {
       return;
     }
 
@@ -280,6 +281,7 @@ export function useTrustlines(
 
     setLoading(true);
     setError(null); // Clear previous errors
+    globalRequestInFlight = true;
     isRequestInFlightRef.current = true;
     
     try {
@@ -292,6 +294,7 @@ export function useTrustlines(
       console.error('Error fetching Stellar trustlines:', error);
     } finally {
       setLoading(false);
+      globalRequestInFlight = false;
       isRequestInFlightRef.current = false;
     }
   }, [publicKey, fetchTrustlines]);
@@ -481,12 +484,16 @@ export function useTrustlines(
 
     // Initial load
     refresh();
-  }, [publicKey, refresh, horizonUrl]);
+  }, [publicKey, refresh]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      isRequestInFlightRef.current = false;
+      // Reset global state on unmount
+      if (isRequestInFlightRef.current) {
+        globalRequestInFlight = false;
+        isRequestInFlightRef.current = false;
+      }
     };
   }, []);
 

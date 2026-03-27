@@ -150,10 +150,11 @@ async function checkWasmTarget(): Promise<CheckResult> {
 }
 
 async function checkHorizon(): Promise<CheckResult> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5000);
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
     const res = await fetch(HORIZON, { method: "HEAD", signal: controller.signal });
+    clearTimeout(timeout);
     return {
       id: "horizon",
       name: "Horizon API",
@@ -164,33 +165,29 @@ async function checkHorizon(): Promise<CheckResult> {
       link: HORIZON,
     };
   } catch (err: any) {
-    const detail = err?.name === "AbortError"
-      ? "Request timed out after 5s"
-      : `Unreachable: ${String(err.message || err)}`;
     return {
       id: "horizon",
       name: "Horizon API",
       required: true,
       ok: false,
-      detail,
+      detail: `Unreachable: ${String(err.message || err)}`,
       fix: "Ensure network access to horizon-testnet.stellar.org",
       link: HORIZON,
     };
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
 async function checkSoroban(): Promise<CheckResult> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5000);
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
     const res = await fetch(SOROBAN, {
       method: "POST",
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "status", params: [] }),
       headers: { "content-type": "application/json" },
       signal: controller.signal,
     });
+    clearTimeout(timeout);
     return {
       id: "soroban",
       name: "Soroban RPC",
@@ -201,20 +198,15 @@ async function checkSoroban(): Promise<CheckResult> {
       link: SOROBAN,
     };
   } catch (err: any) {
-    const detail = err?.name === "AbortError"
-      ? "Request timed out after 5s"
-      : `Unreachable: ${String(err.message || err)}`;
     return {
       id: "soroban",
       name: "Soroban RPC",
       required: false,
       ok: false,
-      detail,
+      detail: `Unreachable: ${String(err.message || err)}`,
       fix: "Ensure network access to soroban-testnet.stellar.org",
       link: SOROBAN,
     };
-  } finally {
-    clearTimeout(timeout);
   }
 }
 

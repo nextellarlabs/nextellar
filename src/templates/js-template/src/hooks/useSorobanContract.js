@@ -122,7 +122,7 @@ export function useSorobanContract(opts) {
             case xdr.ScValType.scvAddress():
                 return scVal.address().toString();
             default:
-                throw new Error(`Unsupported Soroban XDR type: ${scVal.switch().name}. Please open an issue at https://github.com/nextellarlabs/nextellar/issues`);
+                return scVal.toString();
         }
     }, []);
     /**
@@ -164,7 +164,7 @@ export function useSorobanContract(opts) {
             return null;
         }
         catch (err) {
-            const error = err instanceof Error ? err : new Error(String(err));
+            const error = err;
             setError(error);
             throw error;
         }
@@ -201,7 +201,7 @@ export function useSorobanContract(opts) {
             return transaction.toXDR();
         }
         catch (err) {
-            const error = err instanceof Error ? err : new Error(String(err));
+            const error = err;
             setError(error);
             throw error;
         }
@@ -234,7 +234,7 @@ export function useSorobanContract(opts) {
             return result;
         }
         catch (err) {
-            const error = err instanceof Error ? err : new Error(String(err));
+            const error = err;
             setError(error);
             throw error;
         }

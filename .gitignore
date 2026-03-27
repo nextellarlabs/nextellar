@@ -40,3 +40,4 @@ tmp-test-*/
 
 # Nextellar specific
 .nextellar/
+node_modules

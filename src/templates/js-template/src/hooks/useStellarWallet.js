@@ -65,7 +65,7 @@ export function useStellarWallet(horizonUrl = 'https://horizon-testnet.stellar.o
                     catch (error) {
                         // Account doesn't exist on the network yet (needs funding)
                         if (error && typeof error === 'object' && 'response' in error && error.response?.status === 404) {
-                            console.log(`Account ${address} not found on testnet. Fund it with XLM to activate it.`);
+                            console.error(`Account ${address} not found on testnet. Fund it with XLM to activate it.`);
                             setBalances([]);
                         }
                         else {
@@ -114,7 +114,7 @@ export function useStellarWallet(horizonUrl = 'https://horizon-testnet.stellar.o
         catch (error) {
             // Account doesn't exist on the network yet (needs funding)
             if (error && typeof error === 'object' && 'response' in error && error.response?.status === 404) {
-                console.log(`Account ${key} not found on testnet. Fund it with XLM to activate it.`);
+                console.error(`Account ${key} not found on testnet. Fund it with XLM to activate it.`);
                 setBalances([]);
             }
             else {
@@ -204,7 +204,7 @@ export function useStellarWallet(horizonUrl = 'https://horizon-testnet.stellar.o
                         }
                         catch (error) {
                             if (error && typeof error === 'object' && 'response' in error && error.response?.status === 404) {
-                                console.log(`Account ${address} not found. Fund it to activate.`);
+                                console.error(`Account ${address} not found. Fund it to activate.`);
                                 setBalances([]);
                             }
                             else {
@@ -214,7 +214,7 @@ export function useStellarWallet(horizonUrl = 'https://horizon-testnet.stellar.o
                     }
                 }
                 catch {
-                    console.log('Auto-reconnect failed');
+                    console.error('Auto-reconnect failed');
                     if (typeof window !== 'undefined') {
                         localStorage.removeItem('stellar_wallet_connected');
                         localStorage.removeItem('stellar_wallet_id');

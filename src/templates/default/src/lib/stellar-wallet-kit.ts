@@ -12,7 +12,7 @@ import {
 
 // Placeholder for injected wallets. During scaffold-time this token is replaced
 // with an array literal.
-const INJECTED_WALLETS: string[] = {{WALLETS}};
+const INJECTED_WALLETS: string[] = ["freighter", "albedo", "lobstr"];
 
 let kitInstance: StellarWalletsKit | null = null;
 let currentNetwork: WalletNetwork | null = null;
