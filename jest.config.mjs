@@ -24,7 +24,6 @@ export default {
     }]
   },
   moduleNameMapper: {
-    '^@stellar/stellar-sdk$': '<rootDir>/src/mocks/stellar-sdk-mock.ts',
     '^\\.\\./contexts$': '<rootDir>/src/mocks/wallet-contexts-mock.ts',
     '^(\\.{1,2}/.*)\\.js$': '$1'
   },

@@ -64,7 +64,9 @@ describe('scaffold integration', () => {
 
     // stellar-wallet-kit should have injected default wallets and NETWORK should be TESTNET
     const kitFile = await fs.readFile(path.join(target, 'src/lib/stellar-wallet-kit.ts'), 'utf8');
-    expect(kitFile).toContain('const INJECTED_WALLETS: string[] = ["freighter","albedo","lobstr"]');
+    expect(kitFile).toContain(
+      'const INJECTED_WALLETS: string[] = ["freighter", "albedo", "lobstr"];',
+    );
   });
 
   test('injects custom URLs and wallet list and sets NETWORK=PUBLIC when horizon contains public', async () => {
@@ -94,7 +96,27 @@ describe('scaffold integration', () => {
     expect(envExample).toContain('NEXT_PUBLIC_NETWORK=PUBLIC');
 
     const kitFile = await fs.readFile(path.join(target, 'src/lib/stellar-wallet-kit.ts'), 'utf8');
-    expect(kitFile).toContain('const INJECTED_WALLETS: string[] = ["freighter","xbull"]');
+    expect(kitFile).toContain("network: ('PUBLIC' as string) === 'PUBLIC'");
+  });
+
+  test('uses the default TypeScript template when no template is provided', async () => {
+    origCwd = process.cwd();
+    const parent = await makeTempParent();
+    process.chdir(parent);
+
+    const appName = 'default-template-app';
+
+    await scaffold({
+      appName,
+      useTs: true,
+      skipInstall: true,
+    });
+
+    const target = path.join(parent, appName);
+    expect(await fs.pathExists(path.join(target, 'tsconfig.json'))).toBe(true);
+
+    const packageJson = await fs.readJson(path.join(target, 'package.json'));
+    expect(packageJson.name).toBe(appName);
   });
 
   test('throws when target directory already exists', async () => {

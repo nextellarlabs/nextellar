@@ -2,21 +2,28 @@
  * @jest-environment jsdom
  */
 import { renderHook, act } from "@testing-library/react";
+import { jest } from "@jest/globals";
+
+await jest.unstable_mockModule(
+  "@stellar/stellar-sdk",
+  async () => await import("../../src/mocks/stellar-sdk-mock.js"),
+);
 
 // Import the shared SDK mock – gives us control over Horizon.Server methods.
-// jest.config moduleNameMapper redirects '@stellar/stellar-sdk' here.
-import {
+const {
   mockHorizonCall,
   mockHorizonServerConstructor,
   mockPayments,
   mockOperations,
-} from "../../src/mocks/stellar-sdk-mock.js";
+} = await import("../../src/mocks/stellar-sdk-mock.js");
 
 // The hook's '../contexts' import is redirected to wallet-contexts-mock.ts
 // via jest.config moduleNameMapper, so useWalletConfig() returns undefined.
 
 // Import the REAL hook – its SDK dependency is resolved to the shared mock.
-import { useTransactionHistory } from "../../src/templates/default/src/hooks/useTransactionHistory.js";
+const { useTransactionHistory } = await import(
+  "../../src/templates/default/src/hooks/useTransactionHistory.js"
+);
 
 // ── Test fixtures ─────────────────────────────────────────────────────────────
 
