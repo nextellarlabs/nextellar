@@ -3,6 +3,7 @@ import request from "supertest";
 
 import authRouter, {
   authDeps,
+  sanitizeRedirect,
   __resetLoginRateLimitState,
 } from "../../backend/routes/auth";
 
@@ -79,5 +80,72 @@ describe("POST /auth/login", () => {
       .set("x-forwarded-for", ip)
       .send({ username: "alice", password: "wrong-password" });
     expect(postResetAttempt.status).toBe(401);
+  });
+});
+
+describe("sanitizeRedirect", () => {
+  it("returns the path when it is on the allowlist", () => {
+    expect(sanitizeRedirect("/dashboard")).toBe("/dashboard");
+    expect(sanitizeRedirect("/settings")).toBe("/settings");
+    expect(sanitizeRedirect("/")).toBe("/");
+  });
+
+  it("returns '/' for an absolute URL pointing to an external host", () => {
+    expect(sanitizeRedirect("https://evil.com/steal")).toBe("/");
+  });
+
+  it("returns '/' for a protocol-relative URL", () => {
+    expect(sanitizeRedirect("//evil.com/steal")).toBe("/");
+  });
+
+  it("returns '/' for a different-scheme URL", () => {
+    expect(sanitizeRedirect("javascript:alert(1)")).toBe("/");
+  });
+
+  it("returns '/' for a path not on the allowlist", () => {
+    expect(sanitizeRedirect("/admin/secret")).toBe("/");
+    expect(sanitizeRedirect("/not-allowed")).toBe("/");
+  });
+
+  it("returns '/' for empty or missing values", () => {
+    expect(sanitizeRedirect("")).toBe("/");
+    expect(sanitizeRedirect(null)).toBe("/");
+    expect(sanitizeRedirect(undefined)).toBe("/");
+  });
+});
+
+describe("GET /auth/callback", () => {
+  const app = buildApp();
+
+  it("redirects to a valid allowlisted path", async () => {
+    const res = await request(app).get("/auth/callback?redirect=/dashboard");
+
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toBe("/dashboard");
+  });
+
+  it("redirects to '/' for an absolute external URL", async () => {
+    const res = await request(app).get(
+      "/auth/callback?redirect=https://evil.com/phish",
+    );
+
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toBe("/");
+  });
+
+  it("redirects to '/' for a different-host URL", async () => {
+    const res = await request(app).get(
+      "/auth/callback?redirect=//evil.com/steal",
+    );
+
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toBe("/");
+  });
+
+  it("redirects to '/' when no redirect param is provided", async () => {
+    const res = await request(app).get("/auth/callback");
+
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toBe("/");
   });
 });
