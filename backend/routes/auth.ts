@@ -81,6 +81,63 @@ export function __resetLoginRateLimitState(): void {
   usernameBuckets.clear();
 }
 
+/**
+ * Allowlist of valid redirect paths. Only relative paths that start
+ * with "/" are accepted. External or absolute URLs are rejected.
+ */
+const ALLOWED_REDIRECT_PATHS = [
+  "/",
+  "/dashboard",
+  "/settings",
+  "/profile",
+  "/transactions",
+];
+
+/**
+ * Returns a safe redirect target. Rejects absolute URLs, external hosts,
+ * protocol-relative URLs, and paths not on the allowlist.
+ * Falls back to "/" for anything invalid.
+ */
+export function sanitizeRedirect(raw: unknown): string {
+  if (typeof raw !== "string" || raw.length === 0) {
+    return "/";
+  }
+
+  const trimmed = raw.trim();
+
+  // Reject protocol-relative URLs (//evil.com)
+  if (trimmed.startsWith("//")) {
+    return "/";
+  }
+
+  // Reject absolute URLs (http://, https://, or any scheme)
+  try {
+    const parsed = new URL(trimmed, "http://localhost");
+    if (parsed.origin !== "http://localhost") {
+      return "/";
+    }
+  } catch {
+    return "/";
+  }
+
+  // Only allow paths on the explicit allowlist
+  if (!ALLOWED_REDIRECT_PATHS.includes(trimmed)) {
+    return "/";
+  }
+
+  return trimmed;
+}
+
+/**
+ * GET /auth/callback
+ * Handles the OAuth callback redirect. Validates the redirect query
+ * parameter against an allowlist before redirecting.
+ */
+router.get("/auth/callback", (req: Request, res: Response) => {
+  const target = sanitizeRedirect(req.query.redirect);
+  res.redirect(target);
+});
+
 router.post(
   "/auth/login",
   async (req: Request, res: Response, next: NextFunction) => {
