@@ -2,13 +2,23 @@
  * @jest-environment jsdom
  */
 import { renderHook, act } from '@testing-library/react';
+import { jest } from '@jest/globals';
+
+await jest.unstable_mockModule(
+  '@stellar/stellar-sdk',
+  async () => await import('../../src/mocks/stellar-sdk-mock.js'),
+);
 
 // Import the shared SDK mock – gives us control over rpc.Server.getEvents()
-import { mockGetEvents, mockServerConstructor } from '../../src/mocks/stellar-sdk-mock.js';
+const { mockGetEvents, mockServerConstructor } = await import(
+  '../../src/mocks/stellar-sdk-mock.js'
+);
 
 // Import the REAL hook – its '@stellar/stellar-sdk' dependency is resolved to
 // the shared mock above via jest.config moduleNameMapper.
-import { useSorobanEvents } from '../../src/templates/default/src/hooks/useSorobanEvents.js';
+const { useSorobanEvents } = await import(
+  '../../src/templates/default/src/hooks/useSorobanEvents.js'
+);
 
 // ── Types (declared locally to avoid circular import issues) ─────────────────
 
@@ -20,7 +30,6 @@ interface SorobanEvent {
   contractId: string;
   topic: string[];
   value: unknown;
-  pagingToken: string;
   txHash: string;
   inSuccessfulContractCall: boolean;
 }
@@ -43,7 +52,6 @@ function makeSdkEvent(overrides: Record<string, any> = {}) {
     contractId = CONTRACT_ID,
     topic = ['AAAADgAAAAh0cmFuc2Zlcg=='],
     value = 'AAAAAQAAAA==',
-    pagingToken = 'cursor-001',
     txHash = 'abc123def456',
     inSuccessfulContractCall = true,
   } = overrides;
@@ -56,16 +64,15 @@ function makeSdkEvent(overrides: Record<string, any> = {}) {
     contractId: { toString: () => contractId },
     topic: (topic as string[]).map((t: string) => ({ toXDR: () => t })),
     value: { toXDR: () => value },
-    pagingToken,
     txHash,
     inSuccessfulContractCall,
   };
 }
 
 // Pre-built SDK-shaped mock events
-const sdkEvent1 = makeSdkEvent({ id: 'evt-001', pagingToken: 'cursor-001', ledger: 100 });
-const sdkEvent2 = makeSdkEvent({ id: 'evt-002', pagingToken: 'cursor-002', ledger: 101 });
-const sdkEvent3 = makeSdkEvent({ id: 'evt-003', pagingToken: 'cursor-003', ledger: 102 });
+const sdkEvent1 = makeSdkEvent({ id: 'evt-001', ledger: 100 });
+const sdkEvent2 = makeSdkEvent({ id: 'evt-002', ledger: 101 });
+const sdkEvent3 = makeSdkEvent({ id: 'evt-003', ledger: 102 });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -143,17 +150,26 @@ describe('useSorobanEvents (Template Hook)', () => {
       expect(result.current.error).toBeNull();
     });
 
-    it('should track cursor via the last event pagingToken', async () => {
+    it('should track cursor via the response cursor', async () => {
       mockGetEvents.mockResolvedValue({
         events: [sdkEvent1, sdkEvent2],
         latestLedger: 101,
+        cursor: 'cursor-002',
       });
 
-      const { result } = renderHook(() => useSorobanEvents(CONTRACT_ID));
+      renderHook(() => useSorobanEvents(CONTRACT_ID));
       await flush();
 
-      const lastEvent = result.current.events[result.current.events.length - 1];
-      expect(lastEvent.pagingToken).toBe('cursor-002');
+      expect(mockGetEvents.mock.calls[0][0]).not.toHaveProperty('cursor');
+
+      mockGetEvents.mockResolvedValueOnce({
+        events: [],
+        latestLedger: 101,
+      });
+
+      await advanceAndFlush(10_000);
+
+      expect(mockGetEvents.mock.calls[1][0].cursor).toBe('cursor-002');
     });
 
     it('should accumulate events across multiple polls', async () => {
@@ -213,7 +229,7 @@ describe('useSorobanEvents (Template Hook)', () => {
       await flush();
 
       // Second poll returns evt-002 again (duplicate) plus evt-003
-      const duplicateEvt2 = makeSdkEvent({ id: 'evt-002', pagingToken: 'cursor-002', ledger: 101 });
+      const duplicateEvt2 = makeSdkEvent({ id: 'evt-002', ledger: 101 });
       mockGetEvents.mockResolvedValueOnce({
         events: [duplicateEvt2, sdkEvent3],
         latestLedger: 102,
@@ -238,15 +254,16 @@ describe('useSorobanEvents (Template Hook)', () => {
 
       // Return the same event in the next poll
       mockGetEvents.mockResolvedValueOnce({
-        events: [makeSdkEvent({ id: 'evt-001', pagingToken: 'cursor-001' })],
+        events: [makeSdkEvent({ id: 'evt-001' })],
         latestLedger: 100,
+        cursor: 'cursor-001',
       });
 
       await advanceAndFlush(10_000);
 
       // Still only one event – deduplication prevented the duplicate
       expect(result.current.events).toHaveLength(1);
-      expect(result.current.events[0].pagingToken).toBe('cursor-001');
+      expect(result.current.events[0].id).toBe('evt-001');
     });
   });
 
@@ -347,34 +364,33 @@ describe('useSorobanEvents (Template Hook)', () => {
   // ── Cursor advances after each successful poll ────────────────────────────
 
   describe('cursor advances after each successful poll', () => {
-    it('should advance cursor to the last event pagingToken', async () => {
+    it('should advance cursor using the response cursor', async () => {
       mockGetEvents.mockResolvedValueOnce({
         events: [sdkEvent1, sdkEvent2],
         latestLedger: 101,
+        cursor: 'cursor-002',
       });
 
-      const { result } = renderHook(() => useSorobanEvents(CONTRACT_ID));
+      renderHook(() => useSorobanEvents(CONTRACT_ID));
       await flush();
-
-      let lastEvent = result.current.events[result.current.events.length - 1];
-      expect(lastEvent.pagingToken).toBe('cursor-002');
 
       // Next poll returns a new event
       mockGetEvents.mockResolvedValueOnce({
         events: [sdkEvent3],
         latestLedger: 102,
+        cursor: 'cursor-003',
       });
 
       await advanceAndFlush(10_000);
 
-      lastEvent = result.current.events[result.current.events.length - 1];
-      expect(lastEvent.pagingToken).toBe('cursor-003');
+      expect(mockGetEvents.mock.calls[1][0].cursor).toBe('cursor-002');
     });
 
     it('should pass the cursor to subsequent getEvents calls', async () => {
       mockGetEvents.mockResolvedValueOnce({
         events: [sdkEvent1],
         latestLedger: 100,
+        cursor: 'cursor-001',
       });
 
       renderHook(() => useSorobanEvents(CONTRACT_ID));
@@ -396,11 +412,12 @@ describe('useSorobanEvents (Template Hook)', () => {
       mockGetEvents.mockResolvedValueOnce({
         events: [sdkEvent1],
         latestLedger: 100,
+        cursor: 'cursor-001',
       });
 
       const { result } = renderHook(() => useSorobanEvents(CONTRACT_ID));
       await flush();
-      expect(result.current.events[0].pagingToken).toBe('cursor-001');
+      expect(result.current.events[0].id).toBe('evt-001');
 
       // Next poll returns no events
       mockGetEvents.mockResolvedValueOnce({ events: [], latestLedger: 100 });
@@ -409,7 +426,7 @@ describe('useSorobanEvents (Template Hook)', () => {
 
       // Events unchanged
       expect(result.current.events).toHaveLength(1);
-      expect(result.current.events[0].pagingToken).toBe('cursor-001');
+      expect(result.current.events[0].id).toBe('evt-001');
     });
   });
 
@@ -450,7 +467,6 @@ describe('useSorobanEvents (Template Hook)', () => {
           ledgerClosedAt: expect.any(String),
           contractId: expect.any(String),
           topic: expect.any(Array),
-          pagingToken: expect.any(String),
           txHash: expect.any(String),
           inSuccessfulContractCall: expect.any(Boolean),
         })
