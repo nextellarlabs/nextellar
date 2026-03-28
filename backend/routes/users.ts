@@ -1,4 +1,5 @@
 import { Router, Request, Response, NextFunction } from "express";
+import { requireAuth, AuthenticatedRequest } from "../middleware/auth.js";
 
 const router = Router();
 
@@ -23,6 +24,13 @@ function toSafeUser(user: Record<string, unknown>): SafeUser {
     role: user.role as string,
   };
 }
+
+// In-memory user store used as a stand-in for a real database.
+// Keys are user ids; values are user records.
+export const users: Map<string, { id: string; name: string }> = new Map([
+  ["1", { id: "1", name: "Alice" }],
+  ["2", { id: "2", name: "Bob" }],
+]);
 
 /**
  * GET /users/:id
@@ -52,6 +60,29 @@ router.get(
     }
   },
 );
+
+/**
+ * DELETE /:id
+ *
+ * Deletes the user with the given id.
+ * Requires a valid Bearer token in the Authorization header.
+ *
+ * Responses:
+ *   200 – user deleted successfully
+ *   401 – missing or invalid auth token
+ *   404 – user not found
+ */
+router.delete("/:id", requireAuth, (req: AuthenticatedRequest, res: Response): void => {
+  const { id } = req.params;
+
+  if (!users.has(id)) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  users.delete(id);
+  res.status(200).json({ message: `User ${id} deleted successfully` });
+});
 
 export default router;
 
