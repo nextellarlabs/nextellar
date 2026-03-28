@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from "express";
-import { requireAuth, AuthenticatedRequest } from "../middleware/auth.js";
+import { authenticate, requireRole, AuthenticatedRequest } from "../middleware/auth.js";
 
 const router = Router();
 
@@ -65,14 +65,15 @@ router.get(
  * DELETE /:id
  *
  * Deletes the user with the given id.
- * Requires a valid Bearer token in the Authorization header.
+ * Requires a valid Bearer token with the admin role in the Authorization header.
  *
  * Responses:
  *   200 – user deleted successfully
  *   401 – missing or invalid auth token
+ *   403 – insufficient role (non-admin)
  *   404 – user not found
  */
-router.delete("/:id", requireAuth, (req: AuthenticatedRequest, res: Response): void => {
+router.delete("/:id", authenticate, requireRole('admin'), (req: AuthenticatedRequest, res: Response): void => {
   const { id } = req.params;
 
   if (!users.has(id)) {
