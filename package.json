@@ -71,6 +71,7 @@
     "@types/supertest": "^7.2.0",
     "babel-jest": "^30.0.5",
     "cross-env": "^10.0.0",
+    "express": "^5.2.1",
     "jest": "^30.0.5",
     "jest-environment-jsdom": "^30.0.5",
     "msw": "^2.10.4",
