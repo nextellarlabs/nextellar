@@ -1,6 +1,14 @@
-'use client';
+"use client";
 
-import React, { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  ReactNode,
+} from "react";
 import {
   Horizon,
   TransactionBuilder,
@@ -8,12 +16,15 @@ import {
   Networks,
   Asset,
   Memo,
-  BASE_FEE
-} from '@stellar/stellar-sdk';
-import { ISupportedWallet, WalletNetwork } from "@creit.tech/stellar-wallets-kit";
-import { kit } from '../lib/stellar-wallet-kit';
-import { NETWORKS } from '../config/networks';
-import { storage } from '../lib/storage';
+  BASE_FEE,
+} from "@stellar/stellar-sdk";
+import {
+  ISupportedWallet,
+  WalletNetwork,
+} from "@creit.tech/stellar-wallets-kit";
+import { kit } from "../lib/stellar-wallet-kit";
+import { NETWORKS } from "../config/networks";
+import { storage } from "../lib/storage";
 
 const Server = Horizon.Server;
 
@@ -33,7 +44,7 @@ export interface Balance {
 export interface PaymentOptions {
   to: string;
   amount: string;
-  asset?: 'XLM' | { code: string; issuer: string };
+  asset?: "XLM" | { code: string; issuer: string };
   memo?: string;
   secret?: string;
 }
@@ -49,18 +60,19 @@ interface WalletContextState {
   connect: () => Promise<void>;
   disconnect: () => void;
   refreshBalances: () => Promise<void>;
-  sendPayment?: (opts: PaymentOptions) => Promise<Horizon.HorizonApi.SubmitTransactionResponse>;
+  sendPayment?: (
+    opts: PaymentOptions,
+  ) => Promise<Horizon.HorizonApi.SubmitTransactionResponse>;
 }
 
 /**
- * Wallet config context - exposes provider settings to hooks
+ * Wallet config context state - exposes provider settings to hooks
  */
 interface WalletConfigContextState {
   activeNetworkKey: string;
   horizonUrl: string;
   sorobanUrl: string;
   network: string;
-  sorobanUrl: string;
   switchNetwork: (networkKey: string) => void;
 }
 
@@ -76,14 +88,16 @@ interface WalletProviderProps {
 
 // Create contexts
 const WalletContext = createContext<WalletContextState | undefined>(undefined);
-const WalletConfigContext = createContext<WalletConfigContextState | undefined>(undefined);
+const WalletConfigContext = createContext<WalletConfigContextState | undefined>(
+  undefined,
+);
 
 /**
  * Wallet Provider Component
- * 
+ *
  * Wraps your app to provide wallet functionality throughout the component tree.
  * Handles wallet connection, persistence, and state management.
- * 
+ *
  * @example
  * ```tsx
  * // In your app layout or root
@@ -94,11 +108,15 @@ const WalletConfigContext = createContext<WalletConfigContextState | undefined>(
  */
 export function WalletProvider({
   children,
-  horizonUrl = process.env.NEXT_PUBLIC_HORIZON_URL || 'https://horizon-testnet.stellar.org',
-  sorobanUrl = process.env.NEXT_PUBLIC_SOROBAN_URL || 'https://soroban-testnet.stellar.org',
-  network = (process.env.NEXT_PUBLIC_NETWORK === 'PUBLIC' ? Networks.PUBLIC : Networks.TESTNET)
+  horizonUrl = process.env.NEXT_PUBLIC_HORIZON_URL ||
+    "https://horizon-testnet.stellar.org",
+  sorobanUrl = process.env.NEXT_PUBLIC_SOROBAN_URL ||
+    "https://soroban-testnet.stellar.org",
+  network = process.env.NEXT_PUBLIC_NETWORK === "PUBLIC"
+    ? Networks.PUBLIC
+    : Networks.TESTNET,
 }: WalletProviderProps) {
-  const [activeNetworkKey, setActiveNetworkKey] = useState<string>('testnet');
+  const [activeNetworkKey, setActiveNetworkKey] = useState<string>("testnet");
   const [connected, setConnected] = useState(false);
   const [publicKey, setPublicKey] = useState<string>();
   const [walletName, setWalletName] = useState<string>();
@@ -106,7 +124,7 @@ export function WalletProvider({
 
   // Load saved network on mount
   useEffect(() => {
-    const savedNetwork = storage.get('stellar_network');
+    const savedNetwork = storage.get("stellar_network");
     if (savedNetwork && NETWORKS[savedNetwork]) {
       setActiveNetworkKey(savedNetwork);
     }
@@ -114,19 +132,19 @@ export function WalletProvider({
 
   // Derive active settings from config or props
   const config = NETWORKS[activeNetworkKey] || NETWORKS.testnet;
-  const horizonUrl = initialHorizonUrl || config.horizonUrl;
-  const sorobanUrl = config.sorobanUrl;
-  const network = initialNetwork || config.passphrase;
+  const effectiveHorizonUrl = horizonUrl || config.horizonUrl;
+  const effectiveSorobanUrl = sorobanUrl || config.sorobanUrl;
+  const effectiveNetwork = network || config.passphrase;
 
-  const [server, setServer] = useState(() => new Server(horizonUrl));
+  const [server, setServer] = useState(() => new Server(effectiveHorizonUrl));
   const serverRef = useRef(server);
 
   // Update server when network changes
   useEffect(() => {
-    const nextServer = new Server(horizonUrl);
+    const nextServer = new Server(effectiveHorizonUrl);
     setServer(nextServer);
     serverRef.current = nextServer;
-  }, [horizonUrl]);
+  }, [effectiveHorizonUrl]);
 
   /**
    * Connect to a Stellar wallet using the modal interface
@@ -134,7 +152,10 @@ export function WalletProvider({
   const connect = useCallback(async () => {
     try {
       // Get fresh kit instance (handles dynamic options)
-      const walletNetwork = activeNetworkKey === 'mainnet' ? WalletNetwork.PUBLIC : WalletNetwork.TESTNET;
+      const walletNetwork =
+        activeNetworkKey === "mainnet"
+          ? WalletNetwork.PUBLIC
+          : WalletNetwork.TESTNET;
       const currentKit = kit(walletNetwork);
 
       await currentKit.openModal({
@@ -149,27 +170,36 @@ export function WalletProvider({
           setWalletName(name);
           setConnected(true);
 
-          storage.set('stellar_wallet_connected', 'true');
-          storage.set('stellar_wallet_id', option.id);
-          storage.set('stellar_wallet_address', address);
-          storage.set('stellar_wallet_name', name);
+          storage.set("stellar_wallet_connected", "true");
+          storage.set("stellar_wallet_id", option.id);
+          storage.set("stellar_wallet_address", address);
+          storage.set("stellar_wallet_name", name);
 
           // Load balances
           try {
-            const account = await serverRef.current.accounts().accountId(address).call();
+            const account = await serverRef.current
+              .accounts()
+              .accountId(address)
+              .call();
             setBalances(account.balances);
           } catch (error: unknown) {
-            if (error && typeof error === 'object' && 'response' in error && (error as { response?: { status?: number } }).response?.status === 404) {
+            if (
+              error &&
+              typeof error === "object" &&
+              "response" in error &&
+              (error as { response?: { status?: number } }).response?.status ===
+                404
+            ) {
               setBalances([]);
             } else {
-              console.error('Failed to load balances:', error);
+              console.error("Failed to load balances:", error);
               setBalances([]);
             }
           }
         },
       });
     } catch (error) {
-      console.error('Failed to connect wallet:', error);
+      console.error("Failed to connect wallet:", error);
       throw error;
     }
   }, [activeNetworkKey]);
@@ -185,30 +215,33 @@ export function WalletProvider({
       setWalletName(undefined);
       setBalances([]);
 
-      storage.remove('stellar_wallet_connected');
-      storage.remove('stellar_wallet_id');
-      storage.remove('stellar_wallet_address');
-      storage.remove('stellar_wallet_name');
+      storage.remove("stellar_wallet_connected");
+      storage.remove("stellar_wallet_id");
+      storage.remove("stellar_wallet_address");
+      storage.remove("stellar_wallet_name");
     } catch (error) {
-      console.error('Failed to disconnect wallet:', error);
+      console.error("Failed to disconnect wallet:", error);
     }
   }, []);
 
   /**
    * Switch the active network
    */
-  const switchNetwork = useCallback((networkKey: string) => {
-    if (!NETWORKS[networkKey]) return;
-    
-    // Changing network requires disconnecting the current session 
-    // since accounts/balances are network-specific
-    if (connected) {
-      disconnect();
-    }
-    
-    storage.set('stellar_network', networkKey);
-    setActiveNetworkKey(networkKey);
-  }, [connected, disconnect]);
+  const switchNetwork = useCallback(
+    (networkKey: string) => {
+      if (!NETWORKS[networkKey]) return;
+
+      // Changing network requires disconnecting the current session
+      // since accounts/balances are network-specific
+      if (connected) {
+        disconnect();
+      }
+
+      storage.set("stellar_network", networkKey);
+      setActiveNetworkKey(networkKey);
+    },
+    [connected, disconnect],
+  );
 
   /**
    * Refresh balances for the connected wallet
@@ -217,13 +250,21 @@ export function WalletProvider({
     if (!publicKey) return;
 
     try {
-      const account = await serverRef.current.accounts().accountId(publicKey).call();
+      const account = await serverRef.current
+        .accounts()
+        .accountId(publicKey)
+        .call();
       setBalances(account.balances);
     } catch (error: unknown) {
-      if (error && typeof error === 'object' && 'response' in error && (error as { response?: { status?: number } }).response?.status === 404) {
+      if (
+        error &&
+        typeof error === "object" &&
+        "response" in error &&
+        (error as { response?: { status?: number } }).response?.status === 404
+      ) {
         setBalances([]);
       } else {
-        console.error('Failed to load balances:', error);
+        console.error("Failed to load balances:", error);
         setBalances([]);
       }
     }
@@ -232,86 +273,108 @@ export function WalletProvider({
   /**
    * Send a payment transaction
    */
-  const sendPayment = useCallback(async (opts: PaymentOptions): Promise<Horizon.HorizonApi.SubmitTransactionResponse> => {
-    if (!publicKey || !connected) {
-      throw new Error('Wallet not connected');
-    }
-
-    try {
-      const account = await serverRef.current.loadAccount(publicKey);
-      const asset = opts.asset === 'XLM' || !opts.asset
-        ? Asset.native()
-        : new Asset(opts.asset.code, opts.asset.issuer);
-
-      const txBuilder = new TransactionBuilder(account, {
-        fee: BASE_FEE,
-        networkPassphrase: network,
-      }).addOperation(
-        Operation.payment({
-          destination: opts.to,
-          asset,
-          amount: opts.amount,
-        })
-      );
-
-      if (opts.memo) {
-        txBuilder.addMemo(Memo.text(opts.memo));
+  const sendPayment = useCallback(
+    async (
+      opts: PaymentOptions,
+    ): Promise<Horizon.HorizonApi.SubmitTransactionResponse> => {
+      if (!publicKey || !connected) {
+        throw new Error("Wallet not connected");
       }
 
-      const transaction = txBuilder.setTimeout(30).build();
+      try {
+        const account = await serverRef.current.loadAccount(publicKey);
+        const asset =
+          opts.asset === "XLM" || !opts.asset
+            ? Asset.native()
+            : new Asset(opts.asset.code, opts.asset.issuer);
 
-      let signedTxXdr: string;
-      if (opts.secret) {
-        // DEV-ONLY: Sign with secret key
-        const { Keypair } = await import('@stellar/stellar-sdk');
-        const keypair = Keypair.fromSecret(opts.secret);
-        transaction.sign(keypair);
-        signedTxXdr = transaction.toXDR();
-      } else {
-        // Sign with wallet
-        const { signTransaction } = await import('../lib/stellar-wallet-kit');
-        signedTxXdr = await signTransaction({
-          unsignedTransaction: transaction.toXDR(),
-          address: publicKey,
-        });
+        const txBuilder = new TransactionBuilder(account, {
+          fee: BASE_FEE,
+          networkPassphrase: network,
+        }).addOperation(
+          Operation.payment({
+            destination: opts.to,
+            asset,
+            amount: opts.amount,
+          }),
+        );
+
+        if (opts.memo) {
+          txBuilder.addMemo(Memo.text(opts.memo));
+        }
+
+        const transaction = txBuilder.setTimeout(30).build();
+
+        let signedTxXdr: string;
+        if (opts.secret) {
+          // DEV-ONLY: Sign with secret key
+          const { Keypair } = await import("@stellar/stellar-sdk");
+          const keypair = Keypair.fromSecret(opts.secret);
+          transaction.sign(keypair);
+          signedTxXdr = transaction.toXDR();
+        } else {
+          // Sign with wallet
+          const { signTransaction } = await import("../lib/stellar-wallet-kit");
+          signedTxXdr = await signTransaction({
+            unsignedTransaction: transaction.toXDR(),
+            address: publicKey,
+          });
+        }
+
+        const signedTransaction = TransactionBuilder.fromXDR(
+          signedTxXdr,
+          network,
+        );
+        const result =
+          await serverRef.current.submitTransaction(signedTransaction);
+
+        await refreshBalances();
+        return result;
+      } catch (error) {
+        console.error("Payment failed:", error);
+        throw error;
       }
-
-      const signedTransaction = TransactionBuilder.fromXDR(signedTxXdr, network);
-      const result = await serverRef.current.submitTransaction(signedTransaction);
-
-      await refreshBalances();
-      return result;
-    } catch (error) {
-      console.error('Payment failed:', error);
-      throw error;
-    }
-  }, [publicKey, connected, network, refreshBalances]);
+    },
+    [publicKey, connected, network, refreshBalances],
+  );
 
   // Auto-reconnect wallet on mount if previously connected
   useEffect(() => {
     const autoReconnect = async () => {
-      const wasConnected = storage.get('stellar_wallet_connected');
-      const savedWalletId = storage.get('stellar_wallet_id');
-      const savedAddress = storage.get('stellar_wallet_address');
-      const savedName = storage.get('stellar_wallet_name');
+      const wasConnected = storage.get("stellar_wallet_connected");
+      const savedWalletId = storage.get("stellar_wallet_id");
+      const savedAddress = storage.get("stellar_wallet_address");
+      const savedName = storage.get("stellar_wallet_name");
 
-      if (wasConnected === 'true' && savedWalletId && savedAddress) {
+      if (wasConnected === "true" && savedWalletId && savedAddress) {
         try {
-          const walletNetwork = activeNetworkKey === 'mainnet' ? WalletNetwork.PUBLIC : WalletNetwork.TESTNET;
+          const walletNetwork =
+            activeNetworkKey === "mainnet"
+              ? WalletNetwork.PUBLIC
+              : WalletNetwork.TESTNET;
           const currentKit = kit(walletNetwork);
           currentKit.setWallet(savedWalletId);
           const { address } = await currentKit.getAddress();
 
           if (address === savedAddress) {
             setPublicKey(address);
-            setWalletName(savedName || 'Unknown');
+            setWalletName(savedName || "Unknown");
             setConnected(true);
 
             try {
-              const account = await serverRef.current.accounts().accountId(address).call();
+              const account = await serverRef.current
+                .accounts()
+                .accountId(address)
+                .call();
               setBalances(account.balances);
             } catch (error: unknown) {
-              if (error && typeof error === 'object' && 'response' in error && (error as { response?: { status?: number } }).response?.status === 404) {
+              if (
+                error &&
+                typeof error === "object" &&
+                "response" in error &&
+                (error as { response?: { status?: number } }).response
+                  ?.status === 404
+              ) {
                 setBalances([]);
               } else {
                 setBalances([]);
@@ -319,10 +382,10 @@ export function WalletProvider({
             }
           }
         } catch {
-          storage.remove('stellar_wallet_connected');
-          storage.remove('stellar_wallet_id');
-          storage.remove('stellar_wallet_address');
-          storage.remove('stellar_wallet_name');
+          storage.remove("stellar_wallet_connected");
+          storage.remove("stellar_wallet_id");
+          storage.remove("stellar_wallet_address");
+          storage.remove("stellar_wallet_name");
         }
       }
     };
@@ -343,10 +406,9 @@ export function WalletProvider({
 
   const configValue: WalletConfigContextState = {
     activeNetworkKey,
-    horizonUrl,
-    sorobanUrl,
-    network,
-    sorobanUrl,
+    horizonUrl: effectiveHorizonUrl,
+    sorobanUrl: effectiveSorobanUrl,
+    network: effectiveNetwork,
     switchNetwork,
   };
 
@@ -361,14 +423,14 @@ export function WalletProvider({
 
 /**
  * Hook to use wallet context
- * 
+ *
  * Must be used within a WalletProvider
- * 
+ *
  * @example
  * ```tsx
  * function MyComponent() {
  *   const { connected, publicKey, connect, disconnect } = useWallet();
- *   
+ *
  *   return (
  *     <div>
  *       {connected ? (
@@ -387,22 +449,22 @@ export function WalletProvider({
 export function useWallet(): WalletContextState {
   const context = useContext(WalletContext);
   if (context === undefined) {
-    throw new Error('useWallet must be used within a WalletProvider');
+    throw new Error("useWallet must be used within a WalletProvider");
   }
   return context;
 }
 
 /**
  * Hook to access wallet provider configuration
- * 
+ *
  * Use this in standalone hooks to consume the provider's horizonUrl and network settings.
  * Returns undefined if not within a WalletProvider (allows standalone usage).
- * 
+ *
  * @example
  * ```tsx
  * function MyComponent() {
  *   const config = useWalletConfig();
- *   const balances = useStellarBalances({ 
+ *   const balances = useStellarBalances({
  *     horizonUrl: config?.horizonUrl // Falls back to hook's default if no provider
  *   });
  * }
