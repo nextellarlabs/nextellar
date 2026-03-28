@@ -60,7 +60,6 @@ interface WalletConfigContextState {
   horizonUrl: string;
   sorobanUrl: string;
   network: string;
-  sorobanUrl: string;
   switchNetwork: (networkKey: string) => void;
 }
 
@@ -346,7 +345,6 @@ export function WalletProvider({
     horizonUrl,
     sorobanUrl,
     network,
-    sorobanUrl,
     switchNetwork,
   };
 
