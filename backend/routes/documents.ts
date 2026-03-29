@@ -1,4 +1,4 @@
-import { Router, Request, Response, NextFunction } from "express";
+import express, { Router, Request, Response, NextFunction } from "express";
 
 const router = Router();
 
@@ -48,6 +48,7 @@ export function detectMimeType(buffer: Buffer): string | null {
  */
 router.post(
   "/documents/upload",
+  express.raw({ type: "*/*", limit: "10mb" }),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const fileBuffer = await getRawBody(req);
