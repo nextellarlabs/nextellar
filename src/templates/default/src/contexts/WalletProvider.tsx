@@ -406,9 +406,9 @@ export function WalletProvider({
 
   const configValue: WalletConfigContextState = {
     activeNetworkKey,
-    horizonUrl: effectiveHorizonUrl,
-    sorobanUrl: effectiveSorobanUrl,
-    network: effectiveNetwork,
+    horizonUrl,
+    sorobanUrl,
+    network,
     switchNetwork,
   };
 
