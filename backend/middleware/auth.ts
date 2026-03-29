@@ -1,16 +1,16 @@
 import { Request, Response, NextFunction } from 'express';
+import { verifyToken, TokenPayload } from '../auth/token.js';
 
 export interface AuthenticatedRequest extends Request {
-  userId?: string;
+  user?: TokenPayload;
 }
 
 /**
- * Auth guard middleware.
+ * Authenticate middleware.
  * Expects a Bearer token in the Authorization header.
- * In production this would verify a real JWT; here we validate
- * that a non-empty token is present so the shape is correct.
+ * Verifies the JWT and attaches the payload to req.user.
  */
-export function requireAuth(
+export function authenticate(
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
@@ -28,8 +28,30 @@ export function requireAuth(
     return;
   }
 
-  // Attach the decoded user id to the request for downstream handlers.
-  // A real implementation would call jwt.verify() here.
-  req.userId = token;
-  next();
+  try {
+    req.user = verifyToken(token);
+    next();
+  } catch (err) {
+    res.status(401).json({ error: 'Unauthorized: invalid token' });
+  }
+}
+
+/**
+ * requireRole middleware factory.
+ * Checks if the authenticated user has the required role.
+ */
+export function requireRole(requiredRole: string) {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
+    if (!req.user) {
+      res.status(401).json({ error: 'Unauthorized: missing user context' });
+      return;
+    }
+
+    if (req.user.role !== requiredRole) {
+      res.status(403).json({ error: 'Forbidden: insufficient role' });
+      return;
+    }
+
+    next();
+  };
 }
