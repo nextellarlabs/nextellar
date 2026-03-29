@@ -150,6 +150,14 @@ export function useStellarPayment(
     return !isNaN(parsed) && parsed > 0 && parsed <= 922337203685.4775807;
   }, []);
 
+  const isValidAssetCode = useCallback((code: string): boolean => {
+    return /^[A-Z0-9]{1,12}$/i.test(code);
+  }, []);
+
+  const isValidAssetIssuer = useCallback((issuer: string): boolean => {
+    return issuer.length === 56 && issuer.startsWith('G');
+  }, []);
+
   /**
    * Validate payment parameters
    */
@@ -166,7 +174,15 @@ export function useStellarPayment(
     if (params.from === params.to) {
       throw new Error('Sender and recipient cannot be the same address');
     }
-  }, [isValidAddress, isValidAmount]);
+    if (params.asset && params.asset !== 'XLM') {
+      if (!isValidAssetCode(params.asset.code)) {
+        throw new Error('Invalid asset code: must be 1-12 alphanumeric characters');
+      }
+      if (!isValidAssetIssuer(params.asset.issuer)) {
+        throw new Error('Invalid asset issuer: must be a valid Stellar public key');
+      }
+    }
+  }, [isValidAddress, isValidAmount, isValidAssetCode, isValidAssetIssuer]);
 
   /**
    * Build an unsigned payment transaction XDR

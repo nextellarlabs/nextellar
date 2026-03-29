@@ -244,8 +244,8 @@ describe("useSorobanContract", () => {
   });
 
   it("network failure is surfaced through MSW", async () => {
-    jest.spyOn(rpc.Server.prototype, "simulateTransaction").mockRejectedValue(
-      new Error("request failed with status code 500")
+    server.use(
+      http.post(SOROBAN_RPC_URL, async () => HttpResponse.json({ error: "boom" }, { status: 500 }))
     );
 
     const { result } = renderHook(() =>
@@ -266,8 +266,19 @@ describe("useSorobanContract", () => {
   });
 
   it("simulation failure payload is surfaced", async () => {
-    jest.spyOn(rpc.Server.prototype, "simulateTransaction").mockRejectedValue(
-      new Error("simulated host function failure")
+    server.use(
+      http.post(SOROBAN_RPC_URL, async ({ request }) => {
+        const body = (await request.json()) as { id?: number };
+
+        return HttpResponse.json({
+          jsonrpc: "2.0",
+          id: body.id ?? 1,
+          error: {
+            code: -32000,
+            message: "simulated host function failure",
+          },
+        });
+      })
     );
 
     const { result } = renderHook(() =>

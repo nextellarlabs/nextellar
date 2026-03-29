@@ -38,7 +38,9 @@ const DEFAULT_TYPE = 'operations';
 // Maximum items to keep in memory (prevents excessive memory usage)
 const MAX_ITEMS_IN_MEMORY = 1000;
 
-
+// Module-level request coordination to prevent duplicate requests
+let globalRefreshInFlight = false;
+let globalFetchNextInFlight = false;
 
 /**
  * Custom React hook for fetching and paginating Stellar transaction history
@@ -232,7 +234,7 @@ export function useTransactionHistory(
     }
 
     // Prevent duplicate refresh requests
-    if (isRequestInFlightRef.current) {
+    if (globalRefreshInFlight || isRequestInFlightRef.current) {
       return;
     }
 
@@ -245,36 +247,25 @@ export function useTransactionHistory(
 
     setLoading(true);
     setError(null);
+    globalRefreshInFlight = true;
     isRequestInFlightRef.current = true;
-
-    // Capture the current publicKey to detect changes during fetch
-    const requestPublicKey = publicKey;
-
+    
     try {
       const result = await fetchTransactionHistory(publicKey, null);
-
-      // Discard result if publicKey changed during fetch
-      if (requestPublicKey !== publicKey) {
-        return;
-      }
-
+      
       setItems(result.records);
       nextCursorRef.current = result.next;
       setHasMore(result.records.length === pageSize && !!result.next);
       setError(null);
       currentPublicKeyRef.current = publicKey;
     } catch (err) {
-      // Discard error if publicKey changed during fetch
-      if (requestPublicKey !== publicKey) {
-        return;
-      }
-
       const error = err instanceof Error ? err : new Error('Failed to fetch transaction history');
       setError(error);
       console.error('Error fetching transaction history:', error);
       // Keep previous items on error (don't wipe them)
     } finally {
       setLoading(false);
+      globalRefreshInFlight = false;
       isRequestInFlightRef.current = false;
     }
   }, [publicKey, fetchTransactionHistory, pageSize]);
@@ -289,7 +280,7 @@ export function useTransactionHistory(
     }
 
     // Prevent duplicate fetch requests
-    if (isRequestInFlightRef.current) {
+    if (globalFetchNextInFlight || isRequestInFlightRef.current) {
       return;
     }
 
@@ -301,46 +292,35 @@ export function useTransactionHistory(
 
     setLoading(true);
     setError(null);
+    globalFetchNextInFlight = true;
     isRequestInFlightRef.current = true;
-
-    // Capture the current publicKey to detect changes during fetch
-    const requestPublicKey = publicKey;
-
+    
     try {
       const result = await fetchTransactionHistory(publicKey, nextCursorRef.current);
-
-      // Discard result if publicKey changed during fetch
-      if (requestPublicKey !== publicKey) {
-        return;
-      }
-
+      
       setItems(prevItems => {
         const newItems = [...prevItems, ...result.records];
-
+        
         // Memory management: limit total items in memory
         if (newItems.length > MAX_ITEMS_IN_MEMORY) {
           const trimmedItems = newItems.slice(-MAX_ITEMS_IN_MEMORY);
           console.warn(`Transaction history trimmed to ${MAX_ITEMS_IN_MEMORY} items to prevent excessive memory usage`);
           return trimmedItems;
         }
-
+        
         return newItems;
       });
-
+      
       nextCursorRef.current = result.next;
       setHasMore(result.records.length === pageSize && !!result.next);
       setError(null);
     } catch (err) {
-      // Discard error if publicKey changed during fetch
-      if (requestPublicKey !== publicKey) {
-        return;
-      }
-
       const error = err instanceof Error ? err : new Error('Failed to fetch next page');
       setError(error);
       console.error('Error fetching next page:', error);
     } finally {
       setLoading(false);
+      globalFetchNextInFlight = false;
       isRequestInFlightRef.current = false;
     }
   }, [publicKey, hasMore, fetchTransactionHistory, pageSize]);
@@ -385,7 +365,12 @@ export function useTransactionHistory(
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      isRequestInFlightRef.current = false;
+      // Reset global state on unmount
+      if (isRequestInFlightRef.current) {
+        globalRefreshInFlight = false;
+        globalFetchNextInFlight = false;
+        isRequestInFlightRef.current = false;
+      }
     };
   }, []);
 

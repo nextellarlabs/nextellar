@@ -39,7 +39,8 @@ const MIN_POLL_INTERVAL = 5000;
 // Default Horizon URLs
 const DEFAULT_HORIZON_URL = 'https://horizon-testnet.stellar.org';
 
-
+// Module-level request coordination to prevent duplicate requests
+let globalRequestInFlight = false;
 
 /**
  * Custom React hook for fetching and managing Stellar account balances
@@ -209,8 +210,8 @@ export function useStellarBalances(
       return;
     }
 
-    // Prevent duplicate requests within this hook instance
-    if (isRequestInFlightRef.current) {
+    // Prevent duplicate requests across hook instances
+    if (globalRequestInFlight || isRequestInFlightRef.current) {
       return;
     }
 
@@ -223,6 +224,7 @@ export function useStellarBalances(
 
     setLoading(true);
     setError(null); // Clear previous errors
+    globalRequestInFlight = true;
     isRequestInFlightRef.current = true;
     
     try {
@@ -237,6 +239,7 @@ export function useStellarBalances(
       // Keep previous balances on error (don't wipe them) - per requirements
     } finally {
       setLoading(false);
+      globalRequestInFlight = false;
       isRequestInFlightRef.current = false;
     }
   }, [publicKey, fetchBalances]);
@@ -275,13 +278,17 @@ export function useStellarBalances(
     return () => {
       stopPolling();
     };
-  }, [publicKey, pollIntervalMs, refresh, stopPolling, horizonUrl]);
+  }, [publicKey, pollIntervalMs, refresh, stopPolling]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       stopPolling();
-      isRequestInFlightRef.current = false;
+      // Reset global state on unmount
+      if (isRequestInFlightRef.current) {
+        globalRequestInFlight = false;
+        isRequestInFlightRef.current = false;
+      }
     };
   }, [stopPolling]);
 

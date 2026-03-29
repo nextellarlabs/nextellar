@@ -12,6 +12,7 @@ import { displaySuccess, NEXTELLAR_LOGO } from "../src/lib/feedback.js";
 import { detectPackageManager } from "../src/lib/install.js";
 import { runInteractivePrompts } from "../src/lib/prompts.js";
 import {
+  flushTelemetry,
   getTelemetryStatus,
   isTelemetryDisabledByEnv,
   maybeShowTelemetryNotice,
@@ -40,6 +41,11 @@ const findPkg = () => {
 
 const pkg = findPkg();
 
+const exitWithTelemetry = async (code: number): Promise<never> => {
+  await flushTelemetry();
+  process.exit(code);
+};
+
 const program = new Command();
 
 // Register a dedicated `doctor` subcommand so Commander handles `--json`.
@@ -51,10 +57,10 @@ program
     try {
       const { runDoctor } = await import("../src/lib/doctor.js");
       const exitCode = await runDoctor({ json: !!cmdOpts.json });
-      process.exit(exitCode);
+      await exitWithTelemetry(exitCode);
     } catch (err: any) {
       console.error("Failed to run doctor:", err?.message || err);
-      process.exit(1);
+      await exitWithTelemetry(1);
     }
   });
 
@@ -81,7 +87,7 @@ program
       }
       if (!feature || feature.trim() === "") {
         console.error("Please specify a feature. Use " + pc.cyan("nextellar add --list") + " to see options.");
-        process.exit(1);
+        return await exitWithTelemetry(1);
       }
       const result = await runAdd(feature, {
         force: cmdOpts.force,
@@ -90,11 +96,13 @@ program
       });
       if (!result.success) {
         console.error(result.message ?? "Add failed.");
-        process.exit(1);
+        await exitWithTelemetry(1);
       }
     } catch (err: any) {
       console.error("Add failed:", err?.message || err);
-      process.exit(1);
+      await exitWithTelemetry(1);
+    } finally {
+      await flushTelemetry();
     }
   });
 
@@ -102,38 +110,42 @@ program
   .command("telemetry <action>")
   .description("Manage anonymous telemetry settings")
   .action(async (action: string) => {
-    const normalized = action.toLowerCase();
+    try {
+      const normalized = action.toLowerCase();
 
-    if (normalized === "status") {
-      const status = await getTelemetryStatus();
-      console.log(`Telemetry is ${status}.`);
-      console.log(`Config: ${telemetryConfigPath}`);
-      if (isTelemetryDisabledByEnv()) {
-        console.log(
-          "NEXTELLAR_TELEMETRY_DISABLED is set, so telemetry is forced off for this environment."
-        );
+      if (normalized === "status") {
+        const status = await getTelemetryStatus();
+        console.log(`Telemetry is ${status}.`);
+        console.log(`Config: ${telemetryConfigPath}`);
+        if (isTelemetryDisabledByEnv()) {
+          console.log(
+            "NEXTELLAR_TELEMETRY_DISABLED is set, so telemetry is forced off for this environment."
+          );
+        }
+        return;
       }
-      return;
-    }
 
-    if (normalized === "disable") {
-      await setTelemetryEnabled(false);
-      console.log("Telemetry disabled.");
-      console.log(`Saved to: ${telemetryConfigPath}`);
-      return;
-    }
+      if (normalized === "disable") {
+        await setTelemetryEnabled(false);
+        console.log("Telemetry disabled.");
+        console.log(`Saved to: ${telemetryConfigPath}`);
+        return;
+      }
 
-    if (normalized === "enable") {
-      await setTelemetryEnabled(true);
-      console.log("Telemetry enabled.");
-      console.log(`Saved to: ${telemetryConfigPath}`);
-      return;
-    }
+      if (normalized === "enable") {
+        await setTelemetryEnabled(true);
+        console.log("Telemetry enabled.");
+        console.log(`Saved to: ${telemetryConfigPath}`);
+        return;
+      }
 
-    console.error(
-      `Unknown telemetry action \"${action}\". Use: status, enable, disable.`
-    );
-    process.exit(1);
+      console.error(
+        `Unknown telemetry action \"${action}\". Use: status, enable, disable.`
+      );
+      await exitWithTelemetry(1);
+    } finally {
+      await flushTelemetry();
+    }
   });
 
 program
@@ -146,7 +158,9 @@ program
       await upgrade({ dryRun: options.dryRun, yes: options.yes });
     } catch (err: any) {
       console.error(`\n❌ Error: ${err.message}`);
-      process.exit(1);
+      await exitWithTelemetry(1);
+    } finally {
+      await flushTelemetry();
     }
   });
 
@@ -162,7 +176,9 @@ program
       });
     } catch (err: any) {
       console.error(`\n❌ Error: ${err?.message || err}`);
-      process.exit(1);
+      await exitWithTelemetry(1);
+    } finally {
+      await flushTelemetry();
     }
   });
 
@@ -206,7 +222,7 @@ program
   )
   .option(
     "--install-timeout <ms>",
-    "installation timeout in milliseconds",
+    "timeout in ms for package install (default: 1200000 / 20 minutes)",
     "1200000",
   )
   .option("--no-telemetry", "disable telemetry for this invocation");
@@ -233,7 +249,7 @@ program.action(async (projectName, options) => {
     console.error(
       `Unknown template "${template}". Available: default, minimal, defi`,
     );
-    process.exit(1);
+    return await exitWithTelemetry(1);
   }
 
   // Clear console and show welcome banner
@@ -286,7 +302,7 @@ program.action(async (projectName, options) => {
     });
 
     if (!promptResult) {
-      process.exit(0);
+      return await exitWithTelemetry(0);
     }
 
     finalProjectName = promptResult.projectName;
@@ -335,7 +351,9 @@ program.action(async (projectName, options) => {
     await displaySuccess(finalProjectName, pkgManager, finalSkipInstall);
   } catch (err: any) {
     console.error(`\n❌ Error: ${err.message}`);
-    process.exit(1);
+    await exitWithTelemetry(1);
+  } finally {
+    await flushTelemetry();
   }
 });
 

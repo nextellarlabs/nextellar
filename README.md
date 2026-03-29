@@ -60,7 +60,7 @@ Options:
   -d, --defaults           Skip prompts and use defaults
   --skip-install           Skip dependency installation after scaffolding
   --package-manager <pm>   Choose package manager (npm, yarn, pnpm)
-  --install-timeout <ms>   Installation timeout in milliseconds (default: 1200000)
+  --install-timeout <ms>   Timeout in ms for package install (default: 1200000 / 20 minutes)
   -v, --version            Show CLI version
   -h, --help               Show help text
 ```

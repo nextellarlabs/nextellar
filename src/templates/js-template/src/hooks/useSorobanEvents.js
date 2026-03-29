@@ -217,6 +217,7 @@ export function useSorobanEvents(contractId, opts = {}) {
     // ── Initial load + polling setup ───────────────────────────────────────────
     useEffect(() => {
         isMountedRef.current = true;
+        isFetchingRef.current = false;
         cursorRef.current = fromCursor;
         // Run initial fetch immediately, then let refresh schedule polling
         refresh();

@@ -122,7 +122,7 @@ export function useSorobanContract(opts) {
             case xdr.ScValType.scvAddress():
                 return scVal.address().toString();
             default:
-                throw new Error(`Unsupported Soroban XDR type: ${scVal.switch().name}. Please open an issue at https://github.com/nextellarlabs/nextellar/issues`);
+                return scVal.toString();
         }
     }, []);
     /**
@@ -159,12 +159,14 @@ export function useSorobanContract(opts) {
             }
             // Extract and convert the result
             if ("result" in simulation && simulation.result?.retval) {
+                setError(null);
                 return fromXdrValue(simulation.result.retval);
             }
+            setError(null);
             return null;
         }
         catch (err) {
-            const error = err instanceof Error ? err : new Error(String(err));
+            const error = err;
             setError(error);
             throw error;
         }
@@ -198,10 +200,12 @@ export function useSorobanContract(opts) {
                 .addOperation(operation)
                 .setTimeout(30);
             const transaction = txBuilder.build();
-            return transaction.toXDR();
+            const xdrResult = transaction.toXDR();
+            setError(null);
+            return xdrResult;
         }
         catch (err) {
-            const error = err instanceof Error ? err : new Error(String(err));
+            const error = err;
             setError(error);
             throw error;
         }
@@ -229,12 +233,12 @@ export function useSorobanContract(opts) {
             // Sign with the provided secret key (DEV-ONLY)
             const keypair = Keypair.fromSecret(secret);
             transaction.sign(keypair);
-            // Submit the transaction
             const result = await rpcServer.sendTransaction(transaction);
+            setError(null);
             return result;
         }
         catch (err) {
-            const error = err instanceof Error ? err : new Error(String(err));
+            const error = err;
             setError(error);
             throw error;
         }

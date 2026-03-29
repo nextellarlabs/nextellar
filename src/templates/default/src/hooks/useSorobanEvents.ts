@@ -9,6 +9,7 @@ import { useWalletConfig } from '../contexts';
 const DEFAULT_SOROBAN_RPC = 'https://soroban-testnet.stellar.org';
 const DEFAULT_POLL_INTERVAL_MS = 10_000;
 const ERROR_POLL_MULTIPLIER = 2;       // poll at 2× normal interval after errors
+export const MAX_BACKOFF_MS = 30_000;
 const MAX_RETRIES = 3;
 const BACKOFF_BASE_MS = 1_000;         // 1s → 3s → 9s (exponential ×3)
 
@@ -20,7 +21,6 @@ const BACKOFF_BASE_MS = 1_000;         // 1s → 3s → 9s (exponential ×3)
  */
 export interface SorobanEvent {
   id: string;
-  pagingToken: string;
   type: string;
   ledger: number;
   ledgerClosedAt: string;
@@ -82,7 +82,6 @@ function sleep(ms: number): Promise<void> {
 function mapEvent(raw: rpc.Api.EventResponse): SorobanEvent {
   return {
     id: raw.id,
-    pagingToken: (raw as any).pagingToken || raw.id,
     type: raw.type,
     ledger: raw.ledger,
     ledgerClosedAt: raw.ledgerClosedAt,
@@ -187,18 +186,16 @@ export function useSorobanEvents(
 
     if (!isMountedRef.current) return;
 
-    const nextEvents = response.events.map(mapEvent);
+    const newEvents = response.events.map(mapEvent);
 
     setEvents((prev) => {
       const seen = new Set(prev.map((e) => e.id));
-      return [...prev, ...nextEvents.filter((e) => !seen.has(e.id))];
+      return [...prev, ...newEvents.filter((e) => !seen.has(e.id))];
     });
 
     // Advance cursor using the response-level cursor for next page
-    // Fallback to the last event's pagingToken for mock compatibility
-    const nextCursor = response.cursor || nextEvents[nextEvents.length - 1]?.pagingToken;
-    if (nextCursor) {
-      cursorRef.current = nextCursor;
+    if (response.cursor) {
+      cursorRef.current = response.cursor;
     }
   }, [contractId, rpcServer, topics, limit]);
 
@@ -258,7 +255,7 @@ export function useSorobanEvents(
       if (!pollIntervalMs || !isMountedRef.current) return;
 
       const interval = errorMode
-        ? pollIntervalMs * ERROR_POLL_MULTIPLIER
+        ? Math.min(pollIntervalMs * ERROR_POLL_MULTIPLIER, MAX_BACKOFF_MS)
         : pollIntervalMs;
 
       pollTimerRef.current = setTimeout(async () => {
@@ -323,6 +320,7 @@ export function useSorobanEvents(
 
   useEffect(() => {
     isMountedRef.current = true;
+    isFetchingRef.current = false;
     cursorRef.current = fromCursor;
 
     // Run initial fetch immediately, then let refresh schedule polling

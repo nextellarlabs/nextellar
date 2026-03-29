@@ -10,6 +10,7 @@ import {
   text,
 } from "@clack/prompts";
 import { detectPackageManager } from "./install.js";
+import { isValidUrl } from "./validate.js";
 
 export interface PromptResult {
   projectName: string;
@@ -85,7 +86,7 @@ export async function runInteractivePrompts(
         message: "Horizon URL",
         initialValue: "https://horizon-testnet.stellar.org",
         validate: (value: string) => {
-          if (!value || value.trim().length === 0) return "Horizon URL is required";
+          if (!isValidUrl(value)) return "Must be a valid HTTP/HTTPS URL (e.g. https://horizon-testnet.stellar.org)";
         },
       });
 
@@ -98,7 +99,7 @@ export async function runInteractivePrompts(
         message: "Soroban RPC URL",
         initialValue: "https://soroban-testnet.stellar.org",
         validate: (value: string) => {
-          if (!value || value.trim().length === 0) return "Soroban URL is required";
+          if (!isValidUrl(value)) return "Must be a valid HTTP/HTTPS URL (e.g. https://horizon-testnet.stellar.org)";
         },
       });
 

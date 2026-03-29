@@ -48,7 +48,8 @@ export interface TrustlinesState {
 const DEFAULT_HORIZON_URL = 'https://horizon-testnet.stellar.org';
 const DEFAULT_NETWORK = 'TESTNET';
 
-
+// Module-level request coordination to prevent duplicate requests
+let globalRequestInFlight = false;
 
 /**
  * Custom React hook for managing Stellar account trustlines
@@ -186,6 +187,10 @@ export function useTrustlines(
     return secret.length === 56 && secret.startsWith('S');
   }, []);
 
+  const isValidAssetCode = useCallback((code: string): boolean => {
+    return /^[A-Z0-9]{1,12}$/i.test(code);
+  }, []);
+
   /**
    * Parse trustlines from account balances
    * Maps account.balances entries where asset_type !== 'native' into Trustline[]
@@ -266,8 +271,8 @@ export function useTrustlines(
       return;
     }
 
-    // Prevent duplicate requests within this hook instance
-    if (isRequestInFlightRef.current) {
+    // Prevent duplicate requests across hook instances
+    if (globalRequestInFlight || isRequestInFlightRef.current) {
       return;
     }
 
@@ -280,6 +285,7 @@ export function useTrustlines(
 
     setLoading(true);
     setError(null); // Clear previous errors
+    globalRequestInFlight = true;
     isRequestInFlightRef.current = true;
     
     try {
@@ -292,6 +298,7 @@ export function useTrustlines(
       console.error('Error fetching Stellar trustlines:', error);
     } finally {
       setLoading(false);
+      globalRequestInFlight = false;
       isRequestInFlightRef.current = false;
     }
   }, [publicKey, fetchTrustlines]);
@@ -320,12 +327,12 @@ export function useTrustlines(
       throw new Error('Invalid public key format');
     }
 
-    if (!asset.code || typeof asset.code !== 'string' || asset.code.length === 0) {
-      throw new Error('Asset code is required');
+    if (!isValidAssetCode(asset.code)) {
+      throw new Error('Invalid asset code: must be 1-12 alphanumeric characters');
     }
 
     if (!asset.issuer || !isValidPublicKey(asset.issuer)) {
-      throw new Error('Valid asset issuer is required');
+      throw new Error('Invalid asset issuer: must be a valid Stellar public key');
     }
 
     if (asset.limit && (isNaN(parseFloat(asset.limit)) || parseFloat(asset.limit) < 0)) {
@@ -373,7 +380,7 @@ export function useTrustlines(
       // Re-throw validation and other errors
       throw err instanceof Error ? err : new Error('Failed to build change trust transaction');
     }
-  }, [publicKey, isValidPublicKey, getNetworkPassphrase, serverRef]);
+  }, [publicKey, isValidPublicKey, getNetworkPassphrase, serverRef, isValidAssetCode]);
 
   /**
    * **DEVELOPMENT-ONLY**: Sign and submit a change-trust transaction using a secret key
@@ -481,12 +488,16 @@ export function useTrustlines(
 
     // Initial load
     refresh();
-  }, [publicKey, refresh, horizonUrl]);
+  }, [publicKey, refresh]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      isRequestInFlightRef.current = false;
+      // Reset global state on unmount
+      if (isRequestInFlightRef.current) {
+        globalRequestInFlight = false;
+        isRequestInFlightRef.current = false;
+      }
     };
   }, []);
 

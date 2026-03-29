@@ -7,7 +7,7 @@ Nextellar telemetry is anonymous, minimal, and opt-in.
 - Telemetry is disabled by default until explicitly enabled.
 - On first run, Nextellar shows a transparency notice:
   - `Nextellar collects anonymous usage data to improve the tool.`
-  - `You can disable this with --no-telemetry or NEXTELLAR_TELEMETRY_DISABLED=1`
+  - `You can disable this with --no-telemetry or NEXTELLAR_TELEMETRY_DISABLED=1|true|yes|on`
   - `Learn more: https://nextellar.dev/telemetry`
 - Users can manage preferences with:
   - `nextellar telemetry status`
@@ -19,7 +19,7 @@ Preferences are stored in `~/.nextellar/config.json`.
 ## Disable Controls
 
 - Per invocation: `--no-telemetry`
-- Environment override: `NEXTELLAR_TELEMETRY_DISABLED=1`
+- Environment override: `NEXTELLAR_TELEMETRY_DISABLED=1|true|yes|on` (case-insensitive)
 - Persistent opt-out: `nextellar telemetry disable`
 
 ## Data Collected

@@ -3,6 +3,7 @@ import fs from "fs-extra";
 import pc from "picocolors";
 import readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
+import { fileURLToPath } from "url";
 
 interface UpgradeOptions {
   dryRun?: boolean;
@@ -16,7 +17,7 @@ const STELLAR_PKGS = [
 
 function findTemplateDir(templateName: string) {
   const base = path.resolve(
-    path.dirname(new URL(import.meta.url).pathname),
+    path.dirname(fileURLToPath(import.meta.url)),
   );
   const devPath = path.resolve(base, "../../templates", templateName);
   const prodPath = path.resolve(base, "../../../src/templates", templateName);
@@ -34,20 +35,7 @@ export async function upgrade(opts: UpgradeOptions = {}) {
     throw new Error("Not a Nextellar project: missing .nextellar/config.json");
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let projectConfig: Record<string, any> = {};
-  try {
-    projectConfig = await fs.readJson(configPath);
-  } catch (err: unknown) {
-    const isNotFound =
-      err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT";
-    if (!isNotFound) {
-      const reason = err instanceof Error ? err.message : String(err);
-      console.warn(
-        pc.yellow(`Warning: Could not read .nextellar.json: ${reason}. Proceeding with defaults.`),
-      );
-    }
-  }
+  const projectConfig = await fs.readJson(configPath).catch(() => ({}));
   const templateName = projectConfig.template || "default";
   const currentVersion = projectConfig.nextellarVersion || "unknown";
 
@@ -132,12 +120,18 @@ export async function upgrade(opts: UpgradeOptions = {}) {
   if (!opts.yes) {
     // Prompt the user with Node built-ins to avoid extra runtime deps.
     const rl = readline.createInterface({ input, output });
-    const answer =
-      (await rl.question(pc.yellow("Apply these changes? (y/N) "))) || "";
-    rl.close();
-    if (!/^y(es)?$/i.test(answer.trim())) {
-      console.log("Aborted by user.");
+    try {
+      const answer =
+        (await rl.question(pc.yellow("Apply these changes? (y/N) "))) || "";
+      if (!/^y(es)?$/i.test(answer.trim())) {
+        console.log("Aborted by user.");
+        return;
+      }
+    } catch {
+      console.log("\nUpgrade cancelled.");
       return;
+    } finally {
+      rl.close();
     }
   }
 
@@ -175,7 +169,7 @@ export async function upgrade(opts: UpgradeOptions = {}) {
 
   // Update config nextellarVersion
   try {
-    const myPkg = await fs.readJson(path.join(path.dirname(new URL(import.meta.url).pathname), "../../package.json"));
+    const myPkg = await fs.readJson(path.join(path.dirname(fileURLToPath(import.meta.url)), "../../package.json"));
     projectConfig.nextellarVersion = myPkg.version || projectConfig.nextellarVersion;
     projectConfig.updatedAt = new Date().toISOString();
     await fs.writeJson(configPath, projectConfig, { spaces: 2 });

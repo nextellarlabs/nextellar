@@ -97,12 +97,13 @@ export async function runInstall(
     spinner: "dots",
   }).start();
 
-  const stdio = captureOutput ? "pipe" : "inherit";
+  const stdio = captureOutput ? "pipe" : "ignore"; // Use ignore to keep spinner visible
 
   try {
     await execa(command, args, {
       cwd,
       stdio,
+      shell: true,
       timeout,
     });
 
