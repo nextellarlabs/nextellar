@@ -48,10 +48,10 @@ import documentsRouter from "../../backend/routes/documents.js";
 
 function buildApp() {
   const app = express();
-  app.use(express.raw({ type: "*/*", limit: "10mb" }));
   app.use(documentsRouter);
-  app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-    res.status(500).json({ success: false, message: err.message });
+  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    const status = err.status || err.statusCode || 500;
+    res.status(status).json({ success: false, message: err.message });
   });
   return app;
 }
@@ -106,5 +106,17 @@ describe("POST /documents/upload", () => {
 
     expect(res.status).toBe(400);
     expect(res.body.success).toBe(false);
+  });
+
+  it("returns 413 for oversized payloads (over 10MB)", async () => {
+    // 11 MB buffer
+    const largeBuffer = Buffer.alloc(11 * 1024 * 1024);
+
+    const res = await request(app)
+      .post("/documents/upload")
+      .set("Content-Type", "application/octet-stream")
+      .send(largeBuffer);
+
+    expect(res.status).toBe(413);
   });
 });
