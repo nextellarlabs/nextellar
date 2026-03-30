@@ -13,3 +13,11 @@ export const mockServerConstructor = jest.fn().mockImplementation(() => ({
 export const rpc = {
   Server: mockServerConstructor,
 };
+
+export const xdr = {
+  ScVal: {
+    scvString: (val: string) => ({
+      toXDR: (_fmt: string) => Buffer.from(val).toString('base64'),
+    }),
+  },
+};

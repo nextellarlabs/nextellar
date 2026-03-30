@@ -43,12 +43,8 @@ Object.assign(globalThis, {
   fetch: undici.fetch,
 });
 
-// 5) MSW Setup (optional - may not exist, commented out for ESM compatibility)
-// try {
-//   const { server } = require('./src/mocks/server');
-//   beforeAll(() => server.listen());
-//   afterEach(() => server.resetHandlers());
-//   afterAll(() => server.close());
-// } catch (error) {
-//   // MSW server not available, skip
-// }
+// 5) MSW Setup
+const { server } = await import('./src/mocks/server.js');
+beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
