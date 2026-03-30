@@ -187,6 +187,14 @@ router.post(
       incrementBucket(ipBuckets, ip, now);
       incrementBucket(usernameBuckets, username, now);
 
+      const logEntry = {
+        timestamp: new Date().toISOString(),
+        ip,
+        username: username.substring(0, 64),
+        reason: "invalid_credentials",
+      };
+      console.log(`[AUTH_FAILURE] ${JSON.stringify(logEntry)}`);
+
       return res.status(401).json({
         success: false,
         message: "Invalid credentials",
