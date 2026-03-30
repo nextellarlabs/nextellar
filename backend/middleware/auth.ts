@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyToken, TokenPayload } from '../auth/token.js';
 
-export interface AuthenticatedRequest extends Request {
+export interface AuthenticatedRequest extends Request<any, any, any, any> {
   user?: TokenPayload;
 }
 
@@ -11,7 +11,7 @@ export interface AuthenticatedRequest extends Request {
  * Verifies the JWT and attaches the payload to req.user.
  */
 export function authenticate(
-  req: AuthenticatedRequest,
+  req: any,
   res: Response,
   next: NextFunction
 ): void {
@@ -41,7 +41,7 @@ export function authenticate(
  * Checks if the authenticated user has the required role.
  */
 export function requireRole(requiredRole: string) {
-  return (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
+  return (req: any, res: Response, next: NextFunction): void => {
     if (!req.user) {
       res.status(401).json({ error: 'Unauthorized: missing user context' });
       return;
