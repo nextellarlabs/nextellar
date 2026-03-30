@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "allowSyntheticDefaultImports": true,
+    "allowJs": true,
+    "outDir": "./dist"
+  },
+  "include": [
+    "./src/lib/**/*",
+    "./src/mocks/**/*",
+    "./tests/**/*",
+    "./bin/**/*"
+  ],
+  "exclude": ["node_modules", "dist", "tests/tmp-*"]
+}

@@ -1,0 +1,36 @@
+# Development files
+tests/
+tsconfig.json
+tsconfig.build.json
+.babelrc
+jest.config.mjs
+jest.setup.ts
+bin/
+src/lib/
+src/mocks/
+src/templates/**/*.ts
+!src/templates/**/*.js
+!src/templates/**/*.json
+!src/templates/**/*.css
+!src/templates/**/*.html
+!src/templates/**/*.less
+!src/templates/**/*.scss
+!src/templates/**/*.svg
+!src/templates/**/*.png
+!src/templates/**/*.jpg
+!src/templates/**/*.jpeg
+!src/templates/**/*.gif
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.nextellar/
+install.log
+
+# Git
+.git/
+.gitignore
+
+# Env
+.env*
