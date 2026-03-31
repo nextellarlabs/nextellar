@@ -1,4 +1,8 @@
 import { Router, Request, Response, NextFunction } from "express";
+import {
+  SESSION_COOKIE_NAME,
+  sessionCookieOptions,
+} from "../middleware/session.js";
 
 const router = Router();
 
@@ -181,11 +185,24 @@ router.post(
       if (authResult) {
         clearBucket(ipBuckets, ip);
         clearBucket(usernameBuckets, username);
+        res.cookie(
+          SESSION_COOKIE_NAME,
+          authResult.token,
+          sessionCookieOptions(),
+        );
         return res.status(200).json({ success: true, data: authResult });
       }
 
       incrementBucket(ipBuckets, ip, now);
       incrementBucket(usernameBuckets, username, now);
+
+      const logEntry = {
+        timestamp: new Date().toISOString(),
+        ip,
+        username: username.substring(0, 64),
+        reason: "invalid_credentials",
+      };
+      console.log(`[AUTH_FAILURE] ${JSON.stringify(logEntry)}`);
 
       return res.status(401).json({
         success: false,

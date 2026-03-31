@@ -81,6 +81,58 @@ describe("POST /auth/login", () => {
       .send({ username: "alice", password: "wrong-password" });
     expect(postResetAttempt.status).toBe(401);
   });
+
+  it("sets Set-Cookie with HttpOnly, Secure, SameSite=Strict, Path=/, and Max-Age=3600 in production", async () => {
+    const prev = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      authenticateUserMock.mockResolvedValue({
+        userId: "user-1",
+        token: "session-token-value",
+      });
+
+      const res = await request(app)
+        .post("/auth/login")
+        .send({ username: "alice", password: "correct-password" });
+
+      expect(res.status).toBe(200);
+      const raw = res.headers["set-cookie"];
+      expect(raw).toBeDefined();
+      const header = Array.isArray(raw) ? raw.join(";") : String(raw);
+      expect(header).toMatch(/session=/);
+      expect(header).toMatch(/HttpOnly/i);
+      expect(header).toMatch(/;\s*Secure(?:;|$)/i);
+      expect(header).toMatch(/SameSite=Strict/i);
+      expect(header).toMatch(/Path=\//i);
+      expect(header).toMatch(/Max-Age=3600/);
+    } finally {
+      process.env.NODE_ENV = prev;
+    }
+  });
+
+  it("sets HttpOnly and SameSite=Strict but omits Secure when NODE_ENV is not production", async () => {
+    const prev = process.env.NODE_ENV;
+    process.env.NODE_ENV = "test";
+    try {
+      authenticateUserMock.mockResolvedValue({
+        userId: "user-1",
+        token: "session-token-value",
+      });
+
+      const res = await request(app)
+        .post("/auth/login")
+        .send({ username: "alice", password: "correct-password" });
+
+      expect(res.status).toBe(200);
+      const raw = res.headers["set-cookie"];
+      const header = Array.isArray(raw) ? raw.join(";") : String(raw);
+      expect(header).toMatch(/HttpOnly/i);
+      expect(header).toMatch(/SameSite=Strict/i);
+      expect(header).not.toMatch(/;\s*Secure(?:;|$)/i);
+    } finally {
+      process.env.NODE_ENV = prev;
+    }
+  });
 });
 
 describe("sanitizeRedirect", () => {

@@ -1,16 +1,26 @@
 import { Router, Request, Response, NextFunction } from "express";
+import { idempotency, IdempotencyRequest } from "../middleware/idempotency.js";
 
 const router = Router();
 
 /**
  * POST /payments
- * Processes a payment. Wraps all async logic in try/catch so any
- * rejection (provider timeout, DB write failure, etc.) is forwarded
- * to the global error middleware via next(err) instead of crashing.
+ * Processes a payment with idempotency protection.
+ * Requires Idempotency-Key header (UUID).
+ * Duplicate requests with the same key return cached result.
+ *
+ * Request headers:
+ *  - Idempotency-Key: UUID (required)
+ *
+ * Request body:
+ *  - amount: string
+ *  - destination: string
+ *  - asset: string
  */
 router.post(
   "/payments",
-  async (req: Request, res: Response, next: NextFunction) => {
+  idempotency,
+  async (req: IdempotencyRequest, res: Response, next: NextFunction) => {
     try {
       const { amount, destination, asset } = req.body;
 
