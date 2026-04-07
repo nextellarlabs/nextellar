@@ -93,9 +93,9 @@ const WalletConfigContext = createContext<WalletConfigContextState | undefined>(
  */
 export function WalletProvider({
   children,
-  horizonUrl = process.env.NEXT_PUBLIC_HORIZON_URL || 'https://horizon-testnet.stellar.org',
-  sorobanUrl = process.env.NEXT_PUBLIC_SOROBAN_URL || 'https://soroban-testnet.stellar.org',
-  network = (process.env.NEXT_PUBLIC_NETWORK === 'PUBLIC' ? Networks.PUBLIC : Networks.TESTNET)
+  horizonUrl: initialHorizonUrl = process.env.NEXT_PUBLIC_HORIZON_URL || 'https://horizon-testnet.stellar.org',
+  sorobanUrl: initialSorobanUrl = process.env.NEXT_PUBLIC_SOROBAN_URL || 'https://soroban-testnet.stellar.org',
+  network: initialNetwork = (process.env.NEXT_PUBLIC_NETWORK === 'PUBLIC' ? Networks.PUBLIC : Networks.TESTNET)
 }: WalletProviderProps) {
   const [activeNetworkKey, setActiveNetworkKey] = useState<string>('testnet');
   const [connected, setConnected] = useState(false);
@@ -113,19 +113,19 @@ export function WalletProvider({
 
   // Derive active settings from config or props
   const config = NETWORKS[activeNetworkKey] || NETWORKS.testnet;
-  const horizonUrl = initialHorizonUrl || config.horizonUrl;
-  const sorobanUrl = config.sorobanUrl;
-  const network = initialNetwork || config.passphrase;
+  const activeHorizonUrl = initialHorizonUrl || config.horizonUrl;
+  const activeSorobanUrl = initialSorobanUrl || config.sorobanUrl;
+  const activeNetworkPassphrase = initialNetwork || config.passphrase;
 
-  const [server, setServer] = useState(() => new Server(horizonUrl));
+  const [server, setServer] = useState(() => new Server(activeHorizonUrl));
   const serverRef = useRef(server);
 
-  // Update server when network changes
+  // Update server when the active Horizon URL changes.
   useEffect(() => {
-    const nextServer = new Server(horizonUrl);
+    const nextServer = new Server(activeHorizonUrl);
     setServer(nextServer);
     serverRef.current = nextServer;
-  }, [horizonUrl]);
+  }, [activeHorizonUrl]);
 
   /**
    * Connect to a Stellar wallet using the modal interface
@@ -194,13 +194,13 @@ export function WalletProvider({
   }, []);
 
   /**
-   * Switch the active network
+   * Switch the active network.
    */
   const switchNetwork = useCallback((networkKey: string) => {
     if (!NETWORKS[networkKey]) return;
     
-    // Changing network requires disconnecting the current session 
-    // since accounts/balances are network-specific
+    // Changing network requires disconnecting the current session
+    // since accounts and balances are network-specific.
     if (connected) {
       disconnect();
     }
@@ -244,7 +244,7 @@ export function WalletProvider({
 
       const txBuilder = new TransactionBuilder(account, {
         fee: BASE_FEE,
-        networkPassphrase: network,
+        networkPassphrase: activeNetworkPassphrase,
       }).addOperation(
         Operation.payment({
           destination: opts.to,
@@ -275,7 +275,7 @@ export function WalletProvider({
         });
       }
 
-      const signedTransaction = TransactionBuilder.fromXDR(signedTxXdr, network);
+      const signedTransaction = TransactionBuilder.fromXDR(signedTxXdr, activeNetworkPassphrase);
       const result = await serverRef.current.submitTransaction(signedTransaction);
 
       await refreshBalances();
@@ -284,7 +284,7 @@ export function WalletProvider({
       console.error('Payment failed:', error);
       throw error;
     }
-  }, [publicKey, connected, network, refreshBalances]);
+  }, [publicKey, connected, activeNetworkPassphrase, refreshBalances]);
 
   // Auto-reconnect wallet on mount if previously connected
   useEffect(() => {
@@ -342,9 +342,9 @@ export function WalletProvider({
 
   const configValue: WalletConfigContextState = {
     activeNetworkKey,
-    horizonUrl,
-    sorobanUrl,
-    network,
+    horizonUrl: activeHorizonUrl,
+    sorobanUrl: activeSorobanUrl,
+    network: activeNetworkPassphrase,
     switchNetwork,
   };
 
@@ -401,7 +401,7 @@ export function useWallet(): WalletContextState {
  * function MyComponent() {
  *   const config = useWalletConfig();
  *   const balances = useStellarBalances({ 
- *     horizonUrl: config?.horizonUrl // Falls back to hook's default if no provider
+ *     horizonUrl: config?.horizonUrl // Falls back to the hook's default if no provider
  *   });
  * }
  * ```
