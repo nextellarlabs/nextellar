@@ -8,7 +8,7 @@ export default {
     }
   },
   transform: {
-    '^.+\\.[tj]s$': ['ts-jest', {
+    '^.+\\.[tj]sx?$': ['ts-jest', {
       useESM: true,
       tsconfig: {
         module: 'ESNext',
