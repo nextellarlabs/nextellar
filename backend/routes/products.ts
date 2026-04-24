@@ -1,4 +1,5 @@
 import { Router, Request, Response, NextFunction } from "express";
+import { sendError } from "../utils/response.js";
 
 const router = Router();
 
@@ -15,17 +16,17 @@ router.get(
   "/products/:id",
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { id } = req.params;
+      const id = req.params['id'] as string;
 
       if (!UUID_REGEX.test(id)) {
-        res.status(400).json({ success: false, message: "Invalid id format" });
+        sendError(res, 'INVALID_ID', 'Invalid id format', 400);
         return;
       }
 
-      const product = await getProductById(id);
+      const product = await deps.getProductById(id);
 
       if (!product) {
-        res.status(404).json({ success: false, message: "Product not found" });
+        sendError(res, 'NOT_FOUND', 'Product not found', 404);
         return;
       }
 
@@ -39,12 +40,16 @@ router.get(
 export default router;
 
 // ---------------------------------------------------------------------------
-// Stub — swap out for your actual service / DB layer
+// Stub — swap out for your actual service / DB layer.
+// Exported as a mutable object so tests can spy on individual methods
+// without needing jest.mock() factory hoisting.
 // ---------------------------------------------------------------------------
-export async function getProductById(
-  id: string,
-): Promise<{ id: string; name: string } | null> {
-  // Real implementation would query the DB here
-  void id;
-  return null;
-}
+export const deps = {
+  async getProductById(
+    _id: string,
+  ): Promise<{ id: string; name: string } | null> {
+    return null;
+  },
+};
+
+export const getProductById = (id: string) => deps.getProductById(id);
