@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { authenticate, requireRole, AuthenticatedRequest } from "../middleware/auth.js";
+import { noCache } from "../middleware/noCache.js";
 
 const router = Router();
 
@@ -33,11 +34,42 @@ export const users: Map<string, { id: string; name: string }> = new Map([
 ]);
 
 /**
- * GET /users/:id
+ * GET /me
+ * Returns the currently authenticated user's profile.
+ */
+router.get(
+  "/me",
+  authenticate,
+  noCache,
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.user?.sub;
+      if (!userId) {
+        res.status(401).json({ success: false, message: "Unauthorized" });
+        return;
+      }
+
+      const user = await getUserById(userId);
+
+      if (!user) {
+        res.status(404).json({ success: false, message: "User not found" });
+        return;
+      }
+
+      res.status(200).json({ success: true, data: toSafeUser(user) });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+/**
+ * GET /:id
  * Returns only allowlisted public fields — passwordHash is never serialised.
  */
 router.get(
-  "/users/:id",
+  "/:id",
+  noCache,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { id } = req.params;

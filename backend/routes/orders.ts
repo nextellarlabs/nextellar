@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { authenticate, AuthenticatedRequest } from "../middleware/auth.js";
+import { noCache } from "../middleware/noCache.js";
 
 const router = Router();
 
@@ -69,6 +70,7 @@ router.get(
 router.get(
     "/:id",
     authenticate,
+    noCache,
     async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
         try {
             const { id } = req.params;

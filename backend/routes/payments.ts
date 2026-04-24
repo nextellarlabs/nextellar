@@ -1,10 +1,28 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { idempotency, IdempotencyRequest } from "../middleware/idempotency.js";
+import { noCache } from "../middleware/noCache.js";
 
 const router = Router();
 
 /**
- * POST /payments
+ * GET /:id
+ * Retrieves a payment by its ID.
+ */
+router.get(
+  "/:id",
+  noCache,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { id } = req.params;
+      res.status(200).json({ success: true, data: { id, status: "completed" } });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+/**
+ * POST /
  * Processes a payment with idempotency protection.
  * Requires Idempotency-Key header (UUID).
  * Duplicate requests with the same key return cached result.
@@ -18,8 +36,9 @@ const router = Router();
  *  - asset: string
  */
 router.post(
-  "/payments",
+  "/",
   idempotency,
+  noCache,
   async (req: IdempotencyRequest, res: Response, next: NextFunction) => {
     try {
       const { amount, destination, asset } = req.body;

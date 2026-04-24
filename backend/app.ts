@@ -8,6 +8,7 @@ import shippingRouter from './routes/shipping.js';
 import transferRouter from './routes/transfer.js';
 import settingsRouter from './routes/settings.js';
 import accountRouter from './routes/account.js';
+import paymentsRouter from './routes/payments.js';
 import { globalErrorHandler } from './middleware/errorHandler.js';
 
 const app = express();
@@ -22,6 +23,7 @@ app.use('/shipping', shippingRouter);
 app.use('/transfer', transferRouter);
 app.use('/settings', settingsRouter);
 app.use('/account', accountRouter);
+app.use('/payments', paymentsRouter);
 
 // Global Error Handler
 app.use(globalErrorHandler);
