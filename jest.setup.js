@@ -1,3 +1,5 @@
+// jest.setup.js — JS equivalent of jest.setup.ts (no type annotations)
+
 import { TextEncoder, TextDecoder } from 'util';
 Object.assign(global, { TextEncoder, TextDecoder });
 
