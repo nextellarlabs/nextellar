@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { authenticate, requireRole, AuthenticatedRequest } from "../middleware/auth.js";
+import { sendError } from "../utils/response.js";
 
 const router = Router();
 
@@ -40,17 +41,17 @@ router.get(
   "/users/:id",
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { id } = req.params;
+      const id = req.params['id'] as string;
 
       if (!UUID_REGEX.test(id)) {
-        res.status(400).json({ success: false, message: "Invalid id format" });
+        sendError(res, 'INVALID_ID', 'Invalid id format', 400);
         return;
       }
 
-      const user = await getUserById(id);
+      const user = await deps.getUserById(id);
 
       if (!user) {
-        res.status(404).json({ success: false, message: "User not found" });
+        sendError(res, 'NOT_FOUND', 'User not found', 404);
         return;
       }
 
@@ -74,25 +75,28 @@ router.get(
  *   404 – user not found
  */
 router.delete("/:id", authenticate, requireRole('admin'), (req: AuthenticatedRequest, res: Response): void => {
-  const { id } = req.params;
+  const id = req.params['id'] as string;
 
   if (!users.has(id)) {
-    res.status(404).json({ error: "User not found" });
+    sendError(res, 'NOT_FOUND', 'User not found', 404);
     return;
   }
 
   users.delete(id);
-  res.status(200).json({ message: `User ${id} deleted successfully` });
+  res.status(200).json({ success: true, message: `User ${id} deleted successfully` });
 });
 
 export default router;
 
 // ---------------------------------------------------------------------------
-// Stub — swap out for your actual service / DB layer
+// Stub — swap out for your actual service / DB layer.
+// Exported as a mutable object so tests can spy on individual methods
+// without needing jest.mock() factory hoisting.
 // ---------------------------------------------------------------------------
-export async function getUserById(
-  id: string,
-): Promise<Record<string, unknown> | null> {
-  void id;
-  return null;
-}
+export const deps = {
+  async getUserById(_id: string): Promise<Record<string, unknown> | null> {
+    return null;
+  },
+};
+
+export const getUserById = (id: string) => deps.getUserById(id);

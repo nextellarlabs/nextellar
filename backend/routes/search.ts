@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from "express";
 import escapeStringRegexp from "escape-string-regexp";
+import { sendError } from "../utils/response.js";
 
 const router = Router();
 
@@ -17,8 +18,6 @@ const MOCK_RESULTS = [
  * Search endpoint with ReDoS protection.
  * Query parameter:
  *  - q: search query (max 200 chars, treated as literal string)
- *
- * Returns matching results based on literal string matching.
  */
 router.get(
     "/",
@@ -26,16 +25,11 @@ router.get(
         try {
             const query = (req.query.q as string) || "";
 
-            // Validate query length
             if (query.length > MAX_QUERY_LENGTH) {
-                res.status(400).json({
-                    success: false,
-                    message: `Query exceeds maximum length of ${MAX_QUERY_LENGTH} characters`,
-                });
+                sendError(res, 'QUERY_TOO_LONG', `Query exceeds maximum length of ${MAX_QUERY_LENGTH} characters`, 400);
                 return;
             }
 
-            // Empty query returns all results
             if (!query) {
                 res.status(200).json({
                     success: true,
@@ -46,12 +40,9 @@ router.get(
                 return;
             }
 
-            // Escape the query to prevent ReDoS attacks
-            // Treat user input as literal string, not regex pattern
             const escapedQuery = escapeStringRegexp(query);
             const safeRegex = new RegExp(escapedQuery, "i");
 
-            // Filter results using safe regex
             const results = MOCK_RESULTS.filter(
                 (item) =>
                     safeRegex.test(item.title) ||

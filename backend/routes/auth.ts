@@ -3,6 +3,7 @@ import {
   SESSION_COOKIE_NAME,
   sessionCookieOptions,
 } from "../middleware/session.js";
+import { sendError } from "../utils/response.js";
 
 const router = Router();
 
@@ -86,8 +87,7 @@ export function __resetLoginRateLimitState(): void {
 }
 
 /**
- * Allowlist of valid redirect paths. Only relative paths that start
- * with "/" are accepted. External or absolute URLs are rejected.
+ * Allowlist of valid redirect paths.
  */
 const ALLOWED_REDIRECT_PATHS = [
   "/",
@@ -100,7 +100,6 @@ const ALLOWED_REDIRECT_PATHS = [
 /**
  * Returns a safe redirect target. Rejects absolute URLs, external hosts,
  * protocol-relative URLs, and paths not on the allowlist.
- * Falls back to "/" for anything invalid.
  */
 export function sanitizeRedirect(raw: unknown): string {
   if (typeof raw !== "string" || raw.length === 0) {
@@ -109,12 +108,10 @@ export function sanitizeRedirect(raw: unknown): string {
 
   const trimmed = raw.trim();
 
-  // Reject protocol-relative URLs (//evil.com)
   if (trimmed.startsWith("//")) {
     return "/";
   }
 
-  // Reject absolute URLs (http://, https://, or any scheme)
   try {
     const parsed = new URL(trimmed, "http://localhost");
     if (parsed.origin !== "http://localhost") {
@@ -124,7 +121,6 @@ export function sanitizeRedirect(raw: unknown): string {
     return "/";
   }
 
-  // Only allow paths on the explicit allowlist
   if (!ALLOWED_REDIRECT_PATHS.includes(trimmed)) {
     return "/";
   }
@@ -134,8 +130,6 @@ export function sanitizeRedirect(raw: unknown): string {
 
 /**
  * GET /auth/callback
- * Handles the OAuth callback redirect. Validates the redirect query
- * parameter against an allowlist before redirecting.
  */
 router.get("/auth/callback", (req: Request, res: Response) => {
   const target = sanitizeRedirect(req.query.redirect);
@@ -152,10 +146,8 @@ router.post(
         typeof req.body?.password === "string" ? req.body.password : "";
 
       if (!rawUsername || !password) {
-        return res.status(400).json({
-          success: false,
-          message: "username and password are required",
-        });
+        sendError(res, 'MISSING_CREDENTIALS', 'username and password are required', 400);
+        return;
       }
 
       const username = normalizeUsername(rawUsername);
@@ -174,10 +166,8 @@ router.post(
             ? ipBucket.resetAt
             : userBucket.resetAt;
         res.setHeader("Retry-After", retryAfterSeconds(resetAt, now).toString());
-        return res.status(429).json({
-          success: false,
-          message: "Too many login attempts. Please retry later.",
-        });
+        sendError(res, 'RATE_LIMITED', 'Too many login attempts. Please retry later.', 429);
+        return;
       }
 
       const authResult = await authDeps.authenticateUser(username, password);
@@ -204,10 +194,8 @@ router.post(
       };
       console.log(`[AUTH_FAILURE] ${JSON.stringify(logEntry)}`);
 
-      return res.status(401).json({
-        success: false,
-        message: "Invalid credentials",
-      });
+      sendError(res, 'INVALID_CREDENTIALS', 'Invalid credentials', 401);
+      return;
     } catch (err) {
       return next(err);
     }

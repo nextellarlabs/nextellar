@@ -26,26 +26,27 @@ describe("POST /transactions", () => {
     expect(res.body.success).toBe(true);
   });
 
-  it("returns 415 for text/plain content type", async () => {
+  it("returns 415 with standard error shape for text/plain content type", async () => {
     const res = await request(app)
       .post("/transactions")
       .set("Content-Type", "text/plain")
       .send("some plain text");
 
     expect(res.status).toBe(415);
-    expect(res.body.success).toBe(false);
-    expect(res.body.message).toContain("Unsupported Media Type");
+    expect(res.body.error).toBeDefined();
+    expect(res.body.error.code).toBe("UNSUPPORTED_MEDIA_TYPE");
+    expect(res.body.error.message).toContain("application/json");
   });
 
-  it("returns 415 when Content-Type header is missing", async () => {
+  it("returns 415 with standard error shape when Content-Type header is missing", async () => {
     const res = await request(app)
       .post("/transactions")
       .unset("Content-Type")
       .send();
 
     expect(res.status).toBe(415);
-    expect(res.body.success).toBe(false);
-    expect(res.body.message).toContain("application/json");
+    expect(res.body.error).toBeDefined();
+    expect(res.body.error.code).toBe("UNSUPPORTED_MEDIA_TYPE");
   });
 
   it("returns 415 for multipart/form-data content type", async () => {
@@ -55,7 +56,7 @@ describe("POST /transactions", () => {
       .send("---\r\nContent-Disposition: form-data\r\n---");
 
     expect(res.status).toBe(415);
-    expect(res.body.success).toBe(false);
+    expect(res.body.error).toBeDefined();
   });
 
   it("accepts application/json with charset parameter", async () => {

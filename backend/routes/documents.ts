@@ -1,4 +1,5 @@
 import express, { Router, Request, Response, NextFunction } from "express";
+import { sendError } from "../utils/response.js";
 
 const router = Router();
 
@@ -42,9 +43,6 @@ export function detectMimeType(buffer: Buffer): string | null {
  * POST /documents/upload
  * Accepts a raw file buffer and validates the MIME type from magic bytes.
  * Rejects disallowed types with 415 Unsupported Media Type.
- *
- * In production this would use multer or a similar middleware for
- * multipart form parsing. Here we read the raw body for simplicity.
  */
 router.post(
   "/documents/upload",
@@ -54,20 +52,14 @@ router.post(
       const fileBuffer = await getRawBody(req);
 
       if (!fileBuffer || fileBuffer.length === 0) {
-        res
-          .status(400)
-          .json({ success: false, message: "No file data received." });
+        sendError(res, 'NO_FILE', 'No file data received.', 400);
         return;
       }
 
       const detectedMime = detectMimeType(fileBuffer);
 
       if (!detectedMime || !ALLOWED_MIME_TYPES.has(detectedMime)) {
-        res.status(415).json({
-          success: false,
-          message:
-            "Unsupported file type. Only PDF, PNG, JPEG, GIF, and WebP files are allowed.",
-        });
+        sendError(res, 'UNSUPPORTED_FILE_TYPE', 'Unsupported file type. Only PDF, PNG, JPEG, GIF, and WebP files are allowed.', 415);
         return;
       }
 
@@ -85,8 +77,6 @@ export default router;
 // Stubs - swap out for your actual implementation
 // ---------------------------------------------------------------------------
 export async function getRawBody(req: Request): Promise<Buffer> {
-  // In production, use multer or busboy to parse multipart data.
-  // Here we return req.body as a buffer for testing.
   if (Buffer.isBuffer(req.body)) return req.body;
   if (typeof req.body === "string") return Buffer.from(req.body);
   return Buffer.alloc(0);

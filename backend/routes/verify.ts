@@ -1,4 +1,5 @@
 import { Router, Request, Response, NextFunction } from "express";
+import { sendError } from "../utils/response.js";
 
 const router = Router();
 
@@ -24,10 +25,8 @@ router.post(
           : "";
 
       if (!code || !storedCode) {
-        return res.status(400).json({
-          verified: false,
-          message: "code and storedCode are required",
-        });
+        sendError(res, 'MISSING_FIELDS', 'code and storedCode are required', 400);
+        return;
       }
 
       if (code === storedCode) {
