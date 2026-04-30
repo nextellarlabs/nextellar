@@ -1,5 +1,6 @@
 import path from "path";
 import fs from "fs-extra";
+import pc from "picocolors";
 import { detectPackageManager, runInstall } from "./install.js";
 import { trackScaffoldEvent } from "./telemetry.js";
 import { fileURLToPath } from "url";
@@ -158,6 +159,10 @@ export async function scaffold(options) {
         }, { noTelemetryFlag: telemetryEnabled === false });
     }
     catch (error) {
+        if (await fs.pathExists(targetDir)) {
+            console.log(pc.yellow(`Cleaning up incomplete project directory "${appName}"...`));
+            await fs.remove(targetDir);
+        }
         void trackScaffoldEvent({
             template: telemetryTemplate,
             language: telemetryLanguage,

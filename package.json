@@ -48,7 +48,6 @@
     "@unrs/resolver-binding-win32-x64-msvc": "^1.11.1",
     "commander": "^14.0.0",
     "execa": "^9.6.0",
-    "express": "^5.2.1",
     "fs-extra": "^11.3.0",
     "gradient-string": "^3.0.0",
     "ora": "^8.2.0",
