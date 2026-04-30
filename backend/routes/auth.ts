@@ -23,6 +23,9 @@ type AuthDependencies = {
     username: string,
     password: string,
   ) => Promise<{ userId: string; token: string } | null>;
+  generateResetToken: (email: string) => Promise<string>;
+  sendResetEmail: (email: string, token: string) => Promise<void>;
+  sendAdminAlert: (adminEmail: string, requestedFor: string) => Promise<void>;
 };
 
 export const authDeps: AuthDependencies = {
@@ -31,6 +34,11 @@ export const authDeps: AuthDependencies = {
     void password;
     return null;
   },
+  generateResetToken: async (_email: string) => {
+    return "";
+  },
+  sendResetEmail: async (_email: string, _token: string) => {},
+  sendAdminAlert: async (_adminEmail: string, _requestedFor: string) => {},
 };
 
 function normalizeUsername(username: string): string {
@@ -196,6 +204,38 @@ router.post(
 
       sendError(res, 'INVALID_CREDENTIALS', 'Invalid credentials', 401);
       return;
+    } catch (err) {
+      return next(err);
+    }
+  },
+);
+
+router.post(
+  "/forgot-password",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const email =
+        typeof req.body?.email === "string" ? req.body.email.trim() : "";
+
+      if (!email) {
+        return res
+          .status(400)
+          .json({ success: false, message: "email is required" });
+      }
+
+      const token = await authDeps.generateResetToken(email);
+      await authDeps.sendResetEmail(email, token);
+
+      const adminEmail = process.env.ADMIN_ALERT_EMAIL;
+      if (adminEmail) {
+        // Only send a notification — never include the reset token
+        await authDeps.sendAdminAlert(adminEmail, email);
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "If that email exists, a reset link has been sent.",
+      });
     } catch (err) {
       return next(err);
     }
