@@ -9,6 +9,7 @@ import transferRouter from './routes/transfer.js';
 import settingsRouter from './routes/settings.js';
 import accountRouter from './routes/account.js';
 import paymentsRouter from './routes/payments.js';
+import feedbackRouter from './routes/feedback.js';
 import { globalErrorHandler } from './middleware/errorHandler.js';
 
 const app = express();
