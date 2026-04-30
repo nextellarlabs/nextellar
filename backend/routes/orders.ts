@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { authenticate, AuthenticatedRequest } from "../middleware/auth.js";
+import { sendError } from "../utils/response.js";
 
 const router = Router();
 
@@ -18,9 +19,6 @@ const DEFAULT_LIMIT = 20;
 /**
  * GET /orders
  * Returns a paginated list of orders.
- * Query params:
- *  - page: number (default 1)
- *  - limit: number (default 20, max 100)
  */
 router.get(
     "/",
@@ -29,10 +27,7 @@ router.get(
             let page = parseInt(req.query.page as string) || 1;
             let limit = parseInt(req.query.limit as string) || DEFAULT_LIMIT;
 
-            // Ensure page is at least 1
             if (page < 1) page = 1;
-
-            // Enforce maximum limit and ensure limit is at least 1
             if (limit < 1) limit = DEFAULT_LIMIT;
             if (limit > MAX_LIMIT) limit = MAX_LIMIT;
 
@@ -59,46 +54,32 @@ router.get(
  * GET /orders/:id
  * Returns orders for a specific user.
  * Requires authentication and ownership verification.
- * Non-owners receive 403 Forbidden (not 404 to avoid leaking existence).
- * Admin users can bypass ownership check.
- *
- * Query params:
- *  - page: number (default 1)
- *  - limit: number (default 20, max 100)
  */
 router.get(
     "/:id",
     authenticate,
     async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
         try {
-            const { id } = req.params;
+            const id = req.params['id'] as string;
             const user = req.user;
 
             if (!user) {
-                res.status(401).json({ success: false, message: "Unauthorized" });
+                sendError(res, 'UNAUTHORIZED', 'Unauthorized', 401);
                 return;
             }
 
-            // Check ownership: user can only view their own orders unless they're admin
             if (user.role !== "admin" && user.sub !== id) {
-                res.status(403).json({
-                    success: false,
-                    message: "Forbidden: you do not have access to this resource",
-                });
+                sendError(res, 'FORBIDDEN', 'Forbidden: you do not have access to this resource', 403);
                 return;
             }
 
             let page = parseInt(req.query.page as string) || 1;
             let limit = parseInt(req.query.limit as string) || DEFAULT_LIMIT;
 
-            // Ensure page is at least 1
             if (page < 1) page = 1;
-
-            // Enforce maximum limit and ensure limit is at least 1
             if (limit < 1) limit = DEFAULT_LIMIT;
             if (limit > MAX_LIMIT) limit = MAX_LIMIT;
 
-            // Filter orders by user ID
             const userOrders = MOCK_ORDERS.filter((order) => order.userId === id);
             const total = userOrders.length;
             const startIndex = (page - 1) * limit;

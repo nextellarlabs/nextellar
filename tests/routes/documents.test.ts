@@ -72,7 +72,7 @@ describe("POST /documents/upload", () => {
     expect(res.body.data.mimeType).toBe("application/pdf");
   });
 
-  it("returns 415 for a disguised HTML file", async () => {
+  it("returns 415 with standard error shape for a disguised HTML file", async () => {
     const htmlBuffer = Buffer.from("<html><script>alert('xss')</script></html>");
 
     const res = await request(app)
@@ -81,8 +81,9 @@ describe("POST /documents/upload", () => {
       .send(htmlBuffer);
 
     expect(res.status).toBe(415);
-    expect(res.body.success).toBe(false);
-    expect(res.body.message).toContain("Unsupported file type");
+    expect(res.body.error).toBeDefined();
+    expect(res.body.error.code).toBe("UNSUPPORTED_FILE_TYPE");
+    expect(res.body.error.message).toContain("Unsupported file type");
   });
 
   it("returns 200 for a valid PNG upload", async () => {
@@ -98,18 +99,18 @@ describe("POST /documents/upload", () => {
     expect(res.body.data.mimeType).toBe("image/png");
   });
 
-  it("returns 400 when no file data is sent", async () => {
+  it("returns 400 with standard error shape when no file data is sent", async () => {
     const res = await request(app)
       .post("/documents/upload")
       .set("Content-Type", "application/octet-stream")
       .send(Buffer.alloc(0));
 
     expect(res.status).toBe(400);
-    expect(res.body.success).toBe(false);
+    expect(res.body.error).toBeDefined();
+    expect(res.body.error.code).toBe("NO_FILE");
   });
 
   it("returns 413 for oversized payloads (over 10MB)", async () => {
-    // 11 MB buffer
     const largeBuffer = Buffer.alloc(11 * 1024 * 1024);
 
     const res = await request(app)
