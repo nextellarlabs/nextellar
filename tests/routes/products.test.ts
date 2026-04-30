@@ -1,19 +1,9 @@
 import express, { Request, Response, NextFunction } from "express";
 import request from "supertest";
 
+import productsRouter, { deps } from "../../backend/routes/products.js";
+
 const VALID_UUID = "123e4567-e89b-12d3-a456-426614174000";
-
-// We mock getProductById so we can control DB responses per test
-jest.mock("../../backend/routes/products", () => {
-  const actual = jest.requireActual("../../backend/routes/products");
-  return { ...actual, getProductById: jest.fn() };
-});
-
-import productsRouter, { getProductById } from "../../backend/routes/products";
-
-const mockGetProductById = getProductById as jest.MockedFunction<
-  typeof getProductById
->;
 
 function buildApp() {
   const app = express();
@@ -28,10 +18,12 @@ function buildApp() {
 describe("GET /products/:id", () => {
   const app = buildApp();
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(() => jest.restoreAllMocks());
 
   it("returns 200 with product data when found", async () => {
-    mockGetProductById.mockResolvedValue({ id: VALID_UUID, name: "Widget" });
+    jest
+      .spyOn(deps, "getProductById")
+      .mockResolvedValue({ id: VALID_UUID, name: "Widget" });
 
     const res = await request(app).get(`/products/${VALID_UUID}`);
 
@@ -40,34 +32,43 @@ describe("GET /products/:id", () => {
     expect(res.body.data).toMatchObject({ id: VALID_UUID, name: "Widget" });
   });
 
-  it("returns 404 when no product matches the id", async () => {
-    mockGetProductById.mockResolvedValue(null);
+  it("returns 404 with standard error shape when no product matches the id", async () => {
+    jest.spyOn(deps, "getProductById").mockResolvedValue(null);
 
     const res = await request(app).get(`/products/${VALID_UUID}`);
 
     expect(res.status).toBe(404);
-    expect(res.body.success).toBe(false);
-    expect(res.body.message).toBe("Product not found");
+    expect(res.body.error).toBeDefined();
+    expect(res.body.error.code).toBe("NOT_FOUND");
+    expect(res.body.error.message).toBe("Product not found");
   });
 
-  it("returns 400 for a non-UUID id", async () => {
+  it("returns 400 with standard error shape for a non-UUID id", async () => {
+    const spy = jest.spyOn(deps, "getProductById");
+
     const res = await request(app).get("/products/not-a-uuid");
 
     expect(res.status).toBe(400);
-    expect(res.body.success).toBe(false);
-    expect(res.body.message).toBe("Invalid id format");
-    expect(mockGetProductById).not.toHaveBeenCalled();
+    expect(res.body.error).toBeDefined();
+    expect(res.body.error.code).toBe("INVALID_ID");
+    expect(res.body.error.message).toBe("Invalid id format");
+    expect(spy).not.toHaveBeenCalled();
   });
 
   it("returns 400 for a numeric id", async () => {
+    const spy = jest.spyOn(deps, "getProductById");
+
     const res = await request(app).get("/products/12345");
 
     expect(res.status).toBe(400);
-    expect(mockGetProductById).not.toHaveBeenCalled();
+    expect(res.body.error).toBeDefined();
+    expect(spy).not.toHaveBeenCalled();
   });
 
   it("returns 500 and does not crash on unexpected DB error", async () => {
-    mockGetProductById.mockRejectedValue(new Error("DB connection lost"));
+    jest
+      .spyOn(deps, "getProductById")
+      .mockRejectedValue(new Error("DB connection lost"));
 
     const res = await request(app).get(`/products/${VALID_UUID}`);
 

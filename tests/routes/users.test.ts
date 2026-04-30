@@ -1,6 +1,15 @@
 import express, { Request, Response, NextFunction } from "express";
 import request from "supertest";
 
+// Mock the auth middleware before importing the router so the module
+// loader never reaches backend/auth/token.ts (which requires jsonwebtoken).
+jest.mock("../../backend/middleware/auth.js", () => ({
+  authenticate: (_req: Request, _res: Response, next: NextFunction) => next(),
+  requireRole: () => (_req: Request, _res: Response, next: NextFunction) => next(),
+}));
+
+import usersRouter, { deps } from "../../backend/routes/users.js";
+
 const VALID_UUID = "123e4567-e89b-12d3-a456-426614174000";
 
 const FULL_DB_USER = {
@@ -11,15 +20,6 @@ const FULL_DB_USER = {
   role: "user",
   passwordHash: "$2b$10$supersecrethashedvalue",
 };
-
-jest.mock("../../backend/routes/users", () => {
-  const actual = jest.requireActual("../../backend/routes/users");
-  return { ...actual, getUserById: jest.fn() };
-});
-
-import usersRouter, { getUserById } from "../../backend/routes/users";
-
-const mockGetUserById = getUserById as jest.MockedFunction<typeof getUserById>;
 
 function buildApp() {
   const app = express();
@@ -34,10 +34,10 @@ function buildApp() {
 describe("GET /users/:id", () => {
   const app = buildApp();
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(() => jest.restoreAllMocks());
 
   it("returns 200 with only safe public fields", async () => {
-    mockGetUserById.mockResolvedValue(FULL_DB_USER);
+    jest.spyOn(deps, "getUserById").mockResolvedValue(FULL_DB_USER);
 
     const res = await request(app).get(`/users/${VALID_UUID}`);
 
@@ -53,36 +53,41 @@ describe("GET /users/:id", () => {
   });
 
   it("never includes passwordHash in the response", async () => {
-    mockGetUserById.mockResolvedValue(FULL_DB_USER);
+    jest.spyOn(deps, "getUserById").mockResolvedValue(FULL_DB_USER);
 
     const res = await request(app).get(`/users/${VALID_UUID}`);
 
-    // Check both the parsed body and the raw JSON string
     expect(res.body.data).not.toHaveProperty("passwordHash");
     expect(res.text).not.toContain("passwordHash");
     expect(res.text).not.toContain("supersecrethashedvalue");
   });
 
-  it("returns 404 when user does not exist", async () => {
-    mockGetUserById.mockResolvedValue(null);
+  it("returns 404 with standard error shape when user does not exist", async () => {
+    jest.spyOn(deps, "getUserById").mockResolvedValue(null);
 
     const res = await request(app).get(`/users/${VALID_UUID}`);
 
     expect(res.status).toBe(404);
-    expect(res.body.success).toBe(false);
-    expect(res.body.message).toBe("User not found");
+    expect(res.body.error).toBeDefined();
+    expect(res.body.error.code).toBe("NOT_FOUND");
+    expect(res.body.error.message).toBe("User not found");
   });
 
-  it("returns 400 for a non-UUID id", async () => {
+  it("returns 400 with standard error shape for a non-UUID id", async () => {
+    const spy = jest.spyOn(deps, "getUserById");
+
     const res = await request(app).get("/users/not-a-uuid");
 
     expect(res.status).toBe(400);
-    expect(res.body.success).toBe(false);
-    expect(mockGetUserById).not.toHaveBeenCalled();
+    expect(res.body.error).toBeDefined();
+    expect(res.body.error.code).toBe("INVALID_ID");
+    expect(spy).not.toHaveBeenCalled();
   });
 
   it("returns 500 without crashing on unexpected DB error", async () => {
-    mockGetUserById.mockRejectedValue(new Error("DB timeout"));
+    jest
+      .spyOn(deps, "getUserById")
+      .mockRejectedValue(new Error("DB timeout"));
 
     const res = await request(app).get(`/users/${VALID_UUID}`);
 

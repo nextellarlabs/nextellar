@@ -1,4 +1,5 @@
 import { Router, Request, Response, NextFunction } from "express";
+import { sendError } from "../utils/response.js";
 
 const router = Router();
 
@@ -98,10 +99,8 @@ router.get(
       return res.status(200).json({ success: true, data: exchangeRate });
     } catch (err) {
       if (isAbortError(err)) {
-        return res.status(504).json({
-          success: false,
-          message: "Upstream exchange rate request timed out",
-        });
+        sendError(res, 'UPSTREAM_TIMEOUT', 'Upstream exchange rate request timed out', 504);
+        return;
       }
       return next(err);
     } finally {

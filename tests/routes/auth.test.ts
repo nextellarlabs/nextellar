@@ -201,3 +201,69 @@ describe("GET /auth/callback", () => {
     expect(res.headers.location).toBe("/");
   });
 });
+
+describe("POST /forgot-password", () => {
+  const app = buildApp();
+  let generateResetTokenMock: jest.MockedFunction<typeof authDeps.generateResetToken>;
+  let sendResetEmailMock: jest.MockedFunction<typeof authDeps.sendResetEmail>;
+  let sendAdminAlertMock: jest.MockedFunction<typeof authDeps.sendAdminAlert>;
+
+  beforeEach(() => {
+    generateResetTokenMock = jest.fn().mockResolvedValue("test-token-abc");
+    sendResetEmailMock = jest.fn().mockResolvedValue(undefined);
+    sendAdminAlertMock = jest.fn().mockResolvedValue(undefined);
+    authDeps.generateResetToken = generateResetTokenMock;
+    authDeps.sendResetEmail = sendResetEmailMock;
+    authDeps.sendAdminAlert = sendAdminAlertMock;
+    delete process.env.ADMIN_ALERT_EMAIL;
+  });
+
+  it("returns 400 when email is missing", async () => {
+    const res = await request(app).post("/forgot-password").send({});
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 200 and sends reset email", async () => {
+    const res = await request(app)
+      .post("/forgot-password")
+      .send({ email: "user@example.com" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(sendResetEmailMock).toHaveBeenCalledWith("user@example.com", "test-token-abc");
+  });
+
+  it("does not call sendAdminAlert when ADMIN_ALERT_EMAIL is not set", async () => {
+    await request(app)
+      .post("/forgot-password")
+      .send({ email: "user@example.com" });
+
+    expect(sendAdminAlertMock).not.toHaveBeenCalled();
+  });
+
+  it("calls sendAdminAlert with admin email when ADMIN_ALERT_EMAIL is set", async () => {
+    process.env.ADMIN_ALERT_EMAIL = "ops@company.com";
+
+    await request(app)
+      .post("/forgot-password")
+      .send({ email: "user@example.com" });
+
+    expect(sendAdminAlertMock).toHaveBeenCalledWith("ops@company.com", "user@example.com");
+  });
+
+  it("does not include the reset token in the admin alert", async () => {
+    process.env.ADMIN_ALERT_EMAIL = "ops@company.com";
+
+    await request(app)
+      .post("/forgot-password")
+      .send({ email: "user@example.com" });
+
+    const [, alertArg2] = sendAdminAlertMock.mock.calls[0];
+    // second arg is the requesting email, not the token
+    expect(alertArg2).toBe("user@example.com");
+    expect(alertArg2).not.toBe("test-token-abc");
+    // ensure token was never passed to sendAdminAlert at all
+    const allArgs = sendAdminAlertMock.mock.calls[0];
+    expect(allArgs).not.toContain("test-token-abc");
+  });
+});

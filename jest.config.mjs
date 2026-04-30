@@ -1,32 +1,20 @@
 export default {
   testEnvironment: 'node',
   extensionsToTreatAsEsm: ['.ts'],
-  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
-  globals: {
-    'ts-jest': {
-      useESM: true
-    }
-  },
+  setupFilesAfterEnv: ['./jest.setup.js'],
   transform: {
-    '^.+\\.[tj]s$': ['ts-jest', {
-      useESM: true,
-      tsconfig: {
-        module: 'ESNext',
-        moduleResolution: 'Bundler',
-        target: 'ES2022',
-        jsx: 'react-jsx',
-        esModuleInterop: true,
-        allowSyntheticDefaultImports: true,
-        strict: true,
-        skipLibCheck: true,
-      },
-    }]
+    '^.+\\.[tj]sx?$': ['babel-jest', {
+      presets: [
+        ['@babel/preset-env', { targets: { node: 'current' }, modules: false }],
+        ['@babel/preset-typescript'],
+      ],
+    }],
   },
   moduleNameMapper: {
     '^\\.\\./contexts$': '<rootDir>/src/mocks/wallet-contexts-mock.ts',
     '^(\\.{1,2}/.*)\\.js$': '$1'
   },
-  moduleFileExtensions: ['ts', 'js'],
+  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
   testMatch: [
     '**/tests/**/*.test.ts',
     '**/tests/**/*.test.tsx',

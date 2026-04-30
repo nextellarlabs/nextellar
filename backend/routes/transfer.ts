@@ -1,4 +1,5 @@
 import { Router, Request, Response, NextFunction } from "express";
+import { sendError } from "../utils/response.js";
 
 const router = Router();
 
@@ -16,50 +17,40 @@ router.post(
 
       // 1. Check if amount is provided
       if (amount === undefined || amount === null) {
-        res.status(400).json({ error: "Amount is required" });
+        sendError(res, 'AMOUNT_REQUIRED', 'Amount is required', 400);
         return;
       }
 
       // 2. Validate it's a number and a safe integer (prevents overflow loss)
-      // Note: We use raw check to catch NaN, Infinity, etc.
-      const rawAmount = Number(amount);
-
       if (
         typeof amount !== "number" ||
         !Number.isFinite(amount) ||
         !Number.isSafeInteger(amount)
       ) {
-        res.status(400).json({ 
-          error: "Invalid amount format. Must be a finite integer." 
-        });
+        sendError(res, 'INVALID_AMOUNT', 'Invalid amount format. Must be a finite integer.', 400);
         return;
       }
 
       // 3. Reject negative or zero values
       if (amount <= 0) {
-        res.status(400).json({ 
-          error: "Amount must be a positive integer greater than zero." 
-        });
+        sendError(res, 'INVALID_AMOUNT', 'Amount must be a positive integer greater than zero.', 400);
         return;
       }
 
       // 4. Cap at maximum allowed single transfer
       if (amount > MAX_TRANSFER_AMOUNT) {
-        res.status(400).json({ 
-          error: `Transfer amount exceeds the maximum limit of ${MAX_TRANSFER_AMOUNT} units.` 
-        });
+        sendError(res, 'AMOUNT_EXCEEDED', `Transfer amount exceeds the maximum limit of ${MAX_TRANSFER_AMOUNT} units.`, 400);
         return;
       }
 
       // 5. Success - Mock processing
-      // At this point 'amount' is a safe, positive integer within range.
       res.status(200).json({
         success: true,
         message: "Transfer processed successfully",
         data: {
-          amount, // strictly integer
+          amount,
           destination,
-          fee: Math.floor(amount * 0.01) // simple integer fee (example of integer arithmetic)
+          fee: Math.floor(amount * 0.01),
         }
       });
     } catch (err) {
