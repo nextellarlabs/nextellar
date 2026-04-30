@@ -1,4 +1,5 @@
 import { Router, Request, Response, NextFunction } from "express";
+import { sendError } from "../utils/response.js";
 
 const router = Router();
 
@@ -14,11 +15,7 @@ function requireJsonContentType(
   const contentType = req.headers["content-type"];
 
   if (!contentType || !contentType.includes("application/json")) {
-    res.status(415).json({
-      success: false,
-      message:
-        "Unsupported Media Type. Content-Type must be application/json.",
-    });
+    sendError(res, 'UNSUPPORTED_MEDIA_TYPE', 'Unsupported Media Type. Content-Type must be application/json.', 415);
     return;
   }
 

@@ -26,7 +26,7 @@ describe("GET /exchange-rate", () => {
     jest.clearAllMocks();
   });
 
-  it("returns 504 when upstream call exceeds timeout", async () => {
+  it("returns 504 with standard error shape when upstream call exceeds timeout", async () => {
     globalThis.fetch = jest.fn(
       async (_input: string | URL | Request, init?: RequestInit) =>
         await new Promise<Response>((_resolve, reject) => {
@@ -46,8 +46,9 @@ describe("GET /exchange-rate", () => {
     const res = await request(app).get("/exchange-rate?base=XLM&quote=USD");
 
     expect(res.status).toBe(504);
-    expect(res.body.success).toBe(false);
-    expect(res.body.message).toBe("Upstream exchange rate request timed out");
+    expect(res.body.error).toBeDefined();
+    expect(res.body.error.code).toBe("UPSTREAM_TIMEOUT");
+    expect(res.body.error.message).toBe("Upstream exchange rate request timed out");
   });
 
   it("returns 200 when upstream responds before timeout", async () => {

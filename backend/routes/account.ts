@@ -1,6 +1,7 @@
 import { Router, Response, NextFunction } from "express";
-import { authenticate, AuthenticatedRequest } from "../middleware/auth.js";
+import { authenticate } from "../middleware/auth.js";
 import { validateCsrf } from "../middleware/csrf.js";
+import { sendError } from "../utils/response.js";
 
 const router = Router();
 
@@ -15,9 +16,9 @@ router.post(
   async (req: any, res: Response, next: NextFunction) => {
     try {
       const { confirmPassword } = req.body;
-      
+
       if (!confirmPassword) {
-        res.status(400).json({ error: "Password confirmation required" });
+        sendError(res, 'MISSING_FIELD', 'Password confirmation required', 400);
         return;
       }
 
