@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { authenticate, requireRole, AuthenticatedRequest } from "../middleware/auth.js";
+import { noCache } from "../middleware/noCache.js";
 import { sendError } from "../utils/response.js";
 
 const router = Router();
@@ -26,72 +27,93 @@ function toSafeUser(user: Record<string, unknown>): SafeUser {
   };
 }
 
-// In-memory user store used as a stand-in for a real database.
-// Keys are user ids; values are user records.
+// In-memory user store (mock)
 export const users: Map<string, { id: string; name: string }> = new Map([
   ["1", { id: "1", name: "Alice" }],
   ["2", { id: "2", name: "Bob" }],
 ]);
 
 /**
- * GET /users/:id
- * Returns only allowlisted public fields — passwordHash is never serialised.
+ * GET /me
+ * Returns the currently authenticated user's profile.
  */
 router.get(
-  "/users/:id",
-  async (req: Request, res: Response, next: NextFunction) => {
+  "/me",
+  authenticate,
+  noCache,
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-      const id = req.params['id'] as string;
-
-      if (!UUID_REGEX.test(id)) {
-        sendError(res, 'INVALID_ID', 'Invalid id format', 400);
-        return;
+      const userId = req.user?.sub;
+      if (!userId) {
+        return sendError(res, "UNAUTHORIZED", "Unauthorized", 401);
       }
 
-      const user = await deps.getUserById(id);
+      const user = await getUserById(userId);
 
       if (!user) {
-        sendError(res, 'NOT_FOUND', 'User not found', 404);
-        return;
+        return sendError(res, "NOT_FOUND", "User not found", 404);
       }
 
       res.status(200).json({ success: true, data: toSafeUser(user) });
     } catch (err) {
       next(err);
     }
-  },
+  }
+);
+
+/**
+ * GET /:id
+ */
+router.get(
+  "/:id",
+  noCache,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const id = req.params["id"] as string;
+
+      if (!UUID_REGEX.test(id)) {
+        return sendError(res, "INVALID_ID", "Invalid id format", 400);
+      }
+
+      const user = await deps.getUserById(id);
+
+      if (!user) {
+        return sendError(res, "NOT_FOUND", "User not found", 404);
+      }
+
+      res.status(200).json({ success: true, data: toSafeUser(user) });
+    } catch (err) {
+      next(err);
+    }
+  }
 );
 
 /**
  * DELETE /:id
- *
- * Deletes the user with the given id.
- * Requires a valid Bearer token with the admin role in the Authorization header.
- *
- * Responses:
- *   200 – user deleted successfully
- *   401 – missing or invalid auth token
- *   403 – insufficient role (non-admin)
- *   404 – user not found
  */
-router.delete("/:id", authenticate, requireRole('admin'), (req: AuthenticatedRequest, res: Response): void => {
-  const id = req.params['id'] as string;
+router.delete(
+  "/:id",
+  authenticate,
+  requireRole("admin"),
+  (req: AuthenticatedRequest, res: Response): void => {
+    const id = req.params["id"] as string;
 
-  if (!users.has(id)) {
-    sendError(res, 'NOT_FOUND', 'User not found', 404);
-    return;
+    if (!users.has(id)) {
+      return sendError(res, "NOT_FOUND", "User not found", 404);
+    }
+
+    users.delete(id);
+    res.status(200).json({
+      success: true,
+      message: `User ${id} deleted successfully`,
+    });
   }
-
-  users.delete(id);
-  res.status(200).json({ success: true, message: `User ${id} deleted successfully` });
-});
+);
 
 export default router;
 
 // ---------------------------------------------------------------------------
-// Stub — swap out for your actual service / DB layer.
-// Exported as a mutable object so tests can spy on individual methods
-// without needing jest.mock() factory hoisting.
+// Stub (replace with real DB/service)
 // ---------------------------------------------------------------------------
 export const deps = {
   async getUserById(_id: string): Promise<Record<string, unknown> | null> {
