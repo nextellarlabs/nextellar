@@ -150,15 +150,27 @@ export async function scaffold(options: ScaffoldOptions) {
       );
     }
 
+    const escapeRegex = (value: string): string =>
+      value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
     const replaceInFile = async (
       filePath: string,
       replacements: Record<string, string>,
     ) => {
       const content = await fs.readFile(filePath, "utf8");
-      let newContent = content;
-      for (const [key, value] of Object.entries(replacements)) {
-        newContent = newContent.replaceAll(key, value);
+      const keys = Object.keys(replacements);
+      if (keys.length === 0) {
+        return;
       }
+      // Single-pass regex replacement: build one alternation of all keys and
+      // resolve each match against the replacements map. This avoids the
+      // previous N full string scans (one per placeholder) and stays correct
+      // when placeholders contain regex metacharacters like `{` or `}`.
+      const pattern = new RegExp(keys.map(escapeRegex).join("|"), "g");
+      const newContent = content.replace(
+        pattern,
+        (match) => replacements[match] ?? match,
+      );
       await fs.writeFile(filePath, newContent, "utf8");
     };
 
