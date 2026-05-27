@@ -323,6 +323,22 @@ program.action(async (projectName, options) => {
     finalWallets = walletsFlagProvided ? finalWallets : defaultWallets;
   }
 
+  const MIN_INSTALL_TIMEOUT_MS = 5_000;
+  const MAX_INSTALL_TIMEOUT_MS = 3_600_000;
+  const rawInstallTimeout = String(options.installTimeout).trim();
+  const installTimeoutMs = Number(rawInstallTimeout);
+  if (
+    !Number.isFinite(installTimeoutMs) ||
+    !Number.isInteger(installTimeoutMs) ||
+    installTimeoutMs < MIN_INSTALL_TIMEOUT_MS ||
+    installTimeoutMs > MAX_INSTALL_TIMEOUT_MS
+  ) {
+    console.error(
+      `Invalid --install-timeout value: "${rawInstallTimeout}". Must be a positive integer of milliseconds between ${MIN_INSTALL_TIMEOUT_MS} and ${MAX_INSTALL_TIMEOUT_MS}.`,
+    );
+    return await exitWithTelemetry(1);
+  }
+
   try {
     await maybeShowTelemetryNotice({ noTelemetryFlag: options.telemetry === false });
 
@@ -337,7 +353,7 @@ program.action(async (projectName, options) => {
       defaults: options.defaults,
       skipInstall: finalSkipInstall,
       packageManager: finalPackageManager,
-      installTimeout: parseInt(options.installTimeout),
+      installTimeout: installTimeoutMs,
       telemetryEnabled: options.telemetry,
       cliVersion: pkg.version,
       force: options.force,
