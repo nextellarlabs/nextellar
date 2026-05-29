@@ -28,5 +28,25 @@ export function signToken(payload: TokenPayload, expiresIn = "1h"): string {
 }
 
 export function verifyToken(token: string): TokenPayload {
-  return jwt.verify(token, JWT_SECRET) as TokenPayload;
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET, {
+      algorithms: ['HS256'],
+      issuer: process.env.JWT_ISSUER || 'nextellar',
+      audience: process.env.JWT_AUDIENCE || 'nextellar-app',
+    }) as TokenPayload & { iat?: number; exp?: number };
+
+    if (!decoded.sub || !decoded.role) {
+      throw new Error('Invalid token payload: missing required claims');
+    }
+
+    return decoded;
+  } catch (err) {
+    if (err instanceof jwt.TokenExpiredError) {
+      throw new Error('Token has expired');
+    }
+    if (err instanceof jwt.JsonWebTokenError) {
+      throw new Error('Invalid token signature or format');
+    }
+    throw err;
+  }
 }

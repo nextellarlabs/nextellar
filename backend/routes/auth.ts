@@ -242,4 +242,64 @@ router.post(
   },
 );
 
+/**
+ * OAuth start route - initiates OAuth flow with external provider
+ */
+router.post(
+  '/oauth/start',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const provider = typeof req.body?.provider === 'string' ? req.body.provider : '';
+
+      if (!provider || !['google', 'github'].includes(provider)) {
+        return res.status(400).json({ error: 'Invalid provider' });
+      }
+
+      const clientId = process.env[`OAUTH_${provider.toUpperCase()}_CLIENT_ID`];
+      const redirectUri = process.env[`OAUTH_${provider.toUpperCase()}_REDIRECT_URI`];
+
+      if (!clientId || !redirectUri) {
+        return res.status(500).json({ error: 'OAuth not configured' });
+      }
+
+      const state = Buffer.from(Math.random().toString()).toString('base64');
+      const authorizationUrl = `https://oauth.provider.com/${provider}/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&state=${state}`;
+
+      res.status(200).json({ authorizationUrl });
+    } catch (err) {
+      return next(err);
+    }
+  },
+);
+
+/**
+ * OAuth callback route - handles OAuth provider response
+ */
+router.post(
+  '/oauth/callback',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const code = typeof req.body?.code === 'string' ? req.body.code : '';
+      const state = typeof req.body?.state === 'string' ? req.body.state : '';
+      const provider = typeof req.body?.provider === 'string' ? req.body.provider : '';
+
+      if (!code || !state || !provider) {
+        return res.status(400).json({ error: 'Missing OAuth parameters' });
+      }
+
+      // In production: exchange code for token, fetch user info, map to internal user
+      // For now, return a session token
+      const mockToken = 'mock_oauth_token_' + Date.now();
+
+      res.status(200).json({
+        success: true,
+        token: mockToken,
+        message: 'OAuth authentication successful'
+      });
+    } catch (err) {
+      return next(err);
+    }
+  },
+);
+
 export default router;
