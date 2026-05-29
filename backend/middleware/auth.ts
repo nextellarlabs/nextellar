@@ -32,7 +32,8 @@ export function authenticate(
     req.user = verifyToken(token);
     next();
   } catch (err) {
-    res.status(401).json({ error: 'Unauthorized: invalid token' });
+    const errorMessage = err instanceof Error ? err.message : 'Invalid token';
+    res.status(401).json({ error: 'Unauthorized', message: 'Authentication failed' });
   }
 }
 
