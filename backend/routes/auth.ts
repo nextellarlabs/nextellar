@@ -181,6 +181,19 @@ router.post(
       const authResult = await authDeps.authenticateUser(username, password);
 
       if (authResult) {
+        // If user has TOTP enabled, require a valid code
+        if (authResult.totpEnabled) {
+          const totpCode = typeof req.body?.totpCode === "string" ? req.body.totpCode.trim() : "";
+          if (!totpCode) {
+            sendError(res, 'MISSING_TOTP', 'TOTP code required for this account', 400);
+            return;
+          }
+          const totpValid = await authDeps.verifyTOTP(authResult.userId, totpCode);
+          if (!totpValid) {
+            sendError(res, 'INVALID_TOTP', 'Invalid TOTP code', 401);
+            return;
+          }
+        }
         clearBucket(ipBuckets, ip);
         clearBucket(usernameBuckets, username);
         res.cookie(
