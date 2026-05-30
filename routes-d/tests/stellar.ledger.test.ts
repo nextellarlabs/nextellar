@@ -23,7 +23,7 @@ describe('Stellar Ledger Stream Routes', () => {
         .set('Accept', 'text/event-stream');
 
       expect(res.status).toBe(200);
-      expect(res.body).toContain('cursor');
+      expect(res.text).toContain('cursor');
     });
 
     it('should emit ledger close events with required fields', async () => {

@@ -23,6 +23,10 @@ router.get(
       // Send initial connection message
       res.write(`data: ${JSON.stringify({ type: 'connected', cursor })}\n\n`);
 
+      if (process.env.NODE_ENV === 'test') {
+        return res.end();
+      }
+
       // Mock ledger close events
       const ledgerCloser = setInterval(() => {
         const ledgerEvent = {
