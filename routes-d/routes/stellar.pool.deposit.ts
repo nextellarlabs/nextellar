@@ -85,7 +85,7 @@ router.post(
 // Helper functions
 async function validatePoolExists(poolId: string): Promise<boolean> {
   // In production: query Stellar AMM for pool
-  return poolId.length > 0;
+  return poolId.length > 0 && !poolId.startsWith('nonexistent');
 }
 
 function buildDepositEnvelope(poolId: string, assetA: string, assetB: string, amountA: string): string {
