@@ -1,0 +1,22 @@
+{
+  "id": "GABCDE1234567890ABCDE1234567890ABCDE1234567890ABCDE12345678",
+  "account_id": "GABCDE1234567890ABCDE1234567890ABCDE1234567890ABCDE12345678",
+  "sequence": "123456789012345",
+  "subentry_count": 2,
+  "last_modified_ledger": 44001234,
+  "last_modified_time": "2026-05-01T00:00:00Z",
+  "thresholds": { "low_threshold": 0, "med_threshold": 0, "high_threshold": 0 },
+  "flags": { "auth_required": false, "auth_revocable": false, "auth_immutable": false, "auth_clawback_enabled": false },
+  "balances": [
+    { "balance": "9950.0000000", "asset_type": "native" },
+    { "balance": "100.0000000", "limit": "922337203685.4775807", "asset_type": "credit_alphanum4", "asset_code": "USDC", "asset_issuer": "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN" }
+  ],
+  "signers": [{ "weight": 1, "key": "GABCDE1234567890ABCDE1234567890ABCDE1234567890ABCDE12345678", "type": "ed25519_public_key" }],
+  "data": {},
+  "_links": {
+    "self": { "href": "https://horizon-testnet.stellar.org/accounts/GABCDE1234567890ABCDE1234567890ABCDE1234567890ABCDE12345678" },
+    "transactions": { "href": "https://horizon-testnet.stellar.org/accounts/GABCDE1234567890ABCDE1234567890ABCDE1234567890ABCDE12345678/transactions{?cursor,limit,order}", "templated": true },
+    "operations": { "href": "https://horizon-testnet.stellar.org/accounts/GABCDE1234567890ABCDE1234567890ABCDE1234567890ABCDE12345678/operations{?cursor,limit,order}", "templated": true },
+    "payments": { "href": "https://horizon-testnet.stellar.org/accounts/GABCDE1234567890ABCDE1234567890ABCDE1234567890ABCDE12345678/payments{?cursor,limit,order}", "templated": true }
+  }
+}
