@@ -10,9 +10,10 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "allowSyntheticDefaultImports": true,
-    "allowJs": true,
-    "outDir": "../dist/routes-d"
+    "declaration": true,
+    "outDir": "./dist",
+    "rootDir": "."
   },
-  "include": ["./**/*.ts"],
-  "exclude": ["../node_modules", "../dist"]
+  "include": ["./lib/**/*", "./routes/**/*", "./middleware/**/*", "./tests/**/*"],
+  "exclude": ["node_modules", "dist"]
 }
