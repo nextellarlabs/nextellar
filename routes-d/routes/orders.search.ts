@@ -3,6 +3,7 @@
 // rejects ill-formed input with 400 + a precise reason.
 
 import { Router, type Request, type Response } from "express";
+import { createBackpressureSource, pipeJsonArray } from "../lib/jsonStream.js";
 import {
   type OrderIndex,
   type OrderSearchQuery,
@@ -47,7 +48,7 @@ function parseEpoch(value: unknown): { value?: number; error?: string } {
 export function createOrdersSearchRouter(opts: OrdersSearchRouterOptions): Router {
   const router = Router();
 
-  router.get("/search", (req: Request, res: Response) => {
+  router.get("/search", async (req: Request, res: Response) => {
     const q = req.query["q"];
     const status = req.query["status"];
     const fromRaw = req.query["from"];
@@ -121,6 +122,19 @@ export function createOrdersSearchRouter(opts: OrdersSearchRouterOptions): Route
       sortBy,
       sortDir,
     };
+
+    const stream = req.query["stream"];
+    if (stream === "1" || stream === "true") {
+      const source = createBackpressureSource(opts.index.iterate(query));
+      try {
+        await pipeJsonArray(res, source);
+      } catch {
+        if (!res.headersSent) {
+          res.status(500).json({ ok: false, error: "search stream failed" });
+        }
+      }
+      return;
+    }
 
     const result = opts.index.search(query);
     res.status(200).json({ ok: true, ...result });
