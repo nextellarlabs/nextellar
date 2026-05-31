@@ -5,6 +5,7 @@
 // for webhook emission and refund processing.
 
 import { Router, type Request, type Response } from "express";
+import { returnStock } from "../lib/inventory.js";
 import {
   IllegalTransitionError,
   assertTransition,
@@ -16,6 +17,8 @@ export interface CancelableOrderRecord {
   status: OrderStatus;
   updatedAt: number;
   paymentCaptured?: boolean;
+  productId?: string;
+  quantity?: number;
 }
 
 export interface CancelOrderStore {
@@ -66,6 +69,10 @@ export function createOrdersCancelRouter(opts: OrdersCancelRouterOptions): Route
     };
 
     await opts.store.save(updated);
+
+    if (existing.productId && existing.quantity) {
+      returnStock(existing.productId, existing.quantity);
+    }
 
     if (opts.onCancel) {
       await opts.onCancel(updated, previous);

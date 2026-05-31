@@ -1,4 +1,5 @@
 import { Router, type NextFunction, type Request, type Response } from "express";
+import { renderDbPoolMetrics } from "../lib/db.js";
 import { isInternalRequest } from "../lib/internalIp.js";
 import { recordRequest, renderMetrics } from "../lib/metrics.js";
 
@@ -10,7 +11,7 @@ router.get("/metrics", (req: Request, res: Response, next: NextFunction) => {
     if (!isInternalRequest(req)) {
       return res.status(403).json({ error: "metrics are restricted to internal networks" });
     }
-    const body = renderMetrics();
+    const body = `${renderMetrics()}${renderDbPoolMetrics()}`;
     recordRequest("/metrics", req.method, 200, Date.now() - startedAt);
     res.setHeader("Content-Type", "text/plain; version=0.0.4; charset=utf-8");
     return res.status(200).send(body);

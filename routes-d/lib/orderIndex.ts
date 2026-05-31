@@ -51,6 +51,7 @@ export interface SearchResultPage {
 export interface OrderIndex {
   add(order: IndexedOrder): void;
   search(query: OrderSearchQuery): SearchResultPage;
+  iterate(query: OrderSearchQuery): AsyncIterable<IndexedOrder>;
   size(): number;
 }
 
@@ -89,16 +90,13 @@ export class InMemoryOrderIndex implements OrderIndex {
     return this.byId.size;
   }
 
-  search(query: OrderSearchQuery): SearchResultPage {
-    const page = Math.max(1, query.page ?? 1);
-    const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, query.pageSize ?? DEFAULT_PAGE_SIZE));
+  private collectMatches(query: OrderSearchQuery): IndexedOrder[] {
     const sortBy = query.sortBy ?? "createdAt";
     const sortDir = query.sortDir ?? "desc";
     const q = query.q?.toLowerCase().trim();
 
     let candidates: Iterable<IndexedOrder>;
     if (q && this.byCustomer.has(q)) {
-      // Exact-customer fast path.
       const ids = this.byCustomer.get(q) ?? new Set<string>();
       candidates = Array.from(ids, (id) => this.byId.get(id)).filter(
         (x): x is IndexedOrder => x !== undefined,
@@ -117,7 +115,13 @@ export class InMemoryOrderIndex implements OrderIndex {
     }
 
     matches.sort((a, b) => compareOrders(a, b, sortBy, sortDir));
+    return matches;
+  }
 
+  search(query: OrderSearchQuery): SearchResultPage {
+    const page = Math.max(1, query.page ?? 1);
+    const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, query.pageSize ?? DEFAULT_PAGE_SIZE));
+    const matches = this.collectMatches(query);
     const total = matches.length;
     const start = (page - 1) * pageSize;
     const slice = matches.slice(start, start + pageSize);
@@ -128,5 +132,11 @@ export class InMemoryOrderIndex implements OrderIndex {
       pageSize,
       hasNextPage: start + pageSize < total,
     };
+  }
+
+  async *iterate(query: OrderSearchQuery): AsyncIterable<IndexedOrder> {
+    for (const order of this.collectMatches(query)) {
+      yield order;
+    }
   }
 }
