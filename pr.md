@@ -1,55 +1,135 @@
-# feat(routes-d): idempotency, structured logging, OpenTelemetry tracing, and response compression
+# Pull Request: Checkout Rollback, Redis Account Cache, Request ID Middleware & Testing Guide
 
 ## Summary
 
-Implements four infrastructure features inside `routes-d/`, each scoped to that folder.  All new files compile clean under TypeScript strict mode, and every new test passes (61 new tests, 0 regressions introduced).
+This PR resolves four open issues across the `backend/` and `routes-d/` packages.
 
 ---
 
-## Changes
-
-### closes #286 — Idempotency key handling for payment routes
+### #221 — `backend`: atomic transaction rollback on POST /checkout
 
 **Files changed:**
-- `routes-d/middleware/idempotency.ts` — `IdempotencyStore` gains an injectable clock (`now` parameter) to enable deterministic TTL testing.
-- `routes-d/routes/payments.send.ts` — `createPaymentSendRouter` accepts `idempotencyOptions` and wires in the middleware before the POST `/send` handler. Pass `false` to opt out.
-- `routes-d/routes/payments.refund.ts` — `createRefundRouter` gets the same `idempotencyOptions` wiring for POST `/:id/refund`.
-- `routes-d/tests/idempotency.test.ts` — New test file with previously missing coverage: expired-key eviction, concurrent in-flight 409, retry-after-expiry, and end-to-end integration for both payment routes.
+- `backend/routes/checkout.ts` *(new)*
+- `backend/__tests__/checkout.test.ts` *(new)*
+- `backend/app.ts` *(updated — registers `/v1/checkout`)*
+
+**What changed:**
+POST `/checkout` previously performed three sequential writes (create order →
+deduct inventory → charge payment) without any atomicity guarantee. A payment
+failure left a ghost order and incorrect stock counts in the datastore.
+
+The new implementation wraps all three writes in a logical transaction:
+
+1. `createOrder` — appends the order record.
+2. `deductInventory` — reduces stock for each line item; throws if any item is
+   undersupplied.
+3. `chargePayment` — calls the payment provider; honours the
+   `SIMULATE_PAYMENT_FAILURE` env flag for testing.
+
+On any thrown error the handler rolls back in reverse write order:
+`rollbackInventory` then `rollbackOrder`. The response is only `201` when all
+three steps succeed.
+
+**Tests:**
+- Happy-path: `201` with `orderId` and `total`.
+- Payment failure (via `SIMULATE_PAYMENT_FAILURE=true`): order count and
+  inventory are both unchanged after rollback.
+- Insufficient stock: no order created.
+- Validation: `400` for missing `userId` or empty `items`.
 
 ---
 
-### closes #326 — Structured JSON logger
+### #346 — `routes-d`: Redis-backed cache for account data
 
-**Files added:**
-- `routes-d/lib/logger.ts` — `Logger` class that writes a single JSON object per log line to a configurable sink (default: stdout).  Features: configurable minimum level, context fields merged into every entry, automatic deep redaction of PII/secrets (password, token, email, apiKey, phone, etc.), and `child(context)` for per-request loggers that inherit parent context and level.  Module-level singleton `logger` for app-wide use.
-- `routes-d/tests/logger.test.ts` — 21 tests covering JSON output format, level filtering (all four levels), direct and nested redaction, child-logger context propagation and isolation, and an Express per-request logger integration pattern.
+**Files changed:**
+- `routes-d/lib/redisClient.ts` *(new)*
+- `routes-d/lib/accountCache.ts` *(new)*
+- `routes-d/tests/redisClient.test.ts` *(new)*
+- `routes-d/tests/accountCache.test.ts` *(new)*
+
+**What changed:**
+Introduces a two-layer Redis abstraction:
+
+`redisClient.ts` — defines the `IRedisClient` interface (compatible with
+ioredis/node-redis) and an `InMemoryRedisClient` stub that satisfies the
+interface without requiring a running Redis server. A module-level singleton
+(`getRedisClient`) reads connection config from env vars (`REDIS_URL`,
+`REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`, `REDIS_TLS`). A
+`checkRedisHealth` helper is provided for health-check routes.
+
+`accountCache.ts` — `AccountCache` wraps the Redis client to cache the three
+hot account data shapes (profile, tier, trust state) under predictable key
+patterns (`account:<id>:profile` etc.) with configurable TTL
+(`ACCOUNT_CACHE_TTL_SECS`, default 120 s). Callers can bypass the cache with
+`forceRefresh: true`. Per-field invalidation (`invalidateProfile`,
+`invalidateTier`, `invalidateTrust`) and full-account invalidation
+(`invalidateAccount`) are exposed so account-update routes can purge stale
+entries.
+
+**Tests:**
+- `redisClient.test.ts`: set/get/del/ping/quit, TTL expiry via `Date.now` spy,
+  singleton lifecycle (get/set/reset), `checkRedisHealth` happy and broken paths.
+- `accountCache.test.ts`: cache miss (fetcher called), cache hit (fetcher
+  skipped), `forceRefresh` bypass, per-field invalidation, full-account
+  invalidation, account isolation.
 
 ---
 
-### closes #328 — OpenTelemetry tracing setup
+### #327 — `routes-d`: request ID correlation middleware
 
-**Files added:**
-- `routes-d/lib/otel.ts` — Pure-TypeScript OTel-compatible tracing built on Node.js built-ins (`async_hooks.AsyncLocalStorage`, `node:http/https`, `node:crypto`).  Ships: W3C traceparent parsing/formatting; `Span`, `Tracer`, `SpanExporter`; `InMemoryExporter` (testing), `OtlpHttpExporter` (OTLP/JSON to a collector), `NoopExporter`; `traceMiddleware()` Express middleware (extracts `traceparent`, creates server span, sets `X-Trace-Id`); `withTracedHttp()` for outbound calls (injects `traceparent`, records client span); `initTracing()` / `getTracer()` for global tracer management; fully configurable via `OTEL_SERVICE_NAME`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS`, and `OTEL_TRACE_ENABLED`.
-- `routes-d/tests/otel.test.ts` — 22 tests covering traceparent parsing/formatting, span attributes and timing, async context propagation (`AsyncLocalStorage`), inbound Express middleware (span creation, `X-Trace-Id` header, parent trace adoption, error status for 5xx), outbound `withTracedHttp` (child spans, `traceparent` injection, unique span IDs per call), and `initTracing`.
+**Files changed:**
+- `routes-d/middleware/requestId.ts` *(new)*
+- `routes-d/tests/middleware/requestId.test.ts` *(new)*
+
+**What changed:**
+`requestId` middleware:
+- Honors an incoming `X-Request-Id` header (trimmed) if present.
+- Generates a UUID v4 via Node's built-in `crypto.randomUUID()` otherwise.
+- Attaches the ID to `res.locals.requestId` for downstream handlers.
+- Echoes the ID in the `X-Request-Id` response header for client correlation.
+- When `req.log` is present it replaces it with `req.log.child({ requestId })`
+  so every logger call made during the request automatically carries the ID.
+- Falls back gracefully when no logger is mounted.
+
+**Tests:**
+- Echo incoming ID; generate UUID when absent; uniqueness across concurrent
+  requests; `res.locals.requestId` population; child-logger binding; edge cases
+  (empty string falls back to UUID, whitespace is trimmed).
 
 ---
 
-### closes #324 — Response compression middleware
+### #344 — `routes-d`: testing guide
 
-**Files added:**
-- `routes-d/middleware/compression.ts` — Express middleware using Node's built-in `zlib` (`gzipSync`, `brotliCompressSync`). Intercepts `res.json()` and `res.send()` before bytes hit the socket. Skips compression when: body is below threshold (default 1 KB); client does not advertise a supported encoding; Content-Type is binary (images, etc.). Encoding selection respects `Accept-Encoding` q-values, with server preference order (`['br', 'gzip']` by default) breaking ties. Sets `Vary: Accept-Encoding`, `Content-Encoding`, and updates `Content-Length`.
-- `routes-d/tests/middleware/compression.test.ts` — 18 tests covering gzip compression (body parseable after auto-decode, `Vary` header, `Content-Type` preservation), brotli compression, server-preference tie-breaking, no-compression cases (below threshold, `identity` encoding, small body, binary content type), text/plain compression, q-value negotiation (`q=0` exclusion, higher q wins), and custom threshold.
+**Files changed:**
+- `routes-d/docs/testing.md` *(new)*
+
+**What changed:**
+Comprehensive testing documentation under `routes-d/docs/` covering:
+- Quick start (`npm test`, `npm run test:unit`, `npm run test:integration`,
+  coverage).
+- **Unit tests** — isolation conventions, in-process stubs, fake timers,
+  example.
+- **Integration tests** — supertest patterns, state reset, assert on HTTP
+  contracts, example.
+- **Snapshot tests** — when to use them, update workflow, commit policy.
+- **Fuzz tests** — `fast-check` usage, iteration limits, no-I/O rule, example.
+- **Load / benchmark tests** — `tests/bench/` location, `_recorder.ts` helper,
+  manual execution, CI exclusion.
+- **Fixture conventions** — one concern per file, no real credentials, minimal
+  payloads, refresh guidance.
+- **Flaky tests** — root causes, `// FLAKY:` + `it.skip` marking convention,
+  triage steps, issue-linking.
+- **CI integration** — what runs on every PR, benchmark exclusion, coverage
+  threshold.
 
 ---
 
 ## Test plan
 
-- [x] Run `npm test` inside `routes-d/` — all 61 new tests pass.
-- [x] No regressions: pre-existing test failures in the suite are unrelated to these changes (missing `jsonwebtoken` in devDependencies, `jest` not imported from `@jest/globals` in some legacy test files).
-- [x] TypeScript: all new files compile under `strict` mode with `NodeNext` module resolution.
-- [x] Idempotency: expired key, concurrent 409, and payment route wiring verified via integration tests.
-- [x] Logger: redaction verified for nested objects and arrays; child logger isolation confirmed.
-- [x] OTel: async context propagates across `setTimeout`; `X-Trace-Id` header matches exported span traceId; parent traceId inherited from incoming `traceparent`.
-- [x] Compression: brotli preferred over gzip when server lists it first; gzip chosen when client assigns it higher q; binary responses never compressed.
+- [ ] `cd backend && npm test` — all existing tests pass; new checkout tests
+  pass including rollback scenario.
+- [ ] `cd routes-d && npm test` — all existing tests pass; new `redisClient`,
+  `accountCache`, and `requestId` tests pass.
+- [ ] Review `routes-d/docs/testing.md` for accuracy and completeness.
 
-🤖 Generated with [Claude Code](https://claude.ai/claude-code)
+
