@@ -1,5 +1,6 @@
-import { Router, type Request, type Response } from "express";
+import { Router, type Request, type Response, type RequestHandler } from "express";
 import { validatePaymentAmount, amountErrorsToBody } from "../lib/amount.js";
+import { idempotency, type IdempotencyOptions } from "../middleware/idempotency.js";
 
 export interface PaymentSendRouterOptions {
   buildEnvelope?: (params: {
@@ -9,6 +10,8 @@ export interface PaymentSendRouterOptions {
     assetIssuer?: string;
     memo?: string;
   }) => string;
+  /** Idempotency middleware options. Pass `false` to disable entirely. */
+  idempotencyOptions?: IdempotencyOptions | false;
 }
 
 function readString(body: Record<string, unknown> | undefined, key: string): string {
@@ -22,7 +25,12 @@ export function createPaymentSendRouter(options: PaymentSendRouterOptions = {}):
     ((params) =>
       `envelope_payment_${params.assetCode}_${params.amount}_${Date.now()}`);
 
-  router.post("/send", (req: Request, res: Response) => {
+  const idempotencyMiddleware: RequestHandler[] =
+    options.idempotencyOptions === false
+      ? []
+      : [idempotency(options.idempotencyOptions ?? {})];
+
+  router.post("/send", ...idempotencyMiddleware, (req: Request, res: Response) => {
     const body = (req.body ?? {}) as Record<string, unknown>;
     const destination = readString(body, "destination");
     const assetCode = readString(body, "assetCode") || "XLM";
