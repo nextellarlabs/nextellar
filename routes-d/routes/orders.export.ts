@@ -1,9 +1,14 @@
+// GET /orders/export — streams filtered orders as CSV (#301).
+// Accepts the same filters as the search endpoint but writes
+// text/csv rows rather than a JSON array, so large result sets
+// never need to be buffered in memory.
+
 import { Router, type Request, type Response } from "express";
-import { createBackpressureSource, pipeJsonArray } from "../lib/jsonStream.js";
 import {
   type OrderIndex,
   type OrderSearchQuery,
   type OrderStatus,
+  type IndexedOrder,
 } from "../lib/orderIndex.js";
 
 const ALLOWED_STATUSES: ReadonlyArray<OrderStatus> = [
@@ -16,8 +21,25 @@ const ALLOWED_STATUSES: ReadonlyArray<OrderStatus> = [
   "refunded",
 ];
 
-export interface OrdersExportRouterOptions {
-  index: OrderIndex;
+const CSV_HEADER = "id,customer,status,amount,createdAt\n";
+
+function escapeCsv(value: string | number): string {
+  const s = String(value);
+  // Wrap in quotes if the value contains a comma, quote, or newline
+  if (/[",\n\r]/.test(s)) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
+}
+
+function rowToCsv(order: IndexedOrder): string {
+  return [
+    escapeCsv(order.id),
+    escapeCsv(order.customer),
+    escapeCsv(order.status),
+    escapeCsv(order.amount),
+    escapeCsv(new Date(order.createdAt).toISOString()),
+  ].join(",") + "\n";
 }
 
 function parseEpoch(value: unknown): { value?: number; error?: string } {
@@ -29,10 +51,23 @@ function parseEpoch(value: unknown): { value?: number; error?: string } {
   return { value: n };
 }
 
+export interface OrdersExportRouterOptions {
+  index: OrderIndex;
+  /** Injected for access-control tests; defaults to allowing all requests. */
+  guard?: (req: Request) => boolean;
+}
+
 export function createOrdersExportRouter(opts: OrdersExportRouterOptions): Router {
   const router = Router();
+  const guard = opts.guard ?? (() => true);
 
   router.get("/export", async (req: Request, res: Response) => {
+    // Access control hook — lets tests inject a denial check
+    if (!guard(req)) {
+      res.status(403).json({ ok: false, error: "forbidden" });
+      return;
+    }
+
     const q = req.query["q"];
     const status = req.query["status"];
     const fromRaw = req.query["from"];
@@ -84,12 +119,41 @@ export function createOrdersExportRouter(opts: OrdersExportRouterOptions): Route
           : undefined,
     };
 
-    const source = createBackpressureSource(opts.index.iterate(query));
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", 'attachment; filename="orders.csv"');
+    res.setHeader("Transfer-Encoding", "chunked");
+
+    // Write header row
+    const headerOk = res.write(CSV_HEADER);
+
+    // Drain if needed before streaming rows
+    if (!headerOk) {
+      await new Promise<void>((resolve, reject) => {
+        res.once("drain", resolve);
+        res.once("error", reject);
+        res.once("close", () => reject(new Error("response closed")));
+      });
+    }
+
     try {
-      await pipeJsonArray(res, source);
+      for await (const order of opts.index.iterate(query)) {
+        if (res.destroyed || res.writableEnded) break;
+        const row = rowToCsv(order);
+        const ok = res.write(row);
+        if (!ok) {
+          await new Promise<void>((resolve, reject) => {
+            res.once("drain", resolve);
+            res.once("error", reject);
+            res.once("close", () => reject(new Error("response closed")));
+          });
+        }
+      }
+      res.end();
     } catch {
       if (!res.headersSent) {
         res.status(500).json({ ok: false, error: "export stream failed" });
+      } else if (!res.writableEnded) {
+        res.end();
       }
     }
   });
