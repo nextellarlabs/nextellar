@@ -37,16 +37,18 @@ type StoreEntry = StoredResponse | InFlightEntry;
 export class IdempotencyStore {
   private readonly entries = new Map<string, StoreEntry>();
   private readonly ttlMs: number;
+  private readonly now: () => number;
 
-  constructor(ttlMs = STORE_TTL_MS) {
+  constructor(ttlMs = STORE_TTL_MS, now?: () => number) {
     this.ttlMs = ttlMs;
+    this.now = now ?? Date.now;
   }
 
   get(key: string): StoreEntry | undefined {
     const entry = this.entries.get(key);
     if (!entry) return undefined;
     if ('inFlight' in entry) return entry;
-    if (Date.now() - entry.storedAt > this.ttlMs) {
+    if (this.now() - entry.storedAt > this.ttlMs) {
       this.entries.delete(key);
       return undefined;
     }
@@ -58,7 +60,7 @@ export class IdempotencyStore {
   }
 
   store(key: string, status: number, body: unknown): void {
-    this.entries.set(key, { status, body, storedAt: Date.now() });
+    this.entries.set(key, { status, body, storedAt: this.now() });
   }
 
   delete(key: string): void {

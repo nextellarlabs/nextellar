@@ -15,7 +15,8 @@
 // Persistence is pluggable via `PaymentStore` and `RefundStore` so the
 // route is testable in isolation.
 
-import { Router, type Request, type Response } from "express";
+import { Router, type Request, type Response, type RequestHandler } from "express";
+import { idempotency, type IdempotencyOptions } from "../middleware/idempotency.js";
 
 export type PaymentStatus = "pending" | "captured" | "failed" | "refunded";
 
@@ -66,6 +67,8 @@ export interface RefundRouterOptions {
   /** Generate a refund id when the dispatcher does not. Defaults to a
    *  timestamp-based id; tests inject a deterministic generator. */
   newRefundId?: () => string;
+  /** HTTP-level idempotency middleware options. Pass `false` to disable. */
+  idempotencyOptions?: IdempotencyOptions | false;
 }
 
 /** Statuses that may transition to `refunded`. */
@@ -102,7 +105,12 @@ export function createRefundRouter(opts: RefundRouterOptions): Router {
   const now = opts.now ?? Date.now;
   const newRefundId = opts.newRefundId ?? (() => `rf_${now()}`);
 
-  router.post("/:id/refund", async (req: Request, res: Response) => {
+  const idempotencyMiddleware: RequestHandler[] =
+    opts.idempotencyOptions === false
+      ? []
+      : [idempotency(opts.idempotencyOptions ?? {})];
+
+  router.post("/:id/refund", ...idempotencyMiddleware, async (req: Request, res: Response) => {
     const { id } = req.params as { id: string };
     const parsed = readBody(req.body);
     if (!parsed) {
