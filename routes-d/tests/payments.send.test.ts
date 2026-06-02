@@ -36,4 +36,17 @@ describe("POST /payments/send", () => {
     expect(res.status).toBe(400);
     expect(res.body.errors?.[0]?.field).toBe("amount");
   });
+
+  it("returns field error for invalid destination address", async () => {
+    const app = buildApp();
+    const res = await request(app)
+      .post("/payments/send")
+      .send({
+        destination: "INVALIDADDRESS",
+        amount: "10",
+        assetCode: "XLM",
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.errors?.destination).toBe("Invalid Stellar address format");
+  });
 });
