@@ -1,4 +1,5 @@
 import { Router, type Request, type Response, type RequestHandler } from "express";
+import { appendPaymentAudit } from "../lib/paymentAudit.js";
 import { validatePaymentAmount, amountErrorsToBody } from "../lib/amount.js";
 import { idempotency, type IdempotencyOptions } from "../middleware/idempotency.js";
 
@@ -58,6 +59,15 @@ export function createPaymentSendRouter(options: PaymentSendRouterOptions = {}):
       assetIssuer: amountResult.asset.issuer,
       memo,
     });
+
+    // Log payment event for audit purposes
+    try {
+      const initiator = (req.headers as any)["x-initiator"] || "anonymous";
+      appendPaymentAudit({ initiator, asset: amountResult.asset.code, amount: amountResult.amount });
+    } catch (e) {
+      // Swallow logging errors to avoid breaking the payment flow
+      console.error("Payment audit logging failed", e);
+    }
 
     res.status(200).json({
       ok: true,
