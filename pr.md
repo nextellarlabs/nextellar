@@ -1,137 +1,106 @@
-# Pull Request: Checkout Rollback, Redis Account Cache, Request ID Middleware & Testing Guide
+# Pull Request — routes-d: error handler, env reference, Horizon batcher, alerting hooks
+
+## Issues closed
+
+- #325 — Safe error handler middleware in routes-d
+- #340 — Environment variables reference inside routes-d
+- #354 — Batched Horizon request helper in routes-d
+- #334 — Error rate alerting hooks in routes-d
+
+---
 
 ## Summary
 
-This PR resolves four open issues across the `backend/` and `routes-d/` packages.
+All changes are scoped to `routes-d/` and follow existing ESM / TypeScript conventions.
+
+### #325 — `routes-d/middleware/errorHandler.ts`
+
+- Typed error hierarchy: `AppError`, `ValidationError`, `AuthenticationError`,
+  `AuthorizationError`, `NotFoundError`, `ConflictError`.
+- `createErrorHandler(options)` factory returns a four-parameter Express error
+  middleware that **redacts** unknown errors to `"Internal server error"` and
+  forwards only `AppError` message + code to the client — stack traces never
+  leave the server.
+- Full internal logging of method, path, status, and raw error is wired to an
+  injectable `InternalLogger` (defaults to `console.error` JSON).
+- `res.locals.requestId` is forwarded to both the log entry and the response
+  body (opt-in, on by default).
+- A ready-to-use `errorHandler` export covers the simple case.
+- Tests: known-error mapping, unknown-error redaction, stack-trace leakage,
+  body-parser 4xx pass-through, logging, requestId propagation.
+
+### #340 — `routes-d/docs/env.md` + `routes-d/.env.example`
+
+- `env.md` documents every env variable consumed by routes-d — name, purpose,
+  default value, required flag, and secret flag — grouped by subsystem.
+- `.env.example` mirrors the same variables with safe placeholder values and
+  inline `# SECRET` markers.
+- `routes-d/tests/env.test.ts` lints that:
+  1. All env vars read in non-test source files appear in `env.md`.
+  2. All variables declared in `.env.example` appear in `env.md`.
+  - Bench-only and profiling helper vars (`ROUTES_D_BENCH_*`,
+    `ROUTES_D_PROFILE_*`) are explicitly excluded from the runtime contract.
+
+### #354 — `routes-d/lib/horizonBatcher.ts`
+
+- `createHorizonBatcher({ fetch, coalesceMs, onFlush })` returns a batcher
+  that deduplicates concurrent fetches for the same Horizon path within a short
+  coalescing window (default 10 ms), while issuing distinct paths in parallel.
+- `stats()` surfaces `totalRequests`, `totalBatches`, `totalCoalesced`, and
+  `hitRate`.
+- `onFlush` callback receives `batchSize`, `coalesced`, and
+  `flushDurationMs` per flush.
+- `flush()` forces immediate dispatch — useful in tests and graceful shutdown.
+- Tests: single request, coalescing, distinct-path parallelism, later-window
+  re-fetch, forced flush, metrics accuracy, error isolation (one bad path does
+  not cancel healthy paths in the same batch).
+
+### #334 — `routes-d/lib/alerts.ts`
+
+- `createAlertsTracker(options)` returns a tracker with a pluggable
+  `AlertSink[]` interface (PagerDuty, Slack, etc.).
+- Sliding-window per-route error-rate tracking (default: 60 s window,
+  10 % threshold, 10 request minimum).
+- Fires `AlertEvent` once per spike onset; resets when the rate drops below
+  the threshold so the next spike fires a fresh alert.
+- Injectable clock (`now`) for deterministic testing.
+- Sink errors are swallowed — alerting never disrupts the request path.
+- Tests: normal traffic, spike detection, no duplicate alerts during sustained
+  spike, recovery → re-spike, route isolation, `stats()` accuracy, window
+  pruning, `reset()`, multi-sink, throwing sink resilience, `AlertEvent` shape
+  and `triggeredAt` timestamp.
 
 ---
 
-### #221 — `backend`: atomic transaction rollback on POST /checkout
+## Files changed
 
-**Files changed:**
-- `backend/routes/checkout.ts` *(new)*
-- `backend/__tests__/checkout.test.ts` *(new)*
-- `backend/app.ts` *(updated — registers `/v1/checkout`)*
+```
+routes-d/middleware/errorHandler.ts       (new)
+routes-d/tests/errorHandler.test.ts      (new)
+routes-d/docs/env.md                     (new)
+routes-d/.env.example                    (new)
+routes-d/tests/env.test.ts               (new)
+routes-d/lib/horizonBatcher.ts           (new)
+routes-d/tests/horizonBatcher.test.ts    (new)
+routes-d/lib/alerts.ts                   (new)
+routes-d/tests/alerts.test.ts            (new)
+```
 
-**What changed:**
-POST `/checkout` previously performed three sequential writes (create order →
-deduct inventory → charge payment) without any atomicity guarantee. A payment
-failure left a ghost order and incorrect stock counts in the datastore.
-
-The new implementation wraps all three writes in a logical transaction:
-
-1. `createOrder` — appends the order record.
-2. `deductInventory` — reduces stock for each line item; throws if any item is
-   undersupplied.
-3. `chargePayment` — calls the payment provider; honours the
-   `SIMULATE_PAYMENT_FAILURE` env flag for testing.
-
-On any thrown error the handler rolls back in reverse write order:
-`rollbackInventory` then `rollbackOrder`. The response is only `201` when all
-three steps succeed.
-
-**Tests:**
-- Happy-path: `201` with `orderId` and `total`.
-- Payment failure (via `SIMULATE_PAYMENT_FAILURE=true`): order count and
-  inventory are both unchanged after rollback.
-- Insufficient stock: no order created.
-- Validation: `400` for missing `userId` or empty `items`.
-
----
-
-### #346 — `routes-d`: Redis-backed cache for account data
-
-**Files changed:**
-- `routes-d/lib/redisClient.ts` *(new)*
-- `routes-d/lib/accountCache.ts` *(new)*
-- `routes-d/tests/redisClient.test.ts` *(new)*
-- `routes-d/tests/accountCache.test.ts` *(new)*
-
-**What changed:**
-Introduces a two-layer Redis abstraction:
-
-`redisClient.ts` — defines the `IRedisClient` interface (compatible with
-ioredis/node-redis) and an `InMemoryRedisClient` stub that satisfies the
-interface without requiring a running Redis server. A module-level singleton
-(`getRedisClient`) reads connection config from env vars (`REDIS_URL`,
-`REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`, `REDIS_TLS`). A
-`checkRedisHealth` helper is provided for health-check routes.
-
-`accountCache.ts` — `AccountCache` wraps the Redis client to cache the three
-hot account data shapes (profile, tier, trust state) under predictable key
-patterns (`account:<id>:profile` etc.) with configurable TTL
-(`ACCOUNT_CACHE_TTL_SECS`, default 120 s). Callers can bypass the cache with
-`forceRefresh: true`. Per-field invalidation (`invalidateProfile`,
-`invalidateTier`, `invalidateTrust`) and full-account invalidation
-(`invalidateAccount`) are exposed so account-update routes can purge stale
-entries.
-
-**Tests:**
-- `redisClient.test.ts`: set/get/del/ping/quit, TTL expiry via `Date.now` spy,
-  singleton lifecycle (get/set/reset), `checkRedisHealth` happy and broken paths.
-- `accountCache.test.ts`: cache miss (fetcher called), cache hit (fetcher
-  skipped), `forceRefresh` bypass, per-field invalidation, full-account
-  invalidation, account isolation.
-
----
-
-### #327 — `routes-d`: request ID correlation middleware
-
-**Files changed:**
-- `routes-d/middleware/requestId.ts` *(new)*
-- `routes-d/tests/middleware/requestId.test.ts` *(new)*
-
-**What changed:**
-`requestId` middleware:
-- Honors an incoming `X-Request-Id` header (trimmed) if present.
-- Generates a UUID v4 via Node's built-in `crypto.randomUUID()` otherwise.
-- Attaches the ID to `res.locals.requestId` for downstream handlers.
-- Echoes the ID in the `X-Request-Id` response header for client correlation.
-- When `req.log` is present it replaces it with `req.log.child({ requestId })`
-  so every logger call made during the request automatically carries the ID.
-- Falls back gracefully when no logger is mounted.
-
-**Tests:**
-- Echo incoming ID; generate UUID when absent; uniqueness across concurrent
-  requests; `res.locals.requestId` population; child-logger binding; edge cases
-  (empty string falls back to UUID, whitespace is trimmed).
-
----
-
-### #344 — `routes-d`: testing guide
-
-**Files changed:**
-- `routes-d/docs/testing.md` *(new)*
-
-**What changed:**
-Comprehensive testing documentation under `routes-d/docs/` covering:
-- Quick start (`npm test`, `npm run test:unit`, `npm run test:integration`,
-  coverage).
-- **Unit tests** — isolation conventions, in-process stubs, fake timers,
-  example.
-- **Integration tests** — supertest patterns, state reset, assert on HTTP
-  contracts, example.
-- **Snapshot tests** — when to use them, update workflow, commit policy.
-- **Fuzz tests** — `fast-check` usage, iteration limits, no-I/O rule, example.
-- **Load / benchmark tests** — `tests/bench/` location, `_recorder.ts` helper,
-  manual execution, CI exclusion.
-- **Fixture conventions** — one concern per file, no real credentials, minimal
-  payloads, refresh guidance.
-- **Flaky tests** — root causes, `// FLAKY:` + `it.skip` marking convention,
-  triage steps, issue-linking.
-- **CI integration** — what runs on every PR, benchmark exclusion, coverage
-  threshold.
+No files outside `routes-d/` were modified.
 
 ---
 
 ## Test plan
 
-- [ ] `cd backend && npm test` — all existing tests pass; new checkout tests
-  pass including rollback scenario.
-- [ ] `cd routes-d && npm test` — all existing tests pass; new `redisClient`,
-  `accountCache`, and `requestId` tests pass.
-- [ ] Review `routes-d/docs/testing.md` for accuracy and completeness.
+```bash
+cd routes-d
+npm test                        # all routes-d tests via ts-jest ESM
+npm test -- --testPathPattern errorHandler
+npm test -- --testPathPattern env
+npm test -- --testPathPattern horizonBatcher
+npm test -- --testPathPattern alerts
+```
 
----
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
+All new test files follow the `routes-d/tests/**/*.test.ts` pattern and are
+picked up automatically by both the `routes-d/jest.config.js` and the root
+`jest.config.mjs`.
