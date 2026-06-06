@@ -4,6 +4,7 @@ import {
   transitionDepositStatus,
   type DepositStatus,
 } from "../lib/sep24.js";
+import { validatePaymentAmount, amountErrorsToBody } from "../lib/amount.js";
 
 const router = Router();
 
@@ -27,6 +28,17 @@ router.post(
       if (!accountId || !assetCode) {
         res.status(400).json({ error: "accountId and assetCode are required" });
         return;
+      }
+
+      if (amount !== undefined) {
+        const amountResult = validatePaymentAmount({
+          amount,
+          asset: { code: assetCode, issuer: assetIssuer },
+        });
+        if (!amountResult.ok) {
+          res.status(400).json({ ok: false, ...amountErrorsToBody(amountResult.errors) });
+          return;
+        }
       }
 
       const intent = createDepositIntent({

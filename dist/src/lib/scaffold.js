@@ -1,5 +1,6 @@
 import path from "path";
 import fs from "fs-extra";
+import pc from "picocolors";
 import { detectPackageManager, runInstall } from "./install.js";
 import { trackScaffoldEvent } from "./telemetry.js";
 import { fileURLToPath } from "url";
@@ -84,12 +85,19 @@ export async function scaffold(options) {
             const envExamplePath = path.join(targetDir, ".env.example");
             await fs.appendFile(envExamplePath, `\n# Soroban Smart Contracts\nNEXT_PUBLIC_HELLO_WORLD_CONTRACT_ID=C_REPLACE_WITH_YOUR_CONTRACT_ID\n`);
         }
+        const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
         const replaceInFile = async (filePath, replacements) => {
             const content = await fs.readFile(filePath, "utf8");
-            let newContent = content;
-            for (const [key, value] of Object.entries(replacements)) {
-                newContent = newContent.replaceAll(key, value);
+            const keys = Object.keys(replacements);
+            if (keys.length === 0) {
+                return;
             }
+            // Single-pass regex replacement: build one alternation of all keys and
+            // resolve each match against the replacements map. This avoids the
+            // previous N full string scans (one per placeholder) and stays correct
+            // when placeholders contain regex metacharacters like `{` or `}`.
+            const pattern = new RegExp(keys.map(escapeRegex).join("|"), "g");
+            const newContent = content.replace(pattern, (match) => replacements[match] ?? match);
             await fs.writeFile(filePath, newContent, "utf8");
         };
         const config = {
@@ -158,6 +166,10 @@ export async function scaffold(options) {
         }, { noTelemetryFlag: telemetryEnabled === false });
     }
     catch (error) {
+        if (await fs.pathExists(targetDir)) {
+            console.log(pc.yellow(`Cleaning up incomplete project directory "${appName}"...`));
+            await fs.remove(targetDir);
+        }
         void trackScaffoldEvent({
             template: telemetryTemplate,
             language: telemetryLanguage,
