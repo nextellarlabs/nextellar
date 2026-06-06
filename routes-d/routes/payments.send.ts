@@ -2,6 +2,8 @@ import { Router, type Request, type Response, type RequestHandler } from "expres
 import { appendPaymentAudit } from "../lib/paymentAudit.js";
 import { validatePaymentAmount, amountErrorsToBody } from "../lib/amount.js";
 import { idempotency, type IdempotencyOptions } from "../middleware/idempotency.js";
+import { validatePaymentAddress } from '../middleware/validatePaymentAddress.js';
+
 
 export interface PaymentSendRouterOptions {
   buildEnvelope?: (params: {
@@ -13,10 +15,6 @@ export interface PaymentSendRouterOptions {
   }) => string;
   /** Idempotency middleware options. Pass `false` to disable entirely. */
   idempotencyOptions?: IdempotencyOptions | false;
-}
-
-function readString(body: Record<string, unknown> | undefined, key: string): string {
-  return typeof body?.[key] === "string" ? body[key].trim() : "";
 }
 
 export function createPaymentSendRouter(options: PaymentSendRouterOptions = {}): Router {
@@ -31,12 +29,13 @@ export function createPaymentSendRouter(options: PaymentSendRouterOptions = {}):
       ? []
       : [idempotency(options.idempotencyOptions ?? {})];
 
-  router.post("/send", ...idempotencyMiddleware, (req: Request, res: Response) => {
+  router.post("/send", ...idempotencyMiddleware, validatePaymentAddress, (req: Request, res: Response) => {
     const body = (req.body ?? {}) as Record<string, unknown>;
-    const destination = readString(body, "destination");
-    const assetCode = readString(body, "assetCode") || "XLM";
-    const assetIssuer = readString(body, "assetIssuer") || undefined;
-    const memo = readString(body, "memo") || undefined;
+    const destination = (typeof body.destination === "string" ? body.destination.trim() : "");
+    
+    const assetCode = (typeof body.assetCode === "string" ? body.assetCode.trim() : "") || "XLM";
+    const assetIssuer = (typeof body.assetIssuer === "string" ? body.assetIssuer.trim() : "") || undefined;
+    const memo = (typeof body.memo === "string" ? body.memo.trim() : "") || undefined;
 
     const amountResult = validatePaymentAmount({
       amount: body.amount,
@@ -44,11 +43,6 @@ export function createPaymentSendRouter(options: PaymentSendRouterOptions = {}):
     });
     if (!amountResult.ok) {
       res.status(400).json({ ok: false, ...amountErrorsToBody(amountResult.errors) });
-      return;
-    }
-
-    if (!destination || !destination.startsWith("G")) {
-      res.status(400).json({ ok: false, error: "destination must be a Stellar account (G...)" });
       return;
     }
 
