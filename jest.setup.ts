@@ -43,12 +43,14 @@ Object.assign(globalThis, {
   fetch: undici.fetch,
 });
 
-// 5) MSW Setup (optional - may not exist, commented out for ESM compatibility)
-// try {
-//   const { server } = require('./src/mocks/server');
-//   beforeAll(() => server.listen());
-//   afterEach(() => server.resetHandlers());
-//   afterAll(() => server.close());
-// } catch (error) {
-//   // MSW server not available, skip
-// }
+// 5) MSW Setup (ESM-compatible dynamic import)
+try {
+  const { server } = await import('./src/mocks/server.js');
+  beforeAll(() => server.listen({ onUnhandledRequest: 'warn' }));
+  afterEach(() => server.resetHandlers());
+  afterAll(() => server.close());
+} catch (error) {
+  // MSW server not available, skip (e.g., when msw isn't installed)
+  // eslint-disable-next-line no-console
+  console.warn('MSW server not initialized:', error?.message ?? error);
+}
