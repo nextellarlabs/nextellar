@@ -10,6 +10,7 @@ import settingsRouter from './routes/settings.js';
 import accountRouter from './routes/account.js';
 import paymentsRouter from './routes/payments.js';
 import feedbackRouter from './routes/feedback.js';
+import checkoutRouter from './routes/checkout.js';
 import { globalErrorHandler } from './middleware/errorHandler.js';
 
 const app = express();
@@ -28,6 +29,7 @@ v1.use('/transfer', transferRouter);
 v1.use('/settings', settingsRouter);
 v1.use('/account', accountRouter);
 v1.use('/payments', paymentsRouter);
+v1.use('/checkout', checkoutRouter);
 
 // Mount versioned routes
 app.use('/v1', v1);

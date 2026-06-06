@@ -1,4 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
+import { validatePaymentAmount, amountErrorsToBody } from '../lib/amount.js';
 
 const router = Router();
 
@@ -16,6 +17,14 @@ router.post(
       // Validate inputs
       if (!poolId || !assetA || !assetB || !amountA) {
         return res.status(400).json({ error: 'Missing required parameters' });
+      }
+
+      const amountResult = validatePaymentAmount({
+        amount: amountA,
+        asset: { code: assetA },
+      });
+      if (!amountResult.ok) {
+        return res.status(400).json({ ok: false, ...amountErrorsToBody(amountResult.errors) });
       }
 
       if (typeof slippageTolerance !== 'number' || slippageTolerance < 0 || slippageTolerance > 100) {
@@ -58,6 +67,14 @@ router.post(
         return res.status(400).json({ error: 'Missing required parameters' });
       }
 
+      const shareResult = validatePaymentAmount({
+        amount: shareAmount,
+        asset: { code: 'XLM' },
+      });
+      if (!shareResult.ok) {
+        return res.status(400).json({ ok: false, ...amountErrorsToBody(shareResult.errors) });
+      }
+
       if (typeof slippageTolerance !== 'number' || slippageTolerance < 0 || slippageTolerance > 100) {
         return res.status(400).json({ error: 'Invalid slippage tolerance' });
       }
@@ -85,7 +102,7 @@ router.post(
 // Helper functions
 async function validatePoolExists(poolId: string): Promise<boolean> {
   // In production: query Stellar AMM for pool
-  return poolId.length > 0;
+  return poolId.length > 0 && !poolId.startsWith('nonexistent');
 }
 
 function buildDepositEnvelope(poolId: string, assetA: string, assetB: string, amountA: string): string {

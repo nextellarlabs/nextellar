@@ -25,7 +25,7 @@ export interface Sep31ValidationError {
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const AMOUNT_PATTERN = /^\d+(\.\d{1,7})?$/;
+import { validatePaymentAmount } from "./amount.js";
 
 export function validateSep31Transaction(
   body: unknown,
@@ -49,10 +49,17 @@ export function validateSep31Transaction(
     errors.push({ field: 'asset_issuer', message: 'asset_issuer is required for non-native assets' });
   }
 
-  const amount = typeof req.amount === 'string' ? req.amount.trim() : '';
-  if (!amount || !AMOUNT_PATTERN.test(amount) || parseFloat(amount) <= 0) {
-    errors.push({ field: 'amount', message: 'amount must be a positive decimal string' });
+  const amountRaw = typeof req.amount === 'string' ? req.amount.trim() : req.amount;
+  const amountCheck = validatePaymentAmount({
+    amount: amountRaw,
+    asset: { code: assetCode || 'XLM', issuer: assetIssuer },
+  });
+  if (!amountCheck.ok) {
+    for (const err of amountCheck.errors) {
+      errors.push({ field: err.field === 'asset' ? 'asset_issuer' : 'amount', message: err.message });
+    }
   }
+  const amount = amountCheck.ok ? amountCheck.amount : '';
 
   const destinationAccount =
     typeof req.destination_account === 'string' ? req.destination_account.trim() : '';
