@@ -18,7 +18,8 @@
     "./src/mocks/**/*",
     "./tests/**/*",
     "./bin/**/*",
-    "./backend/**/*"
+    "./backend/**/*",
+    "./routes-d/**/*"
   ],
   "exclude": ["node_modules", "dist", "tests/tmp-*"]
 }
