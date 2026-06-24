@@ -47,7 +47,7 @@ function calculateApy(pool: PoolRecord): string {
 
 router.get("/defi/pools/:id", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const pool = poolsDb.get(id);
 
     if (!pool) {
