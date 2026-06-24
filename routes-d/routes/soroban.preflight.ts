@@ -34,12 +34,7 @@ router.post("/soroban/preflight", async (req: Request, res: Response, next: Next
     }
 
     if (isRevertXdr(xdr)) {
-      res.status(422).json({
-        error: {
-          code: "SIMULATION_REVERT",
-          message: "Simulation reverted: contract execution failed",
-        },
-      });
+      sendError(res, "SIMULATION_REVERT", "Simulation reverted: contract execution failed", 422);
       return;
     }
 
