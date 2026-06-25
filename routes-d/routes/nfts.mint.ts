@@ -53,6 +53,7 @@ function validateMetadata(metadata: NftMetadata | undefined): string | null {
     }
 
     const invalidAttribute = metadata.attributes.some((attribute) => (
+      attribute === null ||
       typeof attribute !== "object" ||
       typeof attribute.traitType !== "string" ||
       attribute.traitType.trim().length === 0 ||
