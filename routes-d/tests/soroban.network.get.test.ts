@@ -29,8 +29,8 @@ describe("GET /soroban/network", () => {
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.data.networkPassphrase).toBe("Test SDF Network ; September 2015");
-    expect(res.body.data.rpcHost).toBeDefined();
-    expect(res.body.data.latestLedger).toBeDefined();
+    expect(res.body.data.rpcHost).toBe("soroban-testnet.stellar.org");
+    expect(res.body.data.latestLedger).toBe(12345678);
   });
 
   it("returns 503 RPC_UNAVAILABLE when RPC is degraded", async () => {
