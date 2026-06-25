@@ -32,7 +32,7 @@ router.get("/soroban/network", async (_req: Request, res: Response, next: NextFu
       return;
     }
 
-    const rpcHost = new URL(rpcUrl).host;
+    const rpcHost = new URL(rpcUrl).hostname;
 
     return res.status(200).json({
       success: true,
