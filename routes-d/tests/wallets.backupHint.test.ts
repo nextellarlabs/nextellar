@@ -122,7 +122,7 @@ describe("POST /wallets/backup-hint", () => {
     expect(res.body.error.code).toBe("INVALID_CIPHERTEXT");
   });
 
-  it("overwrites an existing hint for the same walletId (upsert)", async () => {
+  it("overwrites an existing hint for the same walletId when the owner matches (upsert)", async () => {
     await request(app)
       .post("/wallets/backup-hint")
       .set(authHeader)
@@ -135,6 +135,21 @@ describe("POST /wallets/backup-hint", () => {
 
     const stored = __getHint(validRequest.walletId);
     expect(stored?.ciphertext).toBe("second-ciphertext");
+  });
+
+  it("returns 403 FORBIDDEN when a different user tries to overwrite another user's hint", async () => {
+    await request(app)
+      .post("/wallets/backup-hint")
+      .set(authHeader)
+      .send(validRequest);
+
+    const res = await request(app)
+      .post("/wallets/backup-hint")
+      .set({ "x-user-id": "different-user" })
+      .send(validRequest);
+
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe("FORBIDDEN");
   });
 
   it("__getHint returns the stored record including ciphertext", async () => {

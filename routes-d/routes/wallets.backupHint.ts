@@ -12,6 +12,7 @@ type BackupHintBody = {
 
 type HintRecord = {
   walletId: string;
+  ownerUserId: string;
   ciphertext: string;
   storedAt: string;
 };
@@ -52,8 +53,14 @@ router.post("/wallets/backup-hint", async (req: Request, res: Response, next: Ne
       return;
     }
 
+    const existing = hintStore.get(body.walletId);
+    if (existing && existing.ownerUserId !== userId) {
+      sendError(res, "FORBIDDEN", "wallet does not belong to this user", 403);
+      return;
+    }
+
     const storedAt = new Date().toISOString();
-    hintStore.set(body.walletId, { walletId: body.walletId, ciphertext: body.ciphertext, storedAt });
+    hintStore.set(body.walletId, { walletId: body.walletId, ownerUserId: userId, ciphertext: body.ciphertext, storedAt });
 
     return res.status(201).json({
       success: true,
