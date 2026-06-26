@@ -59,4 +59,27 @@ describe("GET /nfts/collections", () => {
       expect(prices[i]).toBeGreaterThanOrEqual(prices[i + 1]);
     }
   });
+
+  it("sorts collections by volume24h descending", async () => {
+    __seedCollectionsList(COLLECTIONS);
+
+    const res = await request(app).get("/nfts/collections?sortBy=volume");
+    expect(res.status).toBe(200);
+    const volumes = res.body.data.collections.map(
+      (c: { volume24h: string }) => parseFloat(c.volume24h),
+    );
+    for (let i = 0; i < volumes.length - 1; i++) {
+      expect(volumes[i]).toBeGreaterThanOrEqual(volumes[i + 1]);
+    }
+  });
+
+  it("returns fromCache: false on first request and fromCache: true on repeated request", async () => {
+    __seedCollectionsList(COLLECTIONS);
+
+    const first = await request(app).get("/nfts/collections");
+    expect(first.body.data.fromCache).toBe(false);
+
+    const second = await request(app).get("/nfts/collections");
+    expect(second.body.data.fromCache).toBe(true);
+  });
 });
