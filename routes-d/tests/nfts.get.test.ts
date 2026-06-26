@@ -79,4 +79,21 @@ describe("GET /nfts/:id", () => {
     expect(res.body.data.displayMetadata.name).toBe("Cool NFT #3");
     expect(res.body.data.displayMetadata.attributes[0].trait_type).toBe("Background");
   });
+
+  it("returns fromCache: true on second request for the same NFT within TTL", async () => {
+    __seedNft("nft-4", {
+      id: "nft-4",
+      tokenId: "token-4",
+      collectionId: "collection-alpha",
+      ownerUserId: "user-abc",
+      acquiredAt: "2026-04-01T00:00:00.000Z",
+    });
+
+    const first = await request(app).get("/nfts/nft-4");
+    expect(first.body.fromCache).toBe(false);
+
+    const second = await request(app).get("/nfts/nft-4");
+    expect(second.body.fromCache).toBe(true);
+    expect(second.body.data.id).toBe("nft-4");
+  });
 });
