@@ -53,13 +53,13 @@ export async function scaffold(options: ScaffoldOptions) {
     wallets && wallets.length > 0 ? wallets : ["freighter", "albedo", "lobstr"];
 
   const templateName = template || "default";
-  if (!useTs && templateName !== "default") {
+  if (!useTs && templateName !== "default" && templateName !== "minimal") {
     throw new Error(
-      `Template "${templateName}" is not available for JavaScript yet. Please use the default template with --javascript.`,
+      `Template "${templateName}" is not available for JavaScript yet. Please use the default or minimal template with --javascript.`,
     );
   }
 
-  const resolvedTemplateName = useTs ? templateName : "js-template";
+  const resolvedTemplateName = useTs ? templateName : (templateName === "minimal" ? "js-minimal" : "js-template");
 
   // Validate custom URL overrides if provided
   if (horizonUrl) {

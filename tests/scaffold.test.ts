@@ -181,4 +181,28 @@ describe('scaffold integration', () => {
       } catch (_) {}
     }
   });
+
+  test('scaffolds js-minimal template', async () => {
+    origCwd = process.cwd();
+    const parent = await makeTempParent();
+    process.chdir(parent);
+
+    const appName = 'js-minimal-app';
+
+    await scaffold({
+      appName,
+      useTs: false,
+      template: 'minimal',
+      skipInstall: true,
+    });
+
+    const target = path.join(parent, appName);
+    expect(await fs.pathExists(path.join(target, 'tsconfig.json'))).toBe(false);
+
+    const packageJson = await fs.readJson(path.join(target, 'package.json'));
+    expect(packageJson.devDependencies).not.toHaveProperty('typescript');
+
+    const kitFile = await fs.readFile(path.join(target, 'src/lib/stellar-wallet-kit.js'), 'utf8');
+    expect(kitFile).toBeTruthy();
+  });
 });
