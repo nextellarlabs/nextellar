@@ -10,7 +10,7 @@ This template includes pre-built Stellar blockchain integration:
 
 - **🔗 Wallet Connection**: `useStellarWallet` hook with Freighter wallet support
 - **💰 Balance Display**: Real-time XLM and asset balance fetching
-- **🎨 UI Components**: Ready-to-use `WalletConnectButton` component
+- **🎨 UI Components**: Ready-to-use `WalletConnectButton`, `NetworkSwitcher`, and `SendForm` components
 - **🌐 Testnet Ready**: Pre-configured for Stellar testnet development
 
 ### Quick Stellar Setup
@@ -40,6 +40,23 @@ export default function MyDApp() {
       )}
     </div>
   );
+}
+```
+
+### 📤 Send Payments
+
+The template includes a `SendForm` component for sending Stellar payments:
+
+- **Fields**: Destination address, amount, optional memo, asset selector (XLM + trusted assets)
+- **Validation**: G-address format (56 chars, starts with G), positive amount not exceeding balance, memo max 28 chars
+- **Signing**: Builds payment via `useStellarPayment` and signs through Stellar Wallets Kit — never via raw secret key
+- **Feedback**: Loading state during submission, success/error messages, clears form on success
+
+```tsx
+import SendForm from "@/components/SendForm";
+
+export default function PaymentPage() {
+  return <SendForm />;
 }
 ```
 
