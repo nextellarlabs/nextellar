@@ -1,6 +1,6 @@
 import path from "path";
 import fs from "fs-extra";
-import { create } from "tar";
+import { execa } from "execa";
 import pc from "picocolors";
 
 export interface DeployOptions {
@@ -111,33 +111,27 @@ function getBundlePath(projectRoot: string): string {
 }
 
 async function createBundle(projectRoot: string, bundlePath: string): Promise<void> {
-  const exclude = [
-    "node_modules",
-    ".git",
-    ".next/cache",
-    ".nextellar/deploy",
+  const args = [
+    "-czf",
+    bundlePath,
+    "--exclude=node_modules",
+    "--exclude=.git",
+    "--exclude=.next/cache",
+    "--exclude=.nextellar/deploy",
+    "-C",
+    projectRoot,
+    ".",
   ];
 
-  await create(
-    {
-      gzip: true,
-      file: bundlePath,
+  try {
+    await execa("tar", args, {
       cwd: projectRoot,
-      filter: (filePath: string) => {
-        const normalizedPath = filePath.replace(/\\/g, "/");
-        for (const pattern of exclude) {
-          if (
-            normalizedPath === pattern || 
-            normalizedPath.startsWith(`${pattern}/`)
-          ) {
-            return false;
-          }
-        }
-        return true;
-      },
-    },
-    ["."]
-  );
+    });
+  } catch (error: any) {
+    const stderr = typeof error?.stderr === "string" ? error.stderr.trim() : "";
+    const details = stderr.length > 0 ? ` Details: ${stderr}` : "";
+    throw new Error(`Failed to create deployment bundle with tar.${details}`);
+  }
 }
 
 async function writeBundleState(
