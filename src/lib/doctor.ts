@@ -1,6 +1,8 @@
 import { exec as execCb } from "child_process";
 import util from "util";
 import os from "os";
+import path from "path";
+import fs from "fs-extra";
 import pc from "picocolors";
 
 const exec = util.promisify(execCb) as (
@@ -18,8 +20,36 @@ type CheckResult = {
   link?: string;
 };
 
-const HORIZON = "https://horizon-testnet.stellar.org";
-const SOROBAN = "https://soroban-testnet.stellar.org";
+const DEFAULT_HORIZON = "https://horizon-testnet.stellar.org";
+const DEFAULT_SOROBAN = "https://soroban-testnet.stellar.org";
+
+function resolveUrls(horizonUrl?: string, sorobanUrl?: string): { horizonUrl: string; sorobanUrl: string } {
+  if (horizonUrl && sorobanUrl) {
+    return { horizonUrl, sorobanUrl };
+  }
+
+  const configPath = path.join(process.cwd(), ".nextellar", "config.json");
+  let configHorizon: string | undefined;
+  let configSoroban: string | undefined;
+  if (fs.existsSync(configPath)) {
+    try {
+      const config = fs.readJsonSync(configPath);
+      if (typeof config.horizonUrl === "string" && config.horizonUrl.trim()) {
+        configHorizon = config.horizonUrl.trim();
+      }
+      if (typeof config.sorobanUrl === "string" && config.sorobanUrl.trim()) {
+        configSoroban = config.sorobanUrl.trim();
+      }
+    } catch {
+      // ignore corrupt config
+    }
+  }
+
+  return {
+    horizonUrl: horizonUrl || configHorizon || DEFAULT_HORIZON,
+    sorobanUrl: sorobanUrl || configSoroban || DEFAULT_SOROBAN,
+  };
+}
 
 function parseVersion(raw: string) {
   return raw.trim().replace(/^v/, "");
@@ -149,20 +179,20 @@ async function checkWasmTarget(): Promise<CheckResult> {
   };
 }
 
-async function checkHorizon(): Promise<CheckResult> {
+async function checkHorizon(horizonUrl: string): Promise<CheckResult> {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
-    const res = await fetch(HORIZON, { method: "HEAD", signal: controller.signal });
+    const res = await fetch(horizonUrl, { method: "HEAD", signal: controller.signal });
     clearTimeout(timeout);
     return {
       id: "horizon",
       name: "Horizon API",
       required: true,
       ok: res.ok,
-      detail: `${HORIZON} (${res.status})`,
+      detail: `${horizonUrl} (${res.status})`,
       fix: "Check network or use --horizon-url to override",
-      link: HORIZON,
+      link: horizonUrl,
     };
   } catch (err: any) {
     return {
@@ -171,17 +201,17 @@ async function checkHorizon(): Promise<CheckResult> {
       required: true,
       ok: false,
       detail: `Unreachable: ${String(err.message || err)}`,
-      fix: "Ensure network access to horizon-testnet.stellar.org",
-      link: HORIZON,
+      fix: `Ensure network access to ${new URL(horizonUrl).host}`,
+      link: horizonUrl,
     };
   }
 }
 
-async function checkSoroban(): Promise<CheckResult> {
+async function checkSoroban(sorobanUrl: string): Promise<CheckResult> {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
-    const res = await fetch(SOROBAN, {
+    const res = await fetch(sorobanUrl, {
       method: "POST",
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "status", params: [] }),
       headers: { "content-type": "application/json" },
@@ -193,9 +223,9 @@ async function checkSoroban(): Promise<CheckResult> {
       name: "Soroban RPC",
       required: false,
       ok: res.ok,
-      detail: `${SOROBAN} (${res.status})`,
+      detail: `${sorobanUrl} (${res.status})`,
       fix: "Check network or use --soroban-url to override",
-      link: SOROBAN,
+      link: sorobanUrl,
     };
   } catch (err: any) {
     return {
@@ -204,8 +234,8 @@ async function checkSoroban(): Promise<CheckResult> {
       required: false,
       ok: false,
       detail: `Unreachable: ${String(err.message || err)}`,
-      fix: "Ensure network access to soroban-testnet.stellar.org",
-      link: SOROBAN,
+      fix: `Ensure network access to ${new URL(sorobanUrl).host}`,
+      link: sorobanUrl,
     };
   }
 }
@@ -223,8 +253,15 @@ async function checkDisk(): Promise<CheckResult> {
   };
 }
 
-export async function runDoctor(opts?: { json?: boolean }) {
+export type DoctorOptions = {
+  json?: boolean;
+  horizonUrl?: string;
+  sorobanUrl?: string;
+};
+
+export async function runDoctor(opts?: DoctorOptions) {
   const json = !!opts?.json;
+  const { horizonUrl, sorobanUrl } = resolveUrls(opts?.horizonUrl, opts?.sorobanUrl);
 
   const checks = await Promise.all([
     checkNode(),
@@ -235,8 +272,8 @@ export async function runDoctor(opts?: { json?: boolean }) {
     checkRustc(),
     checkStellarCli(),
     checkWasmTarget(),
-    checkHorizon(),
-    checkSoroban(),
+    checkHorizon(horizonUrl),
+    checkSoroban(sorobanUrl),
     checkDisk(),
   ]);
 
@@ -245,12 +282,15 @@ export async function runDoctor(opts?: { json?: boolean }) {
   const failed = checks.length - passed;
 
   if (json) {
-    const out = { checks, passed, failed, requiredFailures };
+    const out = { horizonUrl, sorobanUrl, checks, passed, failed, requiredFailures };
     console.log(JSON.stringify(out, null, 2));
     return requiredFailures > 0 ? 1 : 0;
   }
 
   console.log(pc.bold("\nNextellar Doctor\n"));
+  console.log(`  ${pc.dim("Horizon:" + " ".repeat(8))}${horizonUrl}`);
+  console.log(`  ${pc.dim("Soroban:" + " ".repeat(8))}${sorobanUrl}`);
+  console.log("");
   for (const c of checks) {
     const mark = c.ok ? pc.green("✔") : c.required ? pc.red("✖") : pc.yellow("⚠");
     const name = pc.bold(c.name.padEnd(16));
