@@ -64,6 +64,27 @@ Ensure all checks pass before submitting.
 - Address any feedback.
 - Once approved, your PR will be merged and you’ll be credited as a contributor!
 
+## 9. Finding Product Issues to Contribute To
+
+When looking for issues to work on, use GitHub's labeling system to filter for suitable tasks. Common labels include:
+
+- `good first issue` – Ideal for newcomers to the project.
+- `help wanted` – Issues that need additional assistance.
+- `product` – Issues related to product features or improvements.
+
+You can filter issues directly on GitHub:
+
+```text
+is:issue is:open label:"good first issue"
+```
+
+or use the UI:
+1. Navigate to the **Issues** tab of the Nextellar repository.
+2. Click **Labels** and select the desired label(s).
+3. Review the filtered list and pick an issue that matches your interests and skill set.
+
+Make sure to read the issue description and any associated discussion before starting work.
+
 ---
 
 Thank you for helping make Nextellar better! 🎉
