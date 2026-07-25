@@ -10,6 +10,7 @@
     "start": "ts-node bin/nextellar.ts",
     "test": "cross-env NODE_OPTIONS=\"--experimental-vm-modules --no-warnings\" jest",
     "clean": "rimraf dist",
+    "verify:pack": "node scripts/verify-pack-contents.mjs",
     "prepublishOnly": "npm run clean && npm test && npm run build"
   },
   "engines": {
