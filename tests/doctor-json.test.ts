@@ -1,32 +1,27 @@
 /**
  * Shape/contract test for `nextellar doctor --json`.
  *
- * The JSON output is documented as a CI contract in docs/doctor-json.md.
- * This test fails when any required field is renamed, removed, or a new
- * top-level field appears without a schema bump.
+ * Documented in docs/doctor-json.md. Fails when a required field is renamed,
+ * removed, or a new top-level field appears without a schema bump.
  */
 import { runDoctor, DOCTOR_JSON_SCHEMA_VERSION } from "../src/lib/doctor.js";
-
-// Capture console.log output produced by runDoctor({ json: true })
-function captureJson(): Promise<unknown> {
-  return new Promise((resolve) => {
-    const orig = console.log;
-    let captured = "";
-    console.log = (msg: string) => {
-      captured += msg;
-    };
-    runDoctor({ json: true }).then(() => {
-      console.log = orig;
-      resolve(JSON.parse(captured));
-    });
-  });
-}
 
 describe("doctor --json output shape", () => {
   let output: any;
 
   beforeAll(async () => {
-    output = await captureJson();
+    // Capture the single console.log call made by runDoctor({ json: true }).
+    // Use jest.spyOn so the spy is always cleaned up, even on failure.
+    const spy = jest.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      await runDoctor({ json: true });
+      // The first call arg is the JSON string.
+      const raw = spy.mock.calls.find((c) => typeof c[0] === "string" && c[0].trimStart().startsWith("{"));
+      if (!raw) throw new Error("doctor --json produced no JSON output");
+      output = JSON.parse(raw[0] as string);
+    } finally {
+      spy.mockRestore();
+    }
   }, 30_000);
 
   it("has schemaVersion equal to DOCTOR_JSON_SCHEMA_VERSION", () => {
@@ -34,13 +29,13 @@ describe("doctor --json output shape", () => {
     expect(output.schemaVersion).toBe(1);
   });
 
-  it("has top-level summary fields", () => {
+  it("has top-level summary fields with correct types", () => {
     expect(typeof output.passed).toBe("number");
     expect(typeof output.failed).toBe("number");
     expect(typeof output.requiredFailures).toBe("number");
   });
 
-  it("has a checks array", () => {
+  it("has a non-empty checks array", () => {
     expect(Array.isArray(output.checks)).toBe(true);
     expect(output.checks.length).toBeGreaterThan(0);
   });
