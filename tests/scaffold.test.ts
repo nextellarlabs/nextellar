@@ -1,4 +1,5 @@
 import fs from 'fs-extra';
+import { jest } from '@jest/globals';
 import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -17,6 +18,28 @@ describe('scaffold integration', () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), prefix));
     tmpParents.push(dir);
     return dir;
+  };
+
+  const expectCopyPhaseFailure = async (appName: string) => {
+    const copySpy = jest.spyOn(fs, 'copy').mockImplementation(async (_source, destination) => {
+      const targetDir = path.resolve(destination.toString());
+      await fs.ensureDir(targetDir);
+      await fs.writeFile(path.join(targetDir, 'partial.txt'), 'partial scaffold');
+      throw new Error('copy phase failed');
+    });
+
+    try {
+      await expect(
+        scaffold({
+          appName,
+          useTs: true,
+          template: 'minimal',
+          skipInstall: true,
+        }),
+      ).rejects.toThrow('copy phase failed');
+    } finally {
+      copySpy.mockRestore();
+    }
   };
 
   afterEach(async () => {
@@ -119,7 +142,34 @@ describe('scaffold integration', () => {
     expect(packageJson.name).toBe(appName);
   });
 
-  test('throws when target directory already exists', async () => {
+  test('removes the target directory after a copy-phase failure', async () => {
+    origCwd = process.cwd();
+    const parent = await makeTempParent();
+    process.chdir(parent);
+
+    const appName = 'copy-failure-cleanup';
+    const target = path.join(parent, appName);
+
+    await expectCopyPhaseFailure(appName);
+
+    expect(await fs.pathExists(target)).toBe(false);
+  });
+
+  test('keeps files outside the target directory after a copy-phase failure', async () => {
+    origCwd = process.cwd();
+    const parent = await makeTempParent();
+    process.chdir(parent);
+
+    const appName = 'copy-failure-boundary';
+    const outsideFile = path.join(parent, 'sibling-data', 'keep.txt');
+    await fs.outputFile(outsideFile, 'keep this file');
+
+    await expectCopyPhaseFailure(appName);
+
+    expect(await fs.readFile(outsideFile, 'utf8')).toBe('keep this file');
+  });
+
+  test('throws when target directory already exists without force and leaves it untouched', async () => {
     origCwd = process.cwd();
     const parent = await makeTempParent();
     process.chdir(parent);
@@ -127,6 +177,8 @@ describe('scaffold integration', () => {
     const appName = 'already-exists-app';
     const target = path.join(parent, appName);
     await fs.ensureDir(target);
+    const existingFile = path.join(target, 'existing.txt');
+    await fs.writeFile(existingFile, 'keep this project');
 
     await expect(
       scaffold({
@@ -136,6 +188,31 @@ describe('scaffold integration', () => {
         skipInstall: true,
       })
     ).rejects.toThrow(/already exists/i);
+
+    expect(await fs.readFile(existingFile, 'utf8')).toBe('keep this project');
+  });
+
+  test('replaces an existing directory with the default scaffold when force and defaults are enabled', async () => {
+    origCwd = process.cwd();
+    const parent = await makeTempParent();
+    process.chdir(parent);
+
+    const appName = 'force-overwrite-app';
+    const target = path.join(parent, appName);
+    const legacyFile = path.join(target, 'legacy.txt');
+    await fs.outputFile(legacyFile, 'old project contents');
+
+    await scaffold({
+      appName,
+      useTs: true,
+      force: true,
+      defaults: true,
+      skipInstall: true,
+    });
+
+    expect(await fs.pathExists(target)).toBe(true);
+    expect(await fs.pathExists(legacyFile)).toBe(false);
+    expect(await fs.readFile(path.join(target, 'README.md'), 'utf8')).toContain(`# ${appName}`);
   });
 
   test('.git and node_modules are excluded from copy', async () => {
