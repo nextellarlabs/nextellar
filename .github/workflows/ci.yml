@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  pack-guard:
+    name: npm pack size guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+
+      # Pack size thresholds (~2× clean main): max 5 MB tarball, 25 MB unpacked, 1000 files
+      - run: node scripts/check-pack-size.mjs
