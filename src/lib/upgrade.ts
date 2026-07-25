@@ -173,7 +173,7 @@ export async function upgrade(opts: UpgradeOptions = {}) {
     projectConfig.nextellarVersion = myPkg.version || projectConfig.nextellarVersion;
     projectConfig.updatedAt = new Date().toISOString();
     await fs.writeJson(configPath, projectConfig, { spaces: 2 });
-  } catch (e) {
+  } catch {
     // ignore
   }
 

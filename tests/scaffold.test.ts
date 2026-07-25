@@ -27,7 +27,7 @@ describe('scaffold integration', () => {
       tmpParents.map(async (p) => {
         try {
           await fs.remove(p);
-        } catch (e) {
+        } catch {
           // ignore
         }
       })
