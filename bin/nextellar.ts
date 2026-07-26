@@ -78,11 +78,21 @@ program
       const { listFeatures } = await import("../src/lib/features.js");
       if (cmdOpts.list) {
         const list = listFeatures();
+        const width = Math.max(...list.map((f) => f.id.length)) + 2;
+        const groups: { title: string; kind: string }[] = [
+          { title: "Hooks & providers:", kind: "hook" },
+          { title: "UI components:", kind: "component" },
+        ];
         console.log(pc.bold("Available features:\n"));
-        list.forEach(({ id, description }) => {
-          console.log(`  ${pc.cyan(id.padEnd(12))} ${pc.dim(description)}`);
+        groups.forEach(({ title, kind }) => {
+          const items = list.filter((f) => f.kind === kind);
+          if (items.length === 0) return;
+          console.log(pc.bold(title));
+          items.forEach(({ id, description }) => {
+            console.log(`  ${pc.cyan(id.padEnd(width))} ${pc.dim(description)}`);
+          });
+          console.log("");
         });
-        console.log("");
         return;
       }
       if (!feature || feature.trim() === "") {

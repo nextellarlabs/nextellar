@@ -19,9 +19,14 @@ function findTemplateDir(templateName: string) {
   const base = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
   );
-  const devPath = path.resolve(base, "../../templates", templateName);
-  const prodPath = path.resolve(base, "../../../src/templates", templateName);
-  return fs.existsSync(devPath) ? devPath : prodPath;
+  // src/lib/upgrade.ts, dist/src/lib/upgrade.js and a bundled dist/templates
+  // all resolve the template from a different depth.
+  const candidates = [
+    path.resolve(base, "../templates", templateName),
+    path.resolve(base, "../../templates", templateName),
+    path.resolve(base, "../../../src/templates", templateName),
+  ];
+  return candidates.find((candidate) => fs.existsSync(candidate)) ?? candidates[candidates.length - 1];
 }
 
 export async function upgrade(opts: UpgradeOptions = {}) {
