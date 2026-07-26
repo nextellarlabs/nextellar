@@ -1,12 +1,15 @@
 export default {
   testEnvironment: 'node',
-  extensionsToTreatAsEsm: ['.ts'],
+  // .tsx is included so component tests can use ESM imports, matching .ts
+  extensionsToTreatAsEsm: ['.ts', '.tsx'],
   setupFilesAfterEnv: [],
   transform: {
     '^.+\\.[tj]sx?$': ['babel-jest', {
       presets: [
         ['@babel/preset-env', { targets: { node: 'current' }, modules: false }],
         ['@babel/preset-typescript'],
+        // Automatic runtime: JSX compiles without an explicit React import
+        ['@babel/preset-react', { runtime: 'automatic' }],
       ],
     }],
   },
