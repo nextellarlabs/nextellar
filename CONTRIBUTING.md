@@ -1,69 +1,56 @@
 # Contributing to Nextellar
 
-Thank you for considering contributing! We welcome contributions of any size. To get started, please follow these steps:
+Thank you for considering contributing! We welcome contributions of any size.
 
-## 1. Fork the Repository
-1. Click the “Fork” button at the top right of the repo.
-2. Clone your fork:
-   ```bash
-   git clone git@github.com:<your-username>/nextellar.git
-   cd nextellar
-   ```
+## Getting Started
 
-## 2. Set Up Your Development Environment
-1. Install dependencies:
-   ```bash
-   npm install
-   ```
-2. Build the project:
-   ```bash
-   npm run build
-   ```
-3. (Optional) Install globally for testing:
-   ```bash
-   npm link
-   ```
+New contributor? Start with a good first issue:
+- Browse good first issues at https://github.com/nextellarlabs/nextellar/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22
+- These are self-contained, verified-against-the-code tasks with acceptance criteria.
 
-## 3. Create a Branch
-Use descriptive branch names, prefixed by type:
-- `feature/<short-description>`
-- `bugfix/<short-description>`
-- `docs/<short-description>`
+### Setup
 
-Example:
-```bash
-git checkout -b feature/cli-flags
-```
-
-## 4. Make Your Changes
-- Follow the existing code style (TypeScript, ESLint, Prettier).
-- Write tests for new functionality.
-- Update or add documentation (README, docs site, etc.).
-
-## 5. Run Tests and Linters
-```bash
-npm run lint
+`ash
+npm ci
 npm test
 npm run build
-```
-Ensure all checks pass before submitting.
+npm start -- my-test-app --defaults --skip-install
+```n
+## Area Labels
 
-## 6. Commit and Push
-- Write clear, concise commit messages.
-- Push your branch:
-  ```bash
-  git push origin feature/cli-flags
-  ```
+- area:cli - Commands and flags (bin/, src/lib/)
+- area:templates - Scaffolding templates (src/templates/)
+- area:testing - Test coverage
+- area:ci - CI, packaging, repo infrastructure
+- area:components - Template UI components
 
-## 7. Open a Pull Request
-1. In your fork, click “Compare & pull request.”
-2. Fill out the PR template with details of your changes.
-3. Request review from the maintainers: @Ebubechi and @DavidDumtochukwu.
+## Difficulty Labels
 
-## 8. Code Review & Merge
-- Address any feedback.
-- Once approved, your PR will be merged and you’ll be credited as a contributor!
+- difficulty:easy - small, clearly bounded
+- difficulty:medium - standard feature, multiple files
+- difficulty:hard - integration/architectural work
 
----
+## Issue Workflow
 
-Thank you for helping make Nextellar better! 🎉
+1. Fork the repository and create a branch from main.
+2. Pick an issue - the issue body is the best spec with Context, Task, Acceptance criteria, and Files to touch.
+3. Implement the change following the acceptance criteria.
+4. Run tests - npm test must pass.
+5. Open a Pull Request referencing the issue with Closes #<issue-number>.
+6. CI must be green.
+
+## Branch Naming
+
+- feat/ - new features
+- fix/ - bug fixes
+- docs/ - documentation changes
+- test/ - test-only changes
+- chore/ - build, CI, or repo maintenance
+
+## Coding Guidelines
+
+- Use TypeScript for all new code
+- Follow the existing code style (ESLint + Prettier configured)
+- Write tests for new functionality
+- Keep changes focused - one issue per PR
+- No unrelated refactors or formatting changes
