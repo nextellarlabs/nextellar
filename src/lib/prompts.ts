@@ -181,12 +181,24 @@ export async function runInteractivePrompts(
 
   outro(pc.dim(`Creating ${projectName}...`));
 
-  return {
-    projectName,
-    horizonUrl,
-    sorobanUrl,
-    wallets,
-    packageManager,
-    skipInstall,
-  };
+  const result: PromptResult = { projectName };
+
+  if (!ctx.networkFlagProvided) {
+    result.horizonUrl = horizonUrl;
+    result.sorobanUrl = sorobanUrl;
+  }
+
+  if (!ctx.walletsFlagProvided) {
+    result.wallets = wallets;
+  }
+
+  if (!ctx.packageManagerFlagProvided) {
+    result.packageManager = packageManager;
+  }
+
+  if (!ctx.skipInstallFlagProvided) {
+    result.skipInstall = skipInstall;
+  }
+
+  return result;
 }
