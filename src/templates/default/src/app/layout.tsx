@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { WalletProvider } from "@/contexts";
 
 const geistSans = Geist({
@@ -28,9 +29,11 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <WalletProvider>
-          {children}
-        </WalletProvider>
+        <ErrorBoundary>
+          <WalletProvider>
+            {children}
+          </WalletProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );
