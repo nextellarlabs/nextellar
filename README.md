@@ -12,17 +12,19 @@ Nextellar is a one-step CLI toolkit that bootstraps a production-ready Next.js +
   ```
 - **Built-in Stellar support**
   - Horizon & Soroban endpoints configured
-  - Wallet-adapter plugin system (Freighter, XBull, Ledger, etc.)
-- **React Hooks**
-  - `useStellarAccount()`, `useStellarPayment()`, `useTrustlines()`, `useTransactionHistory()`, `useSorobanContract()`
-- **UI Components**
-  - `<WalletConnectButton>`, `<BalanceDisplay>`, `<SendForm>`, `<ReceiveForm>`, `<TransactionList>`, `<NetworkSwitcher>`, `<TransactionStatusBadge>`
+  - Wallet-adapter plugin system (Freighter, Albedo, Lobstr, XBull, and more)
+- **React Hooks** (8 shipped)
+  - `useStellarWallet()`, `useStellarBalances()`, `useStellarPayment()`, `useTransactionHistory()`, `useTrustlines()`, `useOfferBook()`, `useSorobanContract()`, `useSorobanEvents()`
+- **UI Components** (2 shipped)
+  - `<WalletConnectButton>`, `<NetworkSwitcher>`
+- **Smart contracts overlay** (`--with-contracts`)
+  - Soroban Rust contracts scaffolded alongside the frontend
 - **Opinionated stack**
-  - Next.js (v13+ App Router) + TypeScript
-  - Tailwind CSS + shadcn/ui
+  - Next.js 16 (App Router) + TypeScript
+  - Tailwind CSS v4 (inline shadcn/ui-inspired components)
   - ESLint, Prettier, Jest + React Testing Library
-  - Storybook for component previews
-  - GitHub Actions CI for linting, testing, and build
+
+> 🗺️ Additional components (`BalanceDisplay`, `SendForm`, `TransactionList`, and more) are installable via `nextellar add <feature>`. See the [Roadmap](#roadmap) for planned components not yet available.
 
 ---
 
@@ -33,7 +35,6 @@ _No global install required:_
 ```bash
 npx nextellar my-app
 cd my-app
-npm install
 npm run dev
 ```
 
@@ -48,22 +49,41 @@ nextellar my-app
 
 ## ⚙️ CLI Usage
 
-```bash
-Usage: nextellar <project-name> [options]
+```
+Usage: nextellar [options] [command] <project-name>
+
+CLI to scaffold a Next.js + Stellar starter
+
+Arguments:
+  project-name                 name of the new Nextellar project
 
 Options:
-  -t, --typescript         Generate a TypeScript project (default)
-  -j, --javascript         Generate a JavaScript project
-  --horizon-url <url>      Override default Horizon endpoint
-  --soroban-url <url>      Override default Soroban RPC endpoint
-  -w, --wallets <list>     Comma-separated list of wallet adapters
-  -d, --defaults           Skip prompts and use defaults
-  --skip-install           Skip dependency installation after scaffolding
-  --package-manager <pm>   Choose package manager (npm, yarn, pnpm)
-  --install-timeout <ms>   Timeout in ms for package install (default: 1200000 / 20 minutes)
-  -v, --version            Show CLI version
-  -h, --help               Show help text
+  -v, --version                output the current version
+  -t, --typescript             generate a TypeScript project (default)
+  -j, --javascript             generate a JavaScript project
+  --template <name>            project template to use (default, minimal, defi)
+  --horizon-url <url>          custom Horizon endpoint
+  --soroban-url <url>          custom Soroban RPC endpoint
+  -w, --wallets <list>         comma-separated wallet adapters (freighter, xbull)
+  -d, --defaults               skip prompts and use defaults
+  --skip-install               skip dependency installation after scaffolding
+  --package-manager <manager>  choose package manager (npm, yarn, pnpm)
+  -c, --with-contracts         scaffold Soroban smart contracts alongside the frontend
+  --force                      overwrite existing directory
+  --install-timeout <ms>       timeout in ms for package install (default: 1200000 / 20 minutes)
+  --no-telemetry               disable telemetry for this invocation
+  -h, --help                   display help for command
 ```
+
+### Subcommands
+
+| Command | Description |
+| --- | --- |
+| `nextellar add [feature]` | Add a Stellar feature to an existing project (`--list` to see all, `--force` to overwrite, `--skip-install`, `--package-manager`) |
+| `nextellar doctor` | Run environment diagnostics (`--json` for CI) |
+| `nextellar upgrade` | Upgrade an existing project to the latest template (`--dry-run` to preview, `--yes` to skip prompts) |
+| `nextellar deploy` | Validate and prepare a deployment bundle for Nextellar Cloud (`--dry-run` to preview) |
+| `nextellar telemetry <status\|enable\|disable>` | Manage anonymous telemetry settings |
 
 ---
 
@@ -76,13 +96,34 @@ my-app/
 │   ├── app/                    # Next.js App Router (Layouts & Pages)
 │   ├── components/             # Reusable UI components (WalletButton, etc)
 │   ├── contexts/               # React Contexts (WalletProvider)
-│   ├── hooks/                  # Custom Stellar hooks (useStellarAccount, etc)
+│   ├── hooks/                  # Custom Stellar hooks (useStellarWallet, etc)
 │   └── lib/                    # Core logic and SDK initializations
-├── tailwind.config.ts          # Styling configuration
+├── next.config.ts              # Next.js configuration
 ├── tsconfig.json               # TypeScript configuration
+├── postcss.config.mjs          # PostCSS / Tailwind CSS v4
+├── eslint.config.mjs           # ESLint configuration
 ├── package.json                # Project dependencies
 └── README.md                   # You are here!
 ```
+
+---
+
+## 🗺️ Roadmap
+
+The following components and tools are planned but **not yet included** in scaffolded projects. Track progress or contribute via their issue links:
+
+| Feature | Status | Issue |
+| --- | --- | --- |
+| `<BalanceDisplay>` component | Installable via `nextellar add balance-display` | — |
+| `<SendForm>` component | Installable via `nextellar add send-form` | — |
+| `<TransactionList>` component | Installable via `nextellar add transaction-list` | — |
+| `<ReceiveForm>` component | Planned | — |
+| `<TransactionStatusBadge>` component | Planned | — |
+| Full `shadcn/ui` integration | Templates ship inline shadcn/ui-inspired components; full setup is manual | — |
+| Storybook for component previews | Planned | — |
+| GitHub Actions CI in generated apps | Planned (repo-level CI: [#679](https://github.com/nextellarlabs/nextellar/issues/679), [#680](https://github.com/nextellarlabs/nextellar/issues/680)) | — |
+
+> 💡 Use `nextellar add --list` to see all currently installable features.
 
 ---
 
