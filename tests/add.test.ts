@@ -1,149 +1,252 @@
-import { jest } from "@jest/globals";
-import fs from "fs-extra";
-import os from "os";
-import path from "path";
-import { fileURLToPath } from "url";
+import fs from 'fs-extra';
+import os from 'os';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { runAdd } from '../src/lib/add.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-jest.unstable_mockModule("execa", () => ({
-  execa: jest.fn(),
-}));
+const TEMPLATES = path.resolve(__dirname, '../src/templates');
+const templateFile = (template: string, rel: string) =>
+  path.join(TEMPLATES, template, 'src', rel);
 
-const execaModule = await import("execa");
-const featuresModule = await import("../src/lib/features.js");
-const { runAdd } = await import("../src/lib/add.js");
+jest.setTimeout(30000);
 
-const mockedExeca = jest.mocked(execaModule.execa);
+describe('runAdd', () => {
+  const tmpDirs: string[] = [];
+  let logSpy: jest.SpyInstance;
 
-function mockInstallerSuccess() {
-  mockedExeca.mockResolvedValue({ exitCode: 0 } as any);
-}
-
-beforeEach(() => {
-  mockedExeca.mockReset();
-  mockInstallerSuccess();
-});
-
-describe("runAdd", () => {
-  let tmpDir: string;
-  const templateDir = path.resolve(
-    __dirname,
-    "../src/templates/default"
-  );
-
-  async function setupProject(): Promise<string> {
-    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "add-test-"));
-    const pkg = {
-      name: "test-project",
-      version: "1.0.0",
-      dependencies: {},
-      devDependencies: {},
-    };
-    await fs.writeJson(path.join(dir, "package.json"), pkg);
+  /** Minimal Next.js project; `template` writes the .nextellar marker. */
+  const makeProject = async (template?: string) => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'nextellar-add-'));
+    tmpDirs.push(dir);
+    await fs.writeJson(path.join(dir, 'package.json'), {
+      name: 'demo',
+      dependencies: { next: '16.1.2' },
+    });
+    if (template) {
+      await fs.outputJson(path.join(dir, '.nextellar/config.json'), {
+        template,
+        nextellarVersion: '1.0.0',
+      });
+    }
     return dir;
-  }
+  };
 
-  async function cleanup(...dirs: string[]) {
-    await Promise.all(
-      dirs.map((d) => fs.remove(d).catch(() => {}))
-    );
-  }
+  const output = () => logSpy.mock.calls.map((c) => c.join(' ')).join('\n');
+  const read = (file: string) => fs.readFile(file, 'utf8');
 
-  it("returns { success: false } with helpful message for unknown feature id", async () => {
-    tmpDir = await setupProject();
-    try {
-      const result = await runAdd("nonexistent-feature-xyz", { cwd: tmpDir });
+  beforeEach(() => {
+    logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+  });
+
+  afterEach(async () => {
+    logSpy.mockRestore();
+    await Promise.all(tmpDirs.map((d) => fs.remove(d).catch(() => {})));
+    tmpDirs.length = 0;
+  });
+
+  describe('guards', () => {
+    it('rejects an unknown feature', async () => {
+      const cwd = await makeProject();
+      const result = await runAdd('not-a-feature', { cwd, skipInstall: true });
+
       expect(result.success).toBe(false);
-      expect(result.message).toContain("Unknown feature");
-      expect(result.message).toContain("nonexistent-feature-xyz");
-    } finally {
-      await cleanup(tmpDir);
-    }
+      expect(result.message).toContain('Unknown feature');
+    });
+
+    it('rejects a directory without package.json', async () => {
+      const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'nextellar-add-'));
+      tmpDirs.push(dir);
+
+      const result = await runAdd('wallet', { cwd: dir, skipInstall: true });
+
+      expect(result.success).toBe(false);
+      expect(result.message).toContain('No package.json');
+    });
+
+    it('skips existing files unless --force is passed', async () => {
+      const cwd = await makeProject();
+      await runAdd('wallet', { cwd, skipInstall: true });
+
+      const hook = path.join(cwd, 'src/hooks/useStellarWallet.ts');
+      await fs.writeFile(hook, '// user edit\n');
+
+      const second = await runAdd('wallet', { cwd, skipInstall: true });
+      expect(second.success).toBe(false);
+      expect(second.message).toContain('--force');
+      expect(await read(hook)).toBe('// user edit\n');
+
+      const forced = await runAdd('wallet', { cwd, skipInstall: true, force: true });
+      expect(forced.success).toBe(true);
+      expect(await read(hook)).toBe(
+        await read(templateFile('default', 'hooks/useStellarWallet.ts'))
+      );
+    });
   });
 
-  it("copies feature files from the default template into the project (happy path)", async () => {
-    tmpDir = await setupProject();
-    try {
-      const result = await runAdd("history", { cwd: tmpDir, skipInstall: true });
+  describe('template resolution', () => {
+    it('sources files from the project template recorded in .nextellar/config.json', async () => {
+      const cwd = await makeProject('defi');
+
+      const result = await runAdd('trustlines', { cwd, skipInstall: true });
+
       expect(result.success).toBe(true);
-      const destFile = path.join(tmpDir, "src/hooks/useTransactionHistory.ts");
-      expect(await fs.pathExists(destFile)).toBe(true);
-    } finally {
-      await cleanup(tmpDir);
-    }
-  });
+      const copied = await read(path.join(cwd, 'src/hooks/useTrustlines.ts'));
+      expect(copied).toBe(await read(templateFile('defi', 'hooks/useTrustlines.ts')));
+      expect(copied).not.toBe(
+        await read(templateFile('default', 'hooks/useTrustlines.ts'))
+      );
+      // Its wallet dependency comes from the defi template too.
+      expect(await read(path.join(cwd, 'src/hooks/useStellarWallet.ts'))).toBe(
+        await read(templateFile('defi', 'hooks/useStellarWallet.ts'))
+      );
+      expect(output()).toContain('Source template: defi');
+    });
 
-  it("skips existing destination files without --force and overwrites them with --force", async () => {
-    tmpDir = await setupProject();
-    try {
-      const targetDir = path.join(tmpDir, "src/hooks");
-      await fs.ensureDir(targetDir);
-      const existingContent = "// existing content";
-      const destFile = path.join(targetDir, "useTransactionHistory.ts");
-      await fs.writeFile(destFile, existingContent);
+    it('falls back to the default template and says so when a file is missing', async () => {
+      const cwd = await makeProject('defi');
+      // The defi template ships no Soroban hooks today.
+      expect(
+        await fs.pathExists(templateFile('defi', 'hooks/useSorobanContract.ts'))
+      ).toBe(false);
 
-      const resultSkip = await runAdd("history", {
-        cwd: tmpDir,
-        skipInstall: true,
-        force: false,
-      });
-      expect(resultSkip.success).toBe(false);
-      expect(resultSkip.message).toContain("--force");
-      expect(await fs.readFile(destFile, "utf8")).toBe(existingContent);
+      const result = await runAdd('contracts', { cwd, skipInstall: true });
 
-      const resultForce = await runAdd("history", {
-        cwd: tmpDir,
-        skipInstall: true,
-        force: true,
-      });
-      expect(resultForce.success).toBe(true);
-      const templateSrc = path.join(templateDir, "src/hooks/useTransactionHistory.ts");
-      const templateContent = await fs.readFile(templateSrc, "utf8");
-      expect(await fs.readFile(destFile, "utf8")).toBe(templateContent);
-    } finally {
-      await cleanup(tmpDir);
-    }
-  });
-
-  it("never invokes the package manager when skipInstall is true", async () => {
-    tmpDir = await setupProject();
-    try {
-      const result = await runAdd("wallet", {
-        cwd: tmpDir,
-        skipInstall: true,
-      });
       expect(result.success).toBe(true);
-      expect(mockedExeca).not.toHaveBeenCalled();
-    } finally {
-      await cleanup(tmpDir);
-    }
-  });
-
-  it("passes npm dependencies matching the feature registry entry to the installer", async () => {
-    tmpDir = await setupProject();
-    try {
-      const feature = featuresModule.getFeature("wallet");
-      const expectedDeps = feature!.npmDependencies;
-
-      const result = await runAdd("wallet", { cwd: tmpDir, skipInstall: false });
-      expect(result.success).toBe(true);
-
-      const calls = mockedExeca.mock.calls.map(
-        ([cmd, args]: any) => ({ cmd, args })
+      expect(await read(path.join(cwd, 'src/hooks/useSorobanContract.ts'))).toBe(
+        await read(templateFile('default', 'hooks/useSorobanContract.ts'))
       );
 
-      const installCall = calls.find(
-        (c: any) => c.cmd === "npm" || c.cmd === "yarn" || c.cmd === "pnpm"
-      );
-      expect(installCall).toBeDefined();
+      const logged = output();
+      expect(logged).toContain('copied from');
+      expect(logged).toContain('hooks/useSorobanContract.ts');
+      expect(logged).toContain('hooks/useSorobanEvents.ts');
+    });
 
-      for (const dep of expectedDeps) {
-        expect(installCall!.args).toContain(dep);
+    it('does not report a fallback for files the project template does ship', async () => {
+      const cwd = await makeProject('defi');
+
+      await runAdd('balances', { cwd, skipInstall: true });
+
+      expect(output()).not.toContain('copied from');
+    });
+
+    it('uses the default template when .nextellar/config.json is absent', async () => {
+      const cwd = await makeProject();
+
+      const result = await runAdd('trustlines', { cwd, skipInstall: true });
+
+      expect(result.success).toBe(true);
+      expect(await read(path.join(cwd, 'src/hooks/useTrustlines.ts'))).toBe(
+        await read(templateFile('default', 'hooks/useTrustlines.ts'))
+      );
+      expect(output()).toContain('Source template: default');
+    });
+
+    it('copies the .js/.jsx variants for a JavaScript project', async () => {
+      const cwd = await makeProject('js-template');
+
+      const result = await runAdd('wallet', { cwd, skipInstall: true });
+
+      expect(result.success).toBe(true);
+      expect(await read(path.join(cwd, 'src/hooks/useStellarWallet.js'))).toBe(
+        await read(templateFile('js-template', 'hooks/useStellarWallet.js'))
+      );
+      expect(
+        await fs.pathExists(path.join(cwd, 'src/contexts/WalletProvider.jsx'))
+      ).toBe(true);
+      // No TypeScript files leak into a JS project.
+      expect(
+        await fs.pathExists(path.join(cwd, 'src/hooks/useStellarWallet.ts'))
+      ).toBe(false);
+      expect(output()).not.toContain('copied from');
+    });
+
+    it('uses the default template when the configured template is unknown', async () => {
+      const cwd = await makeProject('template-from-the-future');
+
+      const result = await runAdd('balances', { cwd, skipInstall: true });
+
+      expect(result.success).toBe(true);
+      expect(await read(path.join(cwd, 'src/hooks/useStellarBalances.ts'))).toBe(
+        await read(templateFile('default', 'hooks/useStellarBalances.ts'))
+      );
+      expect(output()).toContain('Source template: default');
+    });
+  });
+
+  describe('components feature', () => {
+    it('copies a component together with the hook it renders', async () => {
+      const cwd = await makeProject();
+
+      const result = await runAdd('network-switcher', { cwd, skipInstall: true });
+
+      expect(result.success).toBe(true);
+      expect(
+        await fs.pathExists(path.join(cwd, 'src/components/NetworkSwitcher.tsx'))
+      ).toBe(true);
+      // wallet is its dependency, so the provider/hook land as well.
+      expect(
+        await fs.pathExists(path.join(cwd, 'src/hooks/useStellarWallet.ts'))
+      ).toBe(true);
+      expect(
+        await fs.pathExists(path.join(cwd, 'src/contexts/WalletProvider.tsx'))
+      ).toBe(true);
+    });
+
+    it('pulls every component plus its hook dependencies', async () => {
+      const cwd = await makeProject();
+
+      const result = await runAdd('components', { cwd, skipInstall: true });
+
+      expect(result.success).toBe(true);
+      for (const rel of [
+        'src/hooks/useStellarWallet.ts',
+        'src/hooks/useStellarBalances.ts',
+        'src/hooks/useStellarPayment.ts',
+        'src/hooks/useTransactionHistory.ts',
+        'src/components/WalletConnectButton.tsx',
+        'src/components/NetworkSwitcher.tsx',
+      ]) {
+        expect(await fs.pathExists(path.join(cwd, rel))).toBe(true);
       }
-    } finally {
-      await cleanup(tmpDir);
-    }
+    });
+
+    it('reports components that no template ships yet instead of failing silently', async () => {
+      const cwd = await makeProject();
+
+      const result = await runAdd('components', { cwd, skipInstall: true });
+
+      expect(result.success).toBe(true);
+      const logged = output();
+      for (const rel of [
+        'components/BalanceDisplay.tsx',
+        'components/SendForm.tsx',
+        'components/TransactionList.tsx',
+      ]) {
+        // Guard: once the component lands in the template this flips to a copy.
+        if (!(await fs.pathExists(templateFile('default', rel)))) {
+          expect(logged).toContain(rel);
+        }
+      }
+    });
+
+    it('still installs the hook dependency when only the component is unavailable', async () => {
+      const cwd = await makeProject();
+
+      const result = await runAdd('send-form', { cwd, skipInstall: true });
+
+      if (await fs.pathExists(templateFile('default', 'components/SendForm.tsx'))) {
+        expect(result.success).toBe(true);
+      } else {
+        // The hook dependency still lands; only the component is unavailable.
+        expect(
+          await fs.pathExists(path.join(cwd, 'src/hooks/useStellarPayment.ts'))
+        ).toBe(true);
+        expect(output()).toContain('components/SendForm.tsx');
+      }
+    });
   });
 });

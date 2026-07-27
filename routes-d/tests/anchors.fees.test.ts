@@ -117,6 +117,8 @@ describe("GET /anchors/:id/fees", () => {
     expect(res.status).toBe(200);
     expect(res.body.data.name).toBe("CustomAnchor");
     expect(res.body.data.fees[0].asset).toBe("XLM");
+
+    __resetAnchorRegistry(); // restore defaults for any tests that follow
   });
 
   it("response data has the expected top-level shape", async () => {
