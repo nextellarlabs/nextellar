@@ -1,44 +1,33 @@
-"use client";
+'use client';
 
-import React, { Component, type ErrorInfo, type ReactNode } from "react";
+import React, { Component } from 'react';
 
-interface ErrorBoundaryProps {
-  children: ReactNode;
-}
-
-interface ErrorBoundaryState {
-  hasError: boolean;
-  error: Error | null;
-  errorInfo: ErrorInfo | null;
-  showDetails: boolean;
-}
-
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  public state: ErrorBoundaryState = {
+export class ErrorBoundary extends Component {
+  state = {
     hasError: false,
     error: null,
     errorInfo: null,
     showDetails: false,
   };
 
-  public static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
+  static getDerivedStateFromError(error) {
     return { hasError: true, error };
   }
 
-  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error("ErrorBoundary caught an error:", error, errorInfo.componentStack);
+  componentDidCatch(error, errorInfo) {
+    console.error('ErrorBoundary caught an error:', error, errorInfo.componentStack);
     this.setState({ errorInfo });
   }
 
-  private handleReset = () => {
+  handleReset = () => {
     this.setState({ hasError: false, error: null, errorInfo: null, showDetails: false });
   };
 
-  private toggleDetails = () => {
+  toggleDetails = () => {
     this.setState((prevState) => ({ showDetails: !prevState.showDetails }));
   };
 
-  public render() {
+  render() {
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center px-6 py-12 bg-linear-to-br from-white/70 via-slate-100/55 to-white/65 dark:from-black/70 dark:via-zinc-900/60 dark:to-black/75 backdrop-blur-2xl text-black dark:text-white">
@@ -62,7 +51,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
                   onClick={this.toggleDetails}
                   className="px-5 py-2.5 rounded-full font-medium border border-gray-300 text-gray-900 hover:bg-gray-100 dark:border-white/20 dark:text-white dark:hover:bg-white/10 transition-colors"
                 >
-                  {this.state.showDetails ? "Hide Details" : "Show Details"}
+                  {this.state.showDetails ? 'Hide Details' : 'Show Details'}
                 </button>
               )}
             </div>
@@ -74,7 +63,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
                   {this.state.error.toString()}
                   {this.state.errorInfo?.componentStack
                     ? `\n\nComponent Stack:${this.state.errorInfo.componentStack}`
-                    : ""}
+                    : ''}
                 </pre>
               </div>
             )}
