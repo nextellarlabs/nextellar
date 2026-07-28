@@ -24,6 +24,11 @@ export default {
     '**/__tests__/**/*.ts',
     '**/__tests__/**/*.tsx'
   ],
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    // E2E tests are gated behind NEXTELLAR_E2E=1 and explicitly skipped in the test file
+    // but we keep them in testMatch so they can be run when needed
+  ],
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/**/*.d.ts'
