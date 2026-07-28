@@ -9,6 +9,7 @@
     "build": "npx tsc -p tsconfig.build.json",
     "start": "ts-node bin/nextellar.ts",
     "test": "cross-env NODE_OPTIONS=\"--experimental-vm-modules --no-warnings\" jest",
+    "test:e2e": "cross-env NEXTELLAR_E2E=1 NODE_OPTIONS=\"--experimental-vm-modules --no-warnings\" jest tests/e2e",
     "clean": "rimraf dist",
     "prepublishOnly": "npm run clean && npm test && npm run build"
   },
