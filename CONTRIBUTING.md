@@ -48,6 +48,18 @@ npm run build
 ```
 Ensure all checks pass before submitting.
 
+### E2E Tests (Optional but Recommended)
+
+For changes to scaffolding or templates, run the E2E tests to ensure production builds work:
+
+```bash
+npm run test:e2e
+```
+
+E2E tests are **skipped by default** in `npm test` because they take 2-5 minutes. They validate that scaffolded apps install and build successfully.
+
+See `tests/e2e/README.md` for more details.
+
 ## 6. Commit and Push
 - Write clear, concise commit messages.
 - Push your branch:

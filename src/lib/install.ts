@@ -71,6 +71,43 @@ export function getInstallCommand(
 }
 
 /**
+ * Common network/registry failure signatures worth calling out explicitly
+ * rather than leaving the user to decode a raw npm/yarn/pnpm stack trace
+ * (#673). Matched against the install error's message.
+ */
+const NETWORK_ERROR_HINTS: Array<{ pattern: RegExp; hint: string }> = [
+  {
+    pattern: /ENOTFOUND/,
+    hint: "DNS lookup failed — check your internet connection, or that the configured registry URL is correct.",
+  },
+  {
+    pattern: /ETIMEDOUT/,
+    hint: "The request timed out — check your internet connection, or try again on a more stable network.",
+  },
+  {
+    pattern: /EAI_AGAIN/,
+    hint: "Temporary DNS resolution failure — check your internet connection and try again.",
+  },
+  {
+    pattern: /\b403\b|Forbidden/,
+    hint: "Received a 403 Forbidden from the registry — check your registry authentication, or that you're not behind a proxy blocking the request.",
+  },
+  {
+    pattern: /proxy/i,
+    hint: "A proxy may be interfering with the request — check your package manager's proxy configuration (e.g. `npm config get proxy`).",
+  },
+];
+
+/**
+ * Returns a targeted, human hint for a known network/registry failure
+ * pattern in `errorMessage`, or undefined if nothing matched.
+ */
+export function networkErrorHint(errorMessage: string | undefined): string | undefined {
+  if (!errorMessage) return undefined;
+  return NETWORK_ERROR_HINTS.find(({ pattern }) => pattern.test(errorMessage))?.hint;
+}
+
+/**
  * Runs package manager installation in the specified directory
  * Streams output to console and handles errors gracefully
  */
@@ -124,6 +161,11 @@ export async function runInstall(
     console.error("\n🔧 To resolve this issue:");
     console.error(`   cd ${path.basename(cwd)}`);
     console.error(`   ${command} ${args.join(" ")}`);
+
+    const hint = networkErrorHint(errorMessage);
+    if (hint) {
+      console.error(`\n💡 ${hint}`);
+    }
 
     if (logPath) {
       console.error(
