@@ -62,12 +62,16 @@ const anchorRegistry = new Map<string, AnchorConfig>([
 const CACHE_TTL_MS = 30_000;
 const feeCache = new Map<string, { data: AnchorFeeSchedule; expires: number }>();
 
+// Snapshot of defaults so tests can fully restore the registry
+const defaultRegistry = new Map(anchorRegistry);
+
 export function __resetFeeCache(): void {
   feeCache.clear();
 }
 
 export function __resetAnchorRegistry(): void {
   anchorRegistry.clear();
+  defaultRegistry.forEach((v, k) => anchorRegistry.set(k, v));
   feeCache.clear();
 }
 
