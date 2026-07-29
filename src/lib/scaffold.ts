@@ -217,6 +217,7 @@ export async function scaffold(options: ScaffoldOptions) {
 
     const filesToProcess = [
       path.join(targetDir, "package.json"),
+      path.join(targetDir, "package-lock.json"),
       path.join(targetDir, "README.md"),
       path.join(targetDir, "src/contexts/WalletProvider.tsx"),
       path.join(targetDir, "src/contexts/WalletProvider.jsx"),
