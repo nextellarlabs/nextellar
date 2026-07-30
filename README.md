@@ -6,23 +6,23 @@ Nextellar is a one-step CLI toolkit that bootstraps a production-ready Next.js +
 
 ## 🚀 Features
 
-- **One-step scaffold**  
+- **One-step scaffold**
   ```bash
   npx nextellar my-app
   ```
-- **Built-in Stellar support**  
-  - Horizon & Soroban endpoints configured  
-  - Wallet-adapter plugin system (Freighter, XBull, Ledger, etc.)  
-- **React Hooks**  
-  - `useStellarAccount()`, `useStellarPayment()`, `useTrustlines()`, `useTransactionHistory()`, `useSorobanContract()`  
-- **UI Components**  
-  - `<WalletConnectButton>`, `<BalanceDisplay>`, `<SendForm>`, `<ReceiveForm>`, `<TransactionList>`, `<NetworkSwitcher>`, `<TransactionStatusBadge>`  
-- **Opinionated stack**  
-  - Next.js (v13+ App Router) + TypeScript  
-  - Tailwind CSS + shadcn/ui  
-  - ESLint, Prettier, Jest + React Testing Library  
-  - Storybook for component previews  
-  - GitHub Actions CI for linting, testing, and build  
+- **Built-in Stellar support**
+  - Horizon & Soroban endpoints configured
+  - Wallet-adapter plugin system (Freighter, XBull, Ledger, etc.)
+- **React Hooks**
+  - `useStellarAccount()`, `useStellarPayment()`, `useTrustlines()`, `useTransactionHistory()`, `useSorobanContract()`
+- **UI Components**
+  - `<WalletConnectButton>`, `<BalanceDisplay>`, `<SendForm>`, `<ReceiveForm>`, `<TransactionList>`, `<NetworkSwitcher>`, `<TransactionStatusBadge>`
+- **Opinionated stack**
+  - Next.js (v13+ App Router) + TypeScript
+  - Tailwind CSS + shadcn/ui
+  - ESLint, Prettier, Jest + React Testing Library
+  - Storybook for component previews
+  - GitHub Actions CI for linting, testing, and build
 
 ---
 
@@ -57,8 +57,10 @@ Options:
   --horizon-url <url>      Override default Horizon endpoint
   --soroban-url <url>      Override default Soroban RPC endpoint
   -w, --wallets <list>     Comma-separated list of wallet adapters
-  -e, --example <name>     Scaffold with a named example (e.g. `payments-demo`)
   -d, --defaults           Skip prompts and use defaults
+  --skip-install           Skip dependency installation after scaffolding
+  --package-manager <pm>   Choose package manager (npm, yarn, pnpm)
+  --install-timeout <ms>   Timeout in ms for package install (default: 1200000 / 20 minutes)
   -v, --version            Show CLI version
   -h, --help               Show help text
 ```
@@ -69,30 +71,17 @@ Options:
 
 ```bash
 my-app/
-├── public/
-│   └── favicon.ico
-├── styles/
-│   └── globals.css
+├── public/                     # Static assets (logos, icons)
 ├── src/
-│   ├── app/                         # Next.js App Router
-│   │   └── page.tsx                 # Home page with Nextellar UI
-│   ├── lib/
-│   │   ├── stellar-client.ts        # Horizon & network config
-│   │   └── wallet-connect.ts        # Wallet adapter logic
-│   ├── hooks/
-│   │   ├── useStellarAccount.ts
-│   │   ├── useStellarPayment.ts
-│   │   └── useSorobanContract.ts
-│   └── components/
-│       ├── WalletConnectButton.tsx
-│       ├── BalanceDisplay.tsx
-│       └── SendForm.tsx
-├── .env.example                    # ENV vars for Horizon & network
-├── next.config.js
-├── tailwind.config.js
-├── tsconfig.json
-├── package.json
-└── README.md                       # You are here!
+│   ├── app/                    # Next.js App Router (Layouts & Pages)
+│   ├── components/             # Reusable UI components (WalletButton, etc)
+│   ├── contexts/               # React Contexts (WalletProvider)
+│   ├── hooks/                  # Custom Stellar hooks (useStellarAccount, etc)
+│   └── lib/                    # Core logic and SDK initializations
+├── tailwind.config.ts          # Styling configuration
+├── tsconfig.json               # TypeScript configuration
+├── package.json                # Project dependencies
+└── README.md                   # You are here!
 ```
 
 ---
@@ -102,15 +91,19 @@ my-app/
 Full API reference, guides, and examples live at:  
 🔗 https://docs.nextellar.dev
 
+Telemetry and privacy details:  
+🔗 [docs/telemetry.md](docs/telemetry.md)
+
 ---
 
 ## 🤝 Contributing
 
 We welcome your help! Please read [CONTRIBUTING.md](./CONTRIBUTING.md) for:
 
-- Issue & PR workflow  
-- Branch naming conventions  
-- Testing & linting guidelines  
+- Issue & PR workflow
+- Branch naming conventions
+- Testing & linting guidelines
+
 ---
 
 ## 📜 License
