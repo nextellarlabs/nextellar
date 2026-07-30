@@ -2,6 +2,8 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { Horizon, TransactionBuilder, Operation, Networks, Asset, Memo, BASE_FEE } from '@stellar/stellar-sdk';
 import { kit } from '../lib/stellar-wallet-kit';
+import { storage } from '../lib/storage.js';
+
 const Server = Horizon.Server;
 // Create contexts
 const WalletContext = createContext(undefined);
@@ -44,10 +46,10 @@ export function WalletProvider({ children, horizonUrl = 'https://horizon-testnet
                     setConnected(true);
                     // Save connection to localStorage for persistence
                     if (typeof window !== 'undefined') {
-                        localStorage.setItem('stellar_wallet_connected', 'true');
-                        localStorage.setItem('stellar_wallet_id', option.id);
-                        localStorage.setItem('stellar_wallet_address', address);
-                        localStorage.setItem('stellar_wallet_name', name);
+                        storage.set('stellar_wallet_connected', 'true');
+                        storage.set('stellar_wallet_id', option.id);
+                        storage.set('stellar_wallet_address', address);
+                        storage.set('stellar_wallet_name', name);
                     }
                     // Load balances
                     try {
@@ -84,10 +86,10 @@ export function WalletProvider({ children, horizonUrl = 'https://horizon-testnet
             setBalances([]);
             // Clear localStorage on disconnect
             if (typeof window !== 'undefined') {
-                localStorage.removeItem('stellar_wallet_connected');
-                localStorage.removeItem('stellar_wallet_id');
-                localStorage.removeItem('stellar_wallet_address');
-                localStorage.removeItem('stellar_wallet_name');
+                storage.remove('stellar_wallet_connected');
+                storage.remove('stellar_wallet_id');
+                storage.remove('stellar_wallet_address');
+                storage.remove('stellar_wallet_name');
             }
         }
         catch (error) {
@@ -170,10 +172,10 @@ export function WalletProvider({ children, horizonUrl = 'https://horizon-testnet
         const autoReconnect = async () => {
             if (typeof window === 'undefined')
                 return;
-            const wasConnected = localStorage.getItem('stellar_wallet_connected');
-            const savedWalletId = localStorage.getItem('stellar_wallet_id');
-            const savedAddress = localStorage.getItem('stellar_wallet_address');
-            const savedName = localStorage.getItem('stellar_wallet_name');
+            const wasConnected = storage.get('stellar_wallet_connected');
+            const savedWalletId = storage.get('stellar_wallet_id');
+            const savedAddress = storage.get('stellar_wallet_address');
+            const savedName = storage.get('stellar_wallet_name');
             if (wasConnected === 'true' && savedWalletId && savedAddress) {
                 try {
                     const currentKit = kit();
@@ -201,10 +203,10 @@ export function WalletProvider({ children, horizonUrl = 'https://horizon-testnet
                 catch {
                     console.error('Auto-reconnect failed');
                     if (typeof window !== 'undefined') {
-                        localStorage.removeItem('stellar_wallet_connected');
-                        localStorage.removeItem('stellar_wallet_id');
-                        localStorage.removeItem('stellar_wallet_address');
-                        localStorage.removeItem('stellar_wallet_name');
+                        storage.remove('stellar_wallet_connected');
+                        storage.remove('stellar_wallet_id');
+                        storage.remove('stellar_wallet_address');
+                        storage.remove('stellar_wallet_name');
                     }
                 }
             }
