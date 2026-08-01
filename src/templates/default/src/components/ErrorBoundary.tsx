@@ -1,42 +1,45 @@
-"use client";
+'use client';
 
-import React, { Component, type ErrorInfo, type ReactNode } from "react";
+import React, { Component, ErrorInfo, ReactNode } from 'react';
 
-interface ErrorBoundaryProps {
+interface Props {
   children: ReactNode;
 }
 
-interface ErrorBoundaryState {
+interface State {
   hasError: boolean;
   error: Error | null;
   errorInfo: ErrorInfo | null;
   showDetails: boolean;
 }
 
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  public state: ErrorBoundaryState = {
-    hasError: false,
-    error: null,
-    errorInfo: null,
-    showDetails: false,
-  };
-
-  public static getDerivedStateFromError(
-    error: Error
-  ): Partial<ErrorBoundaryState> {
-    return { hasError: true, error };
+export class ErrorBoundary extends Component<Props, State> {
+  constructor(props: Props) {
+    super(props);
+    this.state = {
+      hasError: false,
+      error: null,
+      errorInfo: null,
+      showDetails: false,
+    };
   }
 
-  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error(
-      "ErrorBoundary caught an error:",
+  static getDerivedStateFromError(error: Error): Partial<State> {
+    return {
+      hasError: true,
       error,
-      errorInfo.componentStack
-    );
-    this.setState({ errorInfo });
+    };
   }
 
-  private handleReset = () => {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('ErrorBoundary caught an error:', error, errorInfo);
+    this.setState({
+      error,
+      errorInfo,
+    });
+  }
+
+  handleReset = () => {
     this.setState({
       hasError: false,
       error: null,
@@ -45,50 +48,49 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
     });
   };
 
-  private toggleDetails = () => {
-    this.setState((prevState) => ({ showDetails: !prevState.showDetails }));
+  toggleDetails = () => {
+    this.setState((prevState) => ({
+      showDetails: !prevState.showDetails,
+    }));
   };
 
-  public render() {
+  render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center px-6 py-12 bg-linear-to-br from-white/70 via-slate-100/55 to-white/65 dark:from-black/70 dark:via-zinc-900/60 dark:to-black/75 backdrop-blur-2xl text-black dark:text-white">
-          <div className="w-full max-w-2xl rounded-3xl border border-white/60 dark:border-white/20 bg-white/55 dark:bg-white/10 backdrop-blur-xl p-6 sm:p-8 shadow-sm">
-            <h1 className="text-2xl sm:text-3xl font-semibold mb-3">
-              Something went wrong
-            </h1>
-            <p className="text-sm sm:text-base text-gray-700 dark:text-white/80 mb-6">
-              The app hit an unexpected error while rendering. You can try again
-              to recover.
-            </p>
-
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={this.handleReset}
-                className="px-5 py-2.5 rounded-full font-medium bg-black text-white hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200 transition-colors"
-              >
-                Try Again
-              </button>
-              {this.state.error && (
-                <button
-                  type="button"
-                  onClick={this.toggleDetails}
-                  className="px-5 py-2.5 rounded-full font-medium border border-gray-300 text-gray-900 hover:bg-gray-100 dark:border-white/20 dark:text-white dark:hover:bg-white/10 transition-colors"
-                >
-                  {this.state.showDetails ? "Hide Details" : "Show Details"}
-                </button>
-              )}
+        <div className="flex min-h-screen items-center justify-center p-4">
+          <div className="max-w-md w-full rounded-lg border border-gray-200 bg-white p-6 shadow-lg dark:border-gray-700 dark:bg-gray-900">
+            <div className="mb-4">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                Something went wrong
+              </h2>
+              <p className="mt-2 text-gray-600 dark:text-gray-400">
+                An unexpected error occurred. Please try again or contact support
+                if the problem persists.
+              </p>
             </div>
 
+            <button
+              onClick={this.handleReset}
+              className="mb-4 w-full rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition-colors hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+            >
+              Try Again
+            </button>
+
+            <button
+              onClick={this.toggleDetails}
+              className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+            >
+              {this.state.showDetails ? 'Hide Details' : 'Show Details'}
+            </button>
+
             {this.state.showDetails && this.state.error && (
-              <div className="mt-6 rounded-xl border border-white/60 dark:border-white/15 bg-white/45 dark:bg-black/35 backdrop-blur-sm p-4">
-                <p className="text-sm font-semibold mb-2">Error Details</p>
-                <pre className="text-xs sm:text-sm whitespace-pre-wrap wrap-break-word text-red-700 dark:text-red-300">
+              <div className="mt-4 rounded-lg bg-gray-100 p-4 dark:bg-gray-800">
+                <h3 className="mb-2 font-semibold text-gray-900 dark:text-white">
+                  Error Details
+                </h3>
+                <pre className="overflow-auto text-sm text-gray-700 dark:text-gray-300">
                   {this.state.error.toString()}
-                  {this.state.errorInfo?.componentStack
-                    ? `\n\nComponent Stack:${this.state.errorInfo.componentStack}`
-                    : ""}
+                  {this.state.errorInfo?.componentStack}
                 </pre>
               </div>
             )}
@@ -100,5 +102,3 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
     return this.props.children;
   }
 }
-
-export default ErrorBoundary;
