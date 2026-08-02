@@ -53,10 +53,16 @@ program
   .command("doctor")
   .description("Run environment diagnostics")
   .option("--json", "output results as JSON for CI integration")
-  .action(async (cmdOpts: { json?: boolean }) => {
+  .option("--horizon-url <url>", "Horizon endpoint to check (default: from .nextellar/config.json or testnet)")
+  .option("--soroban-url <url>", "Soroban RPC endpoint to check (default: from .nextellar/config.json or testnet)")
+  .action(async (cmdOpts: { json?: boolean; horizonUrl?: string; sorobanUrl?: string }) => {
     try {
       const { runDoctor } = await import("../src/lib/doctor.js");
-      const exitCode = await runDoctor({ json: !!cmdOpts.json });
+      const exitCode = await runDoctor({
+        json: !!cmdOpts.json,
+        horizonUrl: cmdOpts.horizonUrl,
+        sorobanUrl: cmdOpts.sorobanUrl,
+      });
       await exitWithTelemetry(exitCode);
     } catch (err: any) {
       console.error("Failed to run doctor:", err?.message || err);
