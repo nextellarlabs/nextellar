@@ -93,12 +93,12 @@ export function useStellarWallet(
    */
   const connect = useCallback(async () => {
     try {
-      await kit.openModal({
+      await kit().openModal({
         modalTitle: "Connect to your favorite wallet",
         onWalletSelected: async (option: ISupportedWallet) => {
-          kit.setWallet(option.id);
+          kit().setWallet(option.id);
 
-          const { address } = await kit.getAddress();
+          const { address } = await kit().getAddress();
           const { name } = option;
 
           setPublicKey(address);
@@ -136,7 +136,7 @@ export function useStellarWallet(
    */
   const disconnect = useCallback(async () => {
     try {
-      await kit.disconnect();
+      await kit().disconnect();
       setConnected(false);
       setPublicKey(undefined);
       setWalletName(undefined);
@@ -221,7 +221,7 @@ export function useStellarWallet(
       const transaction = txBuilder.build();
 
       // Sign transaction using stellar-wallets-kit
-      const { signedTxXdr } = await kit.signTransaction(transaction.toXDR(), {
+      const { signedTxXdr } = await kit().signTransaction(transaction.toXDR(), {
         address: publicKey,
         networkPassphrase: network,
       });
@@ -248,8 +248,8 @@ export function useStellarWallet(
       
       if (wasConnected === 'true' && savedWalletId && savedAddress) {
         try {
-          kit.setWallet(savedWalletId);
-          const { address } = await kit.getAddress();
+          kit().setWallet(savedWalletId);
+          const { address } = await kit().getAddress();
           
           if (address === savedAddress) {
             setPublicKey(address);
