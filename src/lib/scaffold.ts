@@ -53,13 +53,17 @@ export async function scaffold(options: ScaffoldOptions) {
     wallets && wallets.length > 0 ? wallets : ["freighter", "albedo", "lobstr"];
 
   const templateName = template || "default";
-  if (!useTs && templateName !== "default") {
+  const JS_TEMPLATES: Record<string, string> = {
+    default: "js-template",
+    defi: "js-defi",
+  };
+  if (!useTs && !JS_TEMPLATES[templateName]) {
     throw new Error(
-      `Template "${templateName}" is not available for JavaScript yet. Please use the default template with --javascript.`,
+      `Template "${templateName}" is not available for JavaScript yet. Please use the default or defi template with --javascript.`,
     );
   }
 
-  const resolvedTemplateName = useTs ? templateName : "js-template";
+  const resolvedTemplateName = useTs ? templateName : JS_TEMPLATES[templateName];
 
   // Validate custom URL overrides if provided
   if (horizonUrl) {
@@ -112,6 +116,13 @@ export async function scaffold(options: ScaffoldOptions) {
     await fs.remove(targetDir);
   }
 
+  // Tracks whether fs.copy completed, so the catch block below only wipes
+  // targetDir for failures before/during that copy (#673) — once files are
+  // scaffolded, a later install failure must never delete them, or "run
+  // install manually" (the error message we give the user) becomes
+  // impossible: there'd be nothing left to install into.
+  let filesScaffolded = false;
+
   try {
     await fs.copy(templateDir, targetDir, {
       filter: (src) => {
@@ -120,6 +131,7 @@ export async function scaffold(options: ScaffoldOptions) {
       },
       preserveTimestamps: true,
     });
+    filesScaffolded = true;
 
     if (withContracts) {
       const contractsTemplateDir = path.join(
@@ -232,8 +244,16 @@ export async function scaffold(options: ScaffoldOptions) {
     });
 
     if (!result.success && !skipInstall) {
+      // Files are already on disk at this point (filesScaffolded is true) —
+      // tell the user exactly what to run rather than the old generic
+      // message, which was misleading anyway: the catch block used to
+      // delete targetDir right after this throw, making "run install
+      // manually" impossible (#673).
       throw new Error(
-        `Dependency installation failed. Please run "${result.packageManager} install" manually in "${appName}".`,
+        `Dependency installation failed, but your project files were created.\n` +
+          `Finish setup by running:\n\n` +
+          `  cd ${appName}\n` +
+          `  ${result.packageManager} install\n`,
       );
     }
 
@@ -254,7 +274,11 @@ export async function scaffold(options: ScaffoldOptions) {
       { noTelemetryFlag: telemetryEnabled === false },
     );
   } catch (error) {
-    if (await fs.pathExists(targetDir)) {
+    // Only clean up when scaffolding didn't get far enough to leave a
+    // usable project behind (#673) — a copy-phase failure leaves nothing
+    // worth keeping, but an install-only failure leaves real, valuable
+    // work that the user was just told how to finish setting up.
+    if (!filesScaffolded && (await fs.pathExists(targetDir))) {
       console.log(pc.yellow(`Cleaning up incomplete project directory "${appName}"...`));
       await fs.remove(targetDir);
     }

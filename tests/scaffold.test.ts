@@ -1,9 +1,20 @@
-import { jest, describe, test, expect, afterEach } from '@jest/globals';
+import { jest } from '@jest/globals';
 import fs from 'fs-extra';
 import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { scaffold } from '../src/lib/scaffold';
+
+// Genuine ESM module (this file uses import.meta.url below), so mocking
+// needs jest.unstable_mockModule rather than the classic jest.mock — the
+// latter relies on babel's hoist-to-require transform, which doesn't apply
+// once Jest is actually running the file as ESM (--experimental-vm-modules).
+const mockRunInstall = jest.fn();
+jest.unstable_mockModule('../src/lib/install.js', () => ({
+  detectPackageManager: () => 'npm',
+  runInstall: mockRunInstall,
+}));
+
+const { scaffold } = await import('../src/lib/scaffold');
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -19,6 +30,18 @@ describe('scaffold integration', () => {
     tmpParents.push(dir);
     return dir;
   };
+
+  beforeEach(() => {
+    // Default: behaves like the real runInstall's skipInstall short-circuit,
+    // so every pre-existing test below (all of which pass skipInstall: true)
+    // is unaffected by mocking this module. Tests that exercise a failing
+    // install override this with mockResolvedValueOnce.
+    mockRunInstall.mockImplementation(async (options) =>
+      options.skipInstall
+        ? { success: true, packageManager: 'skipped' }
+        : { success: true, packageManager: 'npm' }
+    );
+  });
 
   afterEach(async () => {
     // restore cwd
@@ -181,5 +204,59 @@ describe('scaffold integration', () => {
         await fs.remove(path.join(templateDirCandidate, 'node_modules'));
       } catch (_) {}
     }
+  });
+
+  // #673 — an install-only failure must leave the scaffolded project
+  // directory intact and tell the user exactly what to run, instead of
+  // deleting the directory it just told them to run a command inside.
+  describe('install failure handling (#673)', () => {
+    test('keeps the project directory and prints the manual install command when only install fails', async () => {
+      mockRunInstall.mockResolvedValueOnce({
+        success: false,
+        packageManager: 'npm',
+        error: 'Some non-network install error',
+      });
+
+      origCwd = process.cwd();
+      const parent = await makeTempParent();
+      process.chdir(parent);
+
+      const appName = 'install-fails-app';
+
+      await expect(
+        scaffold({ appName, useTs: true, template: 'minimal', skipInstall: false })
+      ).rejects.toThrow(/cd install-fails-app[\s\S]*npm install/);
+
+      // The directory (and its scaffolded files) must still be there —
+      // deleting it would make "run install manually" impossible.
+      const target = path.join(parent, appName);
+      expect(await fs.pathExists(target)).toBe(true);
+      expect(await fs.pathExists(path.join(target, 'package.json'))).toBe(true);
+    });
+
+    test('still cleans up fully when the failure happens during the copy phase, before any files are usable', async () => {
+      origCwd = process.cwd();
+      const parent = await makeTempParent();
+      process.chdir(parent);
+
+      const appName = 'copy-fails-app';
+      const target = path.join(parent, appName);
+
+      const copySpy = jest.spyOn(fs, 'copy').mockRejectedValueOnce(new Error('disk full'));
+
+      try {
+        await expect(
+          scaffold({ appName, useTs: true, template: 'minimal', skipInstall: true })
+        ).rejects.toThrow('disk full');
+
+        // fs.copy never completed, so nothing worth keeping was ever
+        // written — full cleanup is correct here, unlike the install-only
+        // failure case above.
+        expect(await fs.pathExists(target)).toBe(false);
+      } finally {
+        copySpy.mockRestore();
+      }
+    });
+
   });
 });

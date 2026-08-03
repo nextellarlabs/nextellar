@@ -9,6 +9,7 @@
     "build": "npx tsc -p tsconfig.build.json",
     "start": "ts-node bin/nextellar.ts",
     "test": "cross-env NODE_OPTIONS=\"--experimental-vm-modules --no-warnings\" jest",
+    "test:e2e": "cross-env NEXTELLAR_E2E=1 NODE_OPTIONS=\"--experimental-vm-modules --no-warnings\" jest tests/e2e",
     "clean": "rimraf dist",
     "prepublishOnly": "npm run clean && npm test && npm run build"
   },
@@ -46,7 +47,6 @@
     "@clack/prompts": "^0.11.0",
     "@stellar/stellar-sdk": "^12.0.0",
     "@types/jsonwebtoken": "^9.0.10",
-    "@unrs/resolver-binding-win32-x64-msvc": "^1.11.1",
     "commander": "^14.0.0",
     "execa": "^9.6.0",
     "express": "^5.2.1",
