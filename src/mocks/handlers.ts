@@ -28,6 +28,13 @@ function makeOperationRecord(index: number, type: "payment" | "create_account" =
 }
 
 export const handlers = [
+  // Doctor reachability check: HEAD request to the Horizon root
+  // (see src/lib/doctor.ts checkHorizon). Individual tests override this
+  // with server.use() to simulate 5xx/timeout/network-error scenarios.
+  http.head("https://horizon-testnet.stellar.org", () => {
+    return new HttpResponse(null, { status: 200 });
+  }),
+
   http.get<{ accountId: string }>(
     "https://horizon-testnet.stellar.org/accounts/:accountId",
     ({ params }) => {
@@ -94,6 +101,20 @@ export const handlers = [
     };
 
     const rpcId = body.id ?? 1;
+
+    // Doctor reachability check: JSON-RPC "status" call to the Soroban
+    // root (see src/lib/doctor.ts checkSoroban). Individual tests override
+    // this with server.use() to simulate 5xx/timeout/network-error scenarios.
+    if (body.method === "status") {
+      return HttpResponse.json(
+        {
+          jsonrpc: "2.0",
+          id: rpcId,
+          result: { status: "healthy" },
+        },
+        { status: 200 }
+      );
+    }
 
     if (body.method === "simulateTransaction") {
       return HttpResponse.json(
