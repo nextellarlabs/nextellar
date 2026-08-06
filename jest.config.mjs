@@ -12,6 +12,7 @@ export default {
   },
   moduleNameMapper: {
     '^\\.\\./contexts$': '<rootDir>/src/mocks/wallet-contexts-mock.ts',
+    '^@clack/prompts$': '<rootDir>/tests/mocks/clack-prompts.js',
     '^(\\.{1,2}/.*)\\.js$': '$1'
   },
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
