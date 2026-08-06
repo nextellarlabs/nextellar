@@ -180,8 +180,6 @@ export function useStellarWallet(horizonUrl = 'https://horizon-testnet.stellar.o
     // Auto-reconnect wallet on mount if previously connected
     useEffect(() => {
         const autoReconnect = async () => {
-            if (typeof window === 'undefined')
-                return;
             const wasConnected = storage.get('stellar_wallet_connected');
             const savedWalletId = storage.get('stellar_wallet_id');
             const savedAddress = storage.get('stellar_wallet_address');
@@ -211,12 +209,10 @@ export function useStellarWallet(horizonUrl = 'https://horizon-testnet.stellar.o
                 }
                 catch {
                     console.error('Auto-reconnect failed');
-                    if (typeof window !== 'undefined') {
                         storage.remove('stellar_wallet_connected');
                         storage.remove('stellar_wallet_id');
                         storage.remove('stellar_wallet_address');
                         storage.remove('stellar_wallet_name');
-                    }
                 }
             }
         };
