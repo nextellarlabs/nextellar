@@ -261,20 +261,10 @@ export function WalletProvider({
                     }
                 }
                 catch {
-<<<<<<< HEAD
-                    console.error('Auto-reconnect failed');
-                    if (typeof window !== 'undefined') {
-                        storage.remove('stellar_wallet_connected');
-                        storage.remove('stellar_wallet_id');
-                        storage.remove('stellar_wallet_address');
-                        storage.remove('stellar_wallet_name');
-                    }
-=======
                     storage.remove('stellar_wallet_connected');
                     storage.remove('stellar_wallet_id');
                     storage.remove('stellar_wallet_address');
                     storage.remove('stellar_wallet_name');
->>>>>>> d40833fe196773a5e21edbe24398336a40c99200
                 }
             }
         };

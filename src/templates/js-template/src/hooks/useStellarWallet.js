@@ -52,13 +52,10 @@ export function useStellarWallet(horizonUrl = 'https://horizon-testnet.stellar.o
                     setPublicKey(address);
                     setWalletName(name);
                     setConnected(true);
-                    // Save connection to localStorage for persistence
-                    if (typeof window !== 'undefined') {
                         storage.set('stellar_wallet_connected', 'true');
                         storage.set('stellar_wallet_id', option.id);
                         storage.set('stellar_wallet_address', address);
                         storage.set('stellar_wallet_name', name);
-                    }
                     // Load balances inline to avoid circular dependency
                     try {
                         const account = await server.accounts().accountId(address).call();
@@ -93,13 +90,10 @@ export function useStellarWallet(horizonUrl = 'https://horizon-testnet.stellar.o
             setPublicKey(undefined);
             setWalletName(undefined);
             setBalances([]);
-            // Clear localStorage on disconnect
-            if (typeof window !== 'undefined') {
                 storage.remove('stellar_wallet_connected');
                 storage.remove('stellar_wallet_id');
                 storage.remove('stellar_wallet_address');
                 storage.remove('stellar_wallet_name');
-            }
         }
         catch (error) {
             console.error('Failed to disconnect wallet:', error);
