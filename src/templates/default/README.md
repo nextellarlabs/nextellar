@@ -10,7 +10,8 @@ This template includes pre-built Stellar blockchain integration:
 
 - **🔗 Wallet Connection**: `useStellarWallet` hook with Freighter wallet support
 - **💰 Balance Display**: Real-time XLM and asset balance fetching
-- **🎨 UI Components**: Ready-to-use `WalletConnectButton` component
+- **🎨 UI Components**: Ready-to-use `WalletConnectButton` and `TransactionList` components
+- **📜 Transaction History**: `TransactionList` component powered by `useTransactionHistory` hook
 - **🌐 Testnet Ready**: Pre-configured for Stellar testnet development
 
 ### Quick Stellar Setup
@@ -58,6 +59,34 @@ The template includes minimal shadcn/ui-inspired components built inline. You ca
    Then replace the inline components in `WalletConnectButton.tsx`
 
 3. **Use your preferred UI library** - Easily swap out Button/Dropdown components
+
+### 📜 TransactionList Component
+
+The `TransactionList` component displays paginated Stellar transaction history using the `useTransactionHistory` hook. It renders transaction rows with direction indicators, operation type labels, amounts, counterparty addresses, relative timestamps, and transaction status.
+
+#### Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `limit` | `number` | `10` | Number of transactions per page (passed as `pageSize` to `useTransactionHistory`) |
+| `type` | `'payments' \| 'operations'` | `undefined` | Type of history to fetch (defaults to `'operations'` per the hook's default) |
+
+#### Usage Example
+
+```tsx
+import TransactionList from "@/components/TransactionList";
+
+export default function HistoryPage() {
+  return (
+    <div className="p-8 max-w-2xl mx-auto">
+      <h2 className="text-xl font-bold mb-4">Transaction History</h2>
+      <TransactionList limit={10} type="payments" />
+    </div>
+  );
+}
+```
+
+The component automatically integrates with the wallet context. When no wallet is connected, it displays a message prompting the user to connect.
 
 ### ⚠️ Development vs Production
 
