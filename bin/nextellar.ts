@@ -263,6 +263,16 @@ program.action(async (projectName, options) => {
     return await exitWithTelemetry(1);
   }
 
+  if (!useTs && template !== "default") {
+    console.error(
+      pc.red(
+        `--javascript (or --no-typescript) currently only supports the default template. ` +
+          `Use --template default or omit --javascript/--no-typescript.`,
+      ),
+    );
+    return await exitWithTelemetry(1);
+  }
+
   // Clear console and show welcome banner
   if (process.stdout.isTTY) {
     process.stdout.write("\x1Bc");
