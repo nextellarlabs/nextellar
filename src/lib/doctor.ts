@@ -8,7 +8,7 @@ const exec = util.promisify(execCb) as (
   opts?: { timeout?: number },
 ) => Promise<{ stdout: string; stderr: string }>;
 
-type CheckResult = {
+export type CheckResult = {
   id: string;
   name: string;
   required: boolean;
@@ -16,6 +16,14 @@ type CheckResult = {
   detail?: string;
   fix?: string;
   link?: string;
+};
+
+export type DoctorOutput = {
+  schemaVersion: number;
+  checks: CheckResult[];
+  passed: number;
+  failed: number;
+  requiredFailures: number;
 };
 
 const HORIZON = "https://horizon-testnet.stellar.org";
@@ -257,6 +265,8 @@ async function checkDisk(): Promise<CheckResult> {
   };
 }
 
+export const DOCTOR_JSON_SCHEMA_VERSION = 1;
+
 export async function runDoctor(opts?: { json?: boolean }) {
   const json = !!opts?.json;
 
@@ -279,7 +289,13 @@ export async function runDoctor(opts?: { json?: boolean }) {
   const failed = checks.length - passed;
 
   if (json) {
-    const out = { checks, passed, failed, requiredFailures };
+    const out = {
+      schemaVersion: DOCTOR_JSON_SCHEMA_VERSION,
+      checks,
+      passed,
+      failed,
+      requiredFailures,
+    };
     console.log(JSON.stringify(out, null, 2));
     return requiredFailures > 0 ? 1 : 0;
   }
