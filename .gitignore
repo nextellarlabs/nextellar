@@ -16,7 +16,7 @@ dist/
 .env.development.local
 .env.test.local
 .env.production.local
-...
+
 # IDE/Editor files
 .vscode/
 .idea/
@@ -40,4 +40,12 @@ tmp-test-*/
 
 # Nextellar specific
 .nextellar/
-node_modules
+
+# Accidental local scaffold output (do not commit generated apps)
+/my-app/
+/my-app-*/
+
+# Accidental scratch / notes at repo root
+/q
+/pr.md
+/issue.md
