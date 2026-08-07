@@ -49,3 +49,9 @@ tmp-test-*/
 /q
 /pr.md
 /issue.md
+
+# Generated template artifacts
+src/templates/**/node_modules/
+src/templates/**/.next/
+src/templates/**/.turbo/
+src/templates/**/coverage/
