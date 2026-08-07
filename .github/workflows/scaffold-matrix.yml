@@ -1,0 +1,94 @@
+name: Scaffold Matrix
+
+# Trigger strategy (see issue #678):
+# - pull_request: fast smoke pass, ubuntu + Node 20 only, all 5 template variants.
+#   Keeps PR-blocking time to one OS/Node combo x 5 variants instead of the full 30.
+# - schedule (nightly) + workflow_dispatch: full matrix across all OS x Node x variant
+#   combinations, catching platform-specific regressions without blocking every PR.
+
+on:
+  pull_request:
+    paths:
+      - 'src/templates/**'
+      - 'src/lib/scaffold.ts'
+      - 'bin/**'
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  pr-smoke:
+    if: github.event_name == 'pull_request'
+    name: smoke (${{ matrix.variant.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20]
+        variant:
+          - { name: default, args: '--template default' }
+          - { name: minimal, args: '--template minimal' }
+          - { name: defi, args: '--template defi' }
+          - { name: default-js, args: '--template default --javascript' }
+          - { name: with-contracts, args: '--template default --with-contracts' }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+
+      - name: Check template junk
+        run: node scripts/check-template-junk.mjs
+
+      - run: npm run build
+      - name: Scaffold app
+        shell: bash
+        run: |
+          node dist/bin/nextellar.js scaffolded-app --defaults --skip-install ${{ matrix.variant.args }}
+      - name: Install + build generated app
+        shell: bash
+        working-directory: scaffolded-app
+        run: |
+          npm install
+          npm run build
+
+  nightly-full:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    name: full (${{ matrix.os }}, node ${{ matrix.node }}, ${{ matrix.variant.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node: [20, 22]
+        variant:
+          - { name: default, args: '--template default' }
+          - { name: minimal, args: '--template minimal' }
+          - { name: defi, args: '--template defi' }
+          - { name: default-js, args: '--template default --javascript' }
+          - { name: with-contracts, args: '--template default --with-contracts' }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+
+
+      - name: Check template junk
+        run: node scripts/check-template-junk.mjs
+
+      - run: npm run build
+      - name: Scaffold app
+        shell: bash
+        run: |
+          node dist/bin/nextellar.js scaffolded-app --defaults --skip-install ${{ matrix.variant.args }}
+      - name: Install + build generated app
+        shell: bash
+        working-directory: scaffolded-app
+        run: |
+          npm install
+          npm run build

@@ -8,7 +8,7 @@ const exec = util.promisify(execCb) as (
   opts?: { timeout?: number },
 ) => Promise<{ stdout: string; stderr: string }>;
 
-type CheckResult = {
+export type CheckResult = {
   id: string;
   name: string;
   required: boolean;
@@ -16,6 +16,14 @@ type CheckResult = {
   detail?: string;
   fix?: string;
   link?: string;
+};
+
+export type DoctorOutput = {
+  schemaVersion: number;
+  checks: CheckResult[];
+  passed: number;
+  failed: number;
+  requiredFailures: number;
 };
 
 const HORIZON = "https://horizon-testnet.stellar.org";
@@ -30,13 +38,35 @@ function satisfiesMinVersion(v: string, minMajor: number) {
   return major >= minMajor;
 }
 
-async function runCommand(cmd: string, timeout = 5000) {
+export type CommandRunner = (
+  cmd: string,
+  timeout?: number,
+) => Promise<{ ok: boolean; out: string }>;
+
+async function defaultCommandRunner(cmd: string, timeout = 5000) {
   try {
     const { stdout } = await exec(cmd, { timeout });
     return { ok: true, out: stdout.trim() };
   } catch (err: any) {
     return { ok: false, out: String(err?.message || err) };
   }
+}
+
+let commandRunner: CommandRunner = defaultCommandRunner;
+
+/**
+ * Test-only seam (#639): substitutes the runner every tool check (node,
+ * npm, yarn, pnpm, git, rustc, stellar CLI, wasm32 target) goes through,
+ * so tests can force each check to pass/fail deterministically without
+ * spawning a real subprocess. Pass `undefined` to restore the real,
+ * subprocess-spawning runner.
+ */
+export function setCommandRunnerForTest(runner: CommandRunner | undefined): void {
+  commandRunner = runner ?? defaultCommandRunner;
+}
+
+async function runCommand(cmd: string, timeout = 5000) {
+  return commandRunner(cmd, timeout);
 }
 
 async function checkNode(): Promise<CheckResult> {
@@ -210,8 +240,20 @@ async function checkSoroban(): Promise<CheckResult> {
   }
 }
 
+let freeMemoryProvider: () => number = () => os.freemem();
+
+/**
+ * Test-only seam (#639): the disk/RAM check reads real free memory, which
+ * makes its result depend on whatever else is running on the machine at
+ * test time — flaky in exactly the same way an unmocked subprocess call
+ * would be. Pass `undefined` to restore the real os.freemem()-based check.
+ */
+export function setFreeMemoryProviderForTest(provider: (() => number) | undefined): void {
+  freeMemoryProvider = provider ?? (() => os.freemem());
+}
+
 async function checkDisk(): Promise<CheckResult> {
-  const free = os.freemem();
+  const free = freeMemoryProvider();
   const ok = free > 1_000_000_000; // > 1GB
   return {
     id: "disk",
@@ -222,6 +264,8 @@ async function checkDisk(): Promise<CheckResult> {
     fix: "Free up at least 1GB of RAM",
   };
 }
+
+export const DOCTOR_JSON_SCHEMA_VERSION = 1;
 
 export async function runDoctor(opts?: { json?: boolean }) {
   const json = !!opts?.json;
@@ -245,7 +289,13 @@ export async function runDoctor(opts?: { json?: boolean }) {
   const failed = checks.length - passed;
 
   if (json) {
-    const out = { checks, passed, failed, requiredFailures };
+    const out = {
+      schemaVersion: DOCTOR_JSON_SCHEMA_VERSION,
+      checks,
+      passed,
+      failed,
+      requiredFailures,
+    };
     console.log(JSON.stringify(out, null, 2));
     return requiredFailures > 0 ? 1 : 0;
   }
