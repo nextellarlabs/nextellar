@@ -39,7 +39,11 @@ tmp-test-*/
 *.log
 
 # Nextellar specific
+# Ignore .nextellar/ in project roots (scaffolded output), but keep the
+# template versions that are part of the CLI source and must be shipped.
 .nextellar/
+!src/templates/**/.nextellar/
+!src/templates/**/.nextellar/**
 
 # Accidental local scaffold output (do not commit generated apps)
 /my-app/
