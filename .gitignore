@@ -16,7 +16,7 @@ dist/
 .env.development.local
 .env.test.local
 .env.production.local
-...
+
 # IDE/Editor files
 .vscode/
 .idea/
@@ -42,6 +42,18 @@ tmp-test-*/
 # Ignore .nextellar/ in project roots (scaffolded output), but keep the
 # template versions that are part of the CLI source and must be shipped.
 .nextellar/
-!src/templates/**/.nextellar/
-!src/templates/**/.nextellar/**
-node_modules
+
+# Accidental local scaffold output (do not commit generated apps)
+/my-app/
+/my-app-*/
+
+# Accidental scratch / notes at repo root
+/q
+/pr.md
+/issue.md
+
+# Generated template artifacts
+src/templates/**/node_modules/
+src/templates/**/.next/
+src/templates/**/.turbo/
+src/templates/**/coverage/
