@@ -124,10 +124,12 @@ async function createBundle(projectRoot: string, bundlePath: string): Promise<vo
       file: bundlePath,
       cwd: projectRoot,
       filter: (filePath: string) => {
-        const normalizedPath = filePath.replace(/\\/g, "/");
+        // node-tar passes paths prefixed with "./" (the packed entry name);
+        // strip it so the exclusion patterns match.
+        const normalizedPath = filePath.replace(/\\/g, "/").replace(/^\.\//, "");
         for (const pattern of exclude) {
           if (
-            normalizedPath === pattern || 
+            normalizedPath === pattern ||
             normalizedPath.startsWith(`${pattern}/`)
           ) {
             return false;
