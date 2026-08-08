@@ -1,6 +1,5 @@
 import request from 'supertest';
 import app from '../../backend/app.js';
-import { authDeps } from '../../backend/routes/auth.js';
 
 // Setup environment for testing
 process.env.JWT_SECRET = 'test-secret-12345678901234567890123456789012';

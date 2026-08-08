@@ -14,4 +14,23 @@ New contributor? Start with a good first issue:
 npm ci
 npm test
 npm run build
+### Setup
+```bash
+npm ci
+npm test
+npm run build
 npm start -- my-test-app --defaults --skip-install
+```
+
+Ensure all checks pass before submitting.
+
+### E2E Tests (Optional but Recommended)
+For changes to scaffolding or templates, run the E2E tests to ensure production builds work:
+
+```bash
+npm run test:e2e
+```
+
+E2E tests are **skipped by default** in `npm test` because they take 2-5 minutes. They validate that scaffolded apps install and build successfully.
+
+See `tests/e2e/README.md` for more details.

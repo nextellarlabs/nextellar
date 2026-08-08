@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-import { renderHook, act, waitFor } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 
 // Mock React hooks before importing the hook
 jest.mock('react', () => ({
@@ -83,24 +83,6 @@ describe('useStellarBalances (Template Hook)', () => {
     jest.useRealTimers();
     consoleErrorSpy.mockRestore();
   });
-
-  const mockAccountData = {
-    balances: [
-      {
-        asset_type: 'native',
-        balance: '100.0000000',
-      },
-      {
-        asset_type: 'credit_alphanum4',
-        asset_code: 'USDC',
-        asset_issuer: 'GCKFBEIYTKP2NM3BZXBIQXSJBEM3NTWGCAPXFQBHGTHZOO',
-        balance: '250.5000000',
-        limit: '922337203685.4775807',
-      }
-    ]
-  };
-
-  const validPublicKey = 'GCKFBEIYTKP2NM3BZXBIQXSJBEM3NTWGCAPXFQBHGTHZOO';
 
   it('should return balances state with proper structure', () => {
     const { result } = renderHook(() => mockUseStellarBalances());
