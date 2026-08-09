@@ -1,33 +1,20 @@
 "use client";
 
-import React, { Component, type ErrorInfo, type ReactNode } from "react";
+import React, { Component } from "react";
 
-interface ErrorBoundaryProps {
-  children: ReactNode;
-}
-
-interface ErrorBoundaryState {
-  hasError: boolean;
-  error: Error | null;
-  errorInfo: ErrorInfo | null;
-  showDetails: boolean;
-}
-
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  public state: ErrorBoundaryState = {
+class ErrorBoundary extends Component {
+  state = {
     hasError: false,
     error: null,
     errorInfo: null,
     showDetails: false,
   };
 
-  public static getDerivedStateFromError(
-    error: Error
-  ): Partial<ErrorBoundaryState> {
+  static getDerivedStateFromError(error) {
     return { hasError: true, error };
   }
 
-  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  componentDidCatch(error, errorInfo) {
     console.error(
       "ErrorBoundary caught an error:",
       error,
@@ -36,7 +23,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
     this.setState({ errorInfo });
   }
 
-  private handleReset = () => {
+  handleReset = () => {
     this.setState({
       hasError: false,
       error: null,
@@ -45,11 +32,11 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
     });
   };
 
-  private toggleDetails = () => {
+  toggleDetails = () => {
     this.setState((prevState) => ({ showDetails: !prevState.showDetails }));
   };
 
-  public render() {
+  render() {
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center px-6 py-12 bg-linear-to-br from-white/70 via-slate-100/55 to-white/65 dark:from-black/70 dark:via-zinc-900/60 dark:to-black/75 backdrop-blur-2xl text-black dark:text-white">
