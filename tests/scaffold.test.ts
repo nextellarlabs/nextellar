@@ -265,10 +265,10 @@ describe('scaffold integration', () => {
       // clean up markers from template dir
       try {
         await fs.remove(path.join(templateDirCandidate, '.git'));
-      } catch (_) {}
+      } catch {}
       try {
         await fs.remove(path.join(templateDirCandidate, 'node_modules'));
-      } catch (_) {}
+      } catch {}
     }
   });
 
