@@ -5,7 +5,7 @@ import { jest } from '@jest/globals';
 import '@testing-library/jest-dom';
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import { ErrorBoundary } from '../../src/templates/js-template/src/components/ErrorBoundary.jsx';
+import ErrorBoundary from '../../src/templates/js-template/src/components/ErrorBoundary.jsx';
 
 function Boom() {
   throw new Error('boom');
