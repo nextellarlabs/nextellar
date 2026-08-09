@@ -1,0 +1,20 @@
+{
+  "version": "1.0.0",
+  "deprecated": [
+    {
+      "method": "GET",
+      "path": "/api/v1/users",
+      "deprecation": "true",
+      "sunset": "Sun, 01 Jan 2027 00:00:00 GMT",
+      "message": "This endpoint is deprecated. Please use /api/v2/users instead.",
+      "link": "https://docs.example.com/migrations/v1-to-v2"
+    },
+    {
+      "method": "*",
+      "path": "/api/legacy/*",
+      "deprecation": "Sat, 01 Mar 2025 00:00:00 GMT",
+      "sunset": "Mon, 01 Jun 2026 00:00:00 GMT",
+      "message": "Legacy API endpoints are being phased out."
+    }
+  ]
+}
