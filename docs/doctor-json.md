@@ -10,7 +10,9 @@ nextellar doctor --json
 
 | Field | Type | Description |
 |---|---|---|
-| `schemaVersion` | `number` | Schema version — currently `1`. Increment when the shape changes in a breaking way. |
+| `schemaVersion` | `number` | Schema version — currently `2`. Increment when the shape changes in a breaking way. |
+| `horizonUrl` | `string` | Resolved Horizon endpoint that was probed (from `--horizon-url`, project config, or the testnet default). |
+| `sorobanUrl` | `string` | Resolved Soroban RPC endpoint that was probed (from `--soroban-url`, project config, or the testnet default). |
 | `checks` | `CheckResult[]` | One entry per diagnostic check. |
 | `passed` | `number` | Number of checks where `ok` is `true`. |
 | `failed` | `number` | Number of checks where `ok` is `false`. |
@@ -34,7 +36,9 @@ nextellar doctor --json
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
+  "horizonUrl": "https://horizon-testnet.stellar.org",
+  "sorobanUrl": "https://soroban-testnet.stellar.org",
   "checks": [
     {
       "id": "node",

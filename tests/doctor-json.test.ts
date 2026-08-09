@@ -4,6 +4,7 @@
  * Documented in docs/doctor-json.md. Fails when a required field is renamed,
  * removed, or a new top-level field appears without a schema bump.
  */
+import { jest } from "@jest/globals";
 import { runDoctor, DOCTOR_JSON_SCHEMA_VERSION } from "../src/lib/doctor.js";
 
 describe("doctor --json output shape", () => {
@@ -26,13 +27,18 @@ describe("doctor --json output shape", () => {
 
   it("has schemaVersion equal to DOCTOR_JSON_SCHEMA_VERSION", () => {
     expect(output.schemaVersion).toBe(DOCTOR_JSON_SCHEMA_VERSION);
-    expect(output.schemaVersion).toBe(1);
+    expect(output.schemaVersion).toBe(2);
   });
 
   it("has top-level summary fields with correct types", () => {
     expect(typeof output.passed).toBe("number");
     expect(typeof output.failed).toBe("number");
     expect(typeof output.requiredFailures).toBe("number");
+  });
+
+  it("reports the resolved Horizon and Soroban endpoints", () => {
+    expect(typeof output.horizonUrl).toBe("string");
+    expect(typeof output.sorobanUrl).toBe("string");
   });
 
   it("has a non-empty checks array", () => {
@@ -59,7 +65,15 @@ describe("doctor --json output shape", () => {
 
   it("top-level shape has exactly the expected keys", () => {
     const keys = Object.keys(output).sort();
-    expect(keys).toEqual(["checks", "failed", "passed", "requiredFailures", "schemaVersion"]);
+    expect(keys).toEqual([
+      "checks",
+      "failed",
+      "horizonUrl",
+      "passed",
+      "requiredFailures",
+      "schemaVersion",
+      "sorobanUrl",
+    ]);
   });
 
   it("each check has no unexpected keys", () => {
