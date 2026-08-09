@@ -63,6 +63,7 @@
   "devDependencies": {
     "@babel/core": "^7.28.0",
     "@babel/preset-env": "^7.28.0",
+    "@babel/preset-react": "^7.27.1",
     "@babel/preset-typescript": "^7.27.1",
     "@creit.tech/stellar-wallets-kit": "^1.9.5",
     "@eslint/js": "^9.39.1",
