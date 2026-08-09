@@ -11,6 +11,7 @@ import { runDeploy } from "../src/lib/deploy.js";
 import { displaySuccess, NEXTELLAR_LOGO } from "../src/lib/feedback.js";
 import { detectPackageManager } from "../src/lib/install.js";
 import { runInteractivePrompts } from "../src/lib/prompts.js";
+import { validateProjectName } from "../src/lib/validate.js";
 import {
   flushTelemetry,
   getTelemetryStatus,
@@ -294,6 +295,17 @@ program.action(async (projectName, options) => {
     hasArg("--horizon-url") || hasArg("--soroban-url");
   const packageManagerFlagProvided = hasArg("--package-manager");
   const skipInstallFlagProvided = hasArg("--skip-install");
+
+  // Validate project name against npm package naming rules early (non-interactive path).
+  // The interactive prompt path performs its own inline validation via prompts.ts.
+  if (!shouldPrompt) {
+    try {
+      validateProjectName(path.basename(projectName));
+    } catch (err: any) {
+      console.error(`\n❌ ${err.message}`);
+      return await exitWithTelemetry(1);
+    }
+  }
 
   let finalProjectName: string = projectName;
   let finalHorizonUrl: string | undefined = options.horizonUrl;

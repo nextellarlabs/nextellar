@@ -213,4 +213,66 @@ describe('upgrade', () => {
     expect(config.template).toBe('minimal');
     expect(config.updatedAt).toEqual(expect.any(String));
   });
+
+  it('prints the from -> to version line', async () => {
+    const dir = await makeProject();
+    process.chdir(dir);
+
+    await upgrade({ dryRun: true });
+
+    expect(output()).toContain('1.0.0 -> ');
+  });
+
+  it('groups the summary into added/updated/unchanged', async () => {
+    const dir = await makeProject({
+      managed: ['hooks/useStellarWallet.ts', 'lib/stellar-wallet-kit.ts'],
+      overrides: { 'src/hooks/useStellarWallet.ts': '// stale copy\n' },
+    });
+    process.chdir(dir);
+
+    await upgrade({ dryRun: true });
+    const logged = output();
+
+    expect(logged).toContain('Added:');
+    expect(logged).toContain('hooks/useStellarBalances.ts');
+    expect(logged).toContain('Updated:');
+    expect(logged).toContain('hooks/useStellarWallet.ts');
+    expect(logged).toMatch(/Unchanged: \d+ file\(s\)/);
+  });
+
+  it('warns and does not proceed on a downgrade without --yes', async () => {
+    const dir = await makeProject({ overrides: {} });
+    await fs.outputJson(path.join(dir, '.nextellar/config.json'), {
+      template: 'minimal',
+      nextellarVersion: '99.0.0',
+    });
+    process.chdir(dir);
+
+    await upgrade({});
+
+    const logged = output();
+    expect(logged).toContain('older than this project');
+    expect(logged).toContain('Re-run with --yes');
+    expect(await fs.pathExists(path.join(dir, '.nextellar/backups'))).toBe(false);
+
+    const config = await fs.readJson(path.join(dir, '.nextellar/config.json'));
+    expect(config.nextellarVersion).toBe('99.0.0');
+  });
+
+  it('proceeds on a downgrade when --yes is passed explicitly', async () => {
+    const dir = await makeProject({
+      overrides: { 'src/hooks/useStellarBalances.ts': '// stale copy\n' },
+    });
+    await fs.outputJson(path.join(dir, '.nextellar/config.json'), {
+      template: 'minimal',
+      nextellarVersion: '99.0.0',
+    });
+    process.chdir(dir);
+
+    await upgrade({ yes: true });
+
+    const logged = output();
+    expect(logged).toContain('proceeding despite the downgrade');
+    expect(await fs.pathExists(path.join(dir, '.nextellar/backups'))).toBe(true);
+  });
 });
