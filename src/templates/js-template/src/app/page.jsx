@@ -2,6 +2,7 @@
 import Image from "next/image";
 import { useState, useEffect } from 'react';
 import WalletConnectButton from '../components/WalletConnectButton';
+import NetworkSwitcher from '../components/NetworkSwitcher';
 // Theme toggle hook
 function useTheme() {
     const [theme, setTheme] = useState('light');
@@ -104,6 +105,8 @@ export default function Home() {
               </a>
 
               <WalletConnectButton theme={theme}/>
+
+              <NetworkSwitcher />
 
               <a href="https://github.com/nextellarlabs/nextellar" target="_blank" rel="noopener noreferrer" className={`w-full sm:w-auto px-8 py-4 backdrop-blur-md font-semibold rounded-full border transition-all hover:scale-105 active:scale-95 flex items-center justify-center ${theme === 'light' ? 'bg-white/30 text-black border-gray-300/50 hover:bg-white/40' : 'bg-white/5 text-white border-white/10 hover:bg-white/10'}`}>
                 View Docs
