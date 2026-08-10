@@ -4,12 +4,15 @@ This is a [Next.js 16](https://nextjs.org) project bootstrapped with [Nextellar]
 
 > ✨ **Congratulations!** You've successfully created a Nextellar project. When you scaffolded this app, you saw our friendly success animation and ASCII logo - that's how we celebrate your new Stellar dApp journey!
 
-## 🌟 Stellar Integration
+## 🌟 Stellar DeFi Integration
 
-This template includes pre-built Stellar blockchain integration:
+This template includes pre-built Stellar and Soroban blockchain integration:
 
 - **🔗 Wallet Connection**: `useStellarWallet` hook with multi-wallet support (Freighter, Rabet, XBull, Albedo, Lobstr, xBull)
 - **💰 Balance Display**: Real-time XLM and asset balance fetching via `useStellarBalances`
+- **🔷 Soroban Contracts**: Call and invoke Soroban smart contracts with `useSorobanContract` (AMMs, contract-based DEXes)
+- **📡 Contract Events**: Poll Soroban contract events with retry and backoff via `useSorobanEvents`
+- **📜 Transaction History**: Paginated operation/payment history via `useTransactionHistory`
 - **🎨 UI Components**: Ready-to-use `WalletConnectButton` component
 - **📡 Payment Operations**: `useStellarPayment` for sending payments
 - **🤝 Trustlines**: `useTrustlines` for managing asset trustlines
