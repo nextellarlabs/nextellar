@@ -10,16 +10,23 @@ import {
   ISupportedWallet,
 } from "@creit.tech/stellar-wallets-kit";
 
-// Placeholder for injected wallets
+// Placeholder for injected wallets. During scaffold-time this token is replaced
+// with an array literal.
 const INJECTED_WALLETS: string[] = {{WALLETS}};
 
 let kitInstance: StellarWalletsKit | null = null;
+let currentNetwork: WalletNetwork | null = null;
 
-export const getKit = (): StellarWalletsKit => {
+export const getKit = (network?: WalletNetwork): StellarWalletsKit => {
   if (typeof window === 'undefined') {
     return {} as StellarWalletsKit;
   }
   
+  // Re-initialize if network has changed
+  if (kitInstance && network && network !== currentNetwork) {
+    kitInstance = null;
+  }
+
   if (!kitInstance) {
     // Dynamic module loading based on INJECTED_WALLETS
     // or fallback to defaults if placeholder not replaced
@@ -32,6 +39,10 @@ export const getKit = (): StellarWalletsKit => {
     if (walletList.includes('xbull')) modules.push(new xBullModule());
     if (walletList.includes('hana')) modules.push(new HanaModule());
 
+    // Determine network: priority to passed param, then injected placeholder, then default to TESTNET
+    const targetNetwork = network || (('{{NETWORK}}' as string) === 'PUBLIC' ? WalletNetwork.PUBLIC : WalletNetwork.TESTNET);
+    currentNetwork = targetNetwork;
+
     kitInstance = new StellarWalletsKit({
       network: ('{{NETWORK}}' as string) === 'PUBLIC' ? WalletNetwork.PUBLIC : WalletNetwork.TESTNET,
       selectedWalletId: FREIGHTER_ID,
@@ -43,7 +54,7 @@ export const getKit = (): StellarWalletsKit => {
 };
 
 // Export as function to ensure lazy evaluation
-export const kit = () => getKit();
+export const kit = (network?: WalletNetwork) => getKit(network);
 
 interface signTransactionProps {
   unsignedTransaction: string;
