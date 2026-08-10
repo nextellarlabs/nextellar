@@ -38,6 +38,10 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
+
+      - name: Check template junk
+        run: node scripts/check-template-junk.mjs
+
       - run: npm run build
       - name: Scaffold app
         shell: bash
@@ -72,6 +76,11 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
+
+
+      - name: Check template junk
+        run: node scripts/check-template-junk.mjs
+
       - run: npm run build
       - name: Scaffold app
         shell: bash

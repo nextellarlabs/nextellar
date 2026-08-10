@@ -1,6 +1,8 @@
 import { exec as execCb } from "child_process";
 import util from "util";
 import os from "os";
+import path from "path";
+import fs from "fs-extra";
 import pc from "picocolors";
 
 const exec = util.promisify(execCb) as (
@@ -8,7 +10,7 @@ const exec = util.promisify(execCb) as (
   opts?: { timeout?: number },
 ) => Promise<{ stdout: string; stderr: string }>;
 
-type CheckResult = {
+export type CheckResult = {
   id: string;
   name: string;
   required: boolean;
@@ -18,8 +20,73 @@ type CheckResult = {
   link?: string;
 };
 
-const HORIZON = "https://horizon-testnet.stellar.org";
-const SOROBAN = "https://soroban-testnet.stellar.org";
+export type DoctorOutput = {
+  schemaVersion: number;
+  horizonUrl: string;
+  sorobanUrl: string;
+  checks: CheckResult[];
+  passed: number;
+  failed: number;
+  requiredFailures: number;
+};
+
+const DEFAULT_HORIZON = "https://horizon-testnet.stellar.org";
+const DEFAULT_SOROBAN = "https://soroban-testnet.stellar.org";
+
+// Accept only well-formed http(s) URLs from flags/config so a malformed value
+// fails fast with a clear message instead of crashing a check's error path.
+function assertValidUrl(url: string, flag: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error(`Invalid ${flag}: "${url}" is not a valid URL.`);
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error(`Invalid ${flag}: "${url}" must use http or https.`);
+  }
+}
+
+// Safely extract a host for messaging; never throws on already-validated input,
+// and degrades gracefully if somehow given a non-URL.
+function safeHost(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url;
+  }
+}
+
+function resolveUrls(horizonUrl?: string, sorobanUrl?: string): { horizonUrl: string; sorobanUrl: string } {
+  if (horizonUrl) assertValidUrl(horizonUrl, "--horizon-url");
+  if (sorobanUrl) assertValidUrl(sorobanUrl, "--soroban-url");
+
+  if (horizonUrl && sorobanUrl) {
+    return { horizonUrl, sorobanUrl };
+  }
+
+  const configPath = path.join(process.cwd(), ".nextellar", "config.json");
+  let configHorizon: string | undefined;
+  let configSoroban: string | undefined;
+  if (fs.existsSync(configPath)) {
+    try {
+      const config = fs.readJsonSync(configPath);
+      if (typeof config.horizonUrl === "string" && config.horizonUrl.trim()) {
+        configHorizon = config.horizonUrl.trim();
+      }
+      if (typeof config.sorobanUrl === "string" && config.sorobanUrl.trim()) {
+        configSoroban = config.sorobanUrl.trim();
+      }
+    } catch {
+      // ignore corrupt config
+    }
+  }
+
+  return {
+    horizonUrl: horizonUrl || configHorizon || DEFAULT_HORIZON,
+    sorobanUrl: sorobanUrl || configSoroban || DEFAULT_SOROBAN,
+  };
+}
 
 function parseVersion(raw: string) {
   return raw.trim().replace(/^v/, "");
@@ -30,13 +97,35 @@ function satisfiesMinVersion(v: string, minMajor: number) {
   return major >= minMajor;
 }
 
-async function runCommand(cmd: string, timeout = 5000) {
+export type CommandRunner = (
+  cmd: string,
+  timeout?: number,
+) => Promise<{ ok: boolean; out: string }>;
+
+async function defaultCommandRunner(cmd: string, timeout = 5000) {
   try {
     const { stdout } = await exec(cmd, { timeout });
     return { ok: true, out: stdout.trim() };
   } catch (err: any) {
     return { ok: false, out: String(err?.message || err) };
   }
+}
+
+let commandRunner: CommandRunner = defaultCommandRunner;
+
+/**
+ * Test-only seam (#639): substitutes the runner every tool check (node,
+ * npm, yarn, pnpm, git, rustc, stellar CLI, wasm32 target) goes through,
+ * so tests can force each check to pass/fail deterministically without
+ * spawning a real subprocess. Pass `undefined` to restore the real,
+ * subprocess-spawning runner.
+ */
+export function setCommandRunnerForTest(runner: CommandRunner | undefined): void {
+  commandRunner = runner ?? defaultCommandRunner;
+}
+
+async function runCommand(cmd: string, timeout = 5000) {
+  return commandRunner(cmd, timeout);
 }
 
 async function checkNode(): Promise<CheckResult> {
@@ -149,20 +238,20 @@ async function checkWasmTarget(): Promise<CheckResult> {
   };
 }
 
-async function checkHorizon(): Promise<CheckResult> {
+async function checkHorizon(horizonUrl: string): Promise<CheckResult> {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
-    const res = await fetch(HORIZON, { method: "HEAD", signal: controller.signal });
+    const res = await fetch(horizonUrl, { method: "HEAD", signal: controller.signal });
     clearTimeout(timeout);
     return {
       id: "horizon",
       name: "Horizon API",
       required: true,
       ok: res.ok,
-      detail: `${HORIZON} (${res.status})`,
+      detail: `${horizonUrl} (${res.status})`,
       fix: "Check network or use --horizon-url to override",
-      link: HORIZON,
+      link: horizonUrl,
     };
   } catch (err: any) {
     return {
@@ -171,17 +260,17 @@ async function checkHorizon(): Promise<CheckResult> {
       required: true,
       ok: false,
       detail: `Unreachable: ${String(err.message || err)}`,
-      fix: "Ensure network access to horizon-testnet.stellar.org",
-      link: HORIZON,
+      fix: `Ensure network access to ${safeHost(horizonUrl)}`,
+      link: horizonUrl,
     };
   }
 }
 
-async function checkSoroban(): Promise<CheckResult> {
+async function checkSoroban(sorobanUrl: string): Promise<CheckResult> {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
-    const res = await fetch(SOROBAN, {
+    const res = await fetch(sorobanUrl, {
       method: "POST",
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "status", params: [] }),
       headers: { "content-type": "application/json" },
@@ -193,9 +282,9 @@ async function checkSoroban(): Promise<CheckResult> {
       name: "Soroban RPC",
       required: false,
       ok: res.ok,
-      detail: `${SOROBAN} (${res.status})`,
+      detail: `${sorobanUrl} (${res.status})`,
       fix: "Check network or use --soroban-url to override",
-      link: SOROBAN,
+      link: sorobanUrl,
     };
   } catch (err: any) {
     return {
@@ -204,14 +293,26 @@ async function checkSoroban(): Promise<CheckResult> {
       required: false,
       ok: false,
       detail: `Unreachable: ${String(err.message || err)}`,
-      fix: "Ensure network access to soroban-testnet.stellar.org",
-      link: SOROBAN,
+      fix: `Ensure network access to ${safeHost(sorobanUrl)}`,
+      link: sorobanUrl,
     };
   }
 }
 
+let freeMemoryProvider: () => number = () => os.freemem();
+
+/**
+ * Test-only seam (#639): the disk/RAM check reads real free memory, which
+ * makes its result depend on whatever else is running on the machine at
+ * test time — flaky in exactly the same way an unmocked subprocess call
+ * would be. Pass `undefined` to restore the real os.freemem()-based check.
+ */
+export function setFreeMemoryProviderForTest(provider: (() => number) | undefined): void {
+  freeMemoryProvider = provider ?? (() => os.freemem());
+}
+
 async function checkDisk(): Promise<CheckResult> {
-  const free = os.freemem();
+  const free = freeMemoryProvider();
   const ok = free > 1_000_000_000; // > 1GB
   return {
     id: "disk",
@@ -223,8 +324,18 @@ async function checkDisk(): Promise<CheckResult> {
   };
 }
 
-export async function runDoctor(opts?: { json?: boolean }) {
+// v2 adds the resolved `horizonUrl` and `sorobanUrl` top-level fields (#668).
+export const DOCTOR_JSON_SCHEMA_VERSION = 2;
+
+export type DoctorOptions = {
+  json?: boolean;
+  horizonUrl?: string;
+  sorobanUrl?: string;
+};
+
+export async function runDoctor(opts?: DoctorOptions) {
   const json = !!opts?.json;
+  const { horizonUrl, sorobanUrl } = resolveUrls(opts?.horizonUrl, opts?.sorobanUrl);
 
   const checks = await Promise.all([
     checkNode(),
@@ -235,8 +346,8 @@ export async function runDoctor(opts?: { json?: boolean }) {
     checkRustc(),
     checkStellarCli(),
     checkWasmTarget(),
-    checkHorizon(),
-    checkSoroban(),
+    checkHorizon(horizonUrl),
+    checkSoroban(sorobanUrl),
     checkDisk(),
   ]);
 
@@ -245,12 +356,23 @@ export async function runDoctor(opts?: { json?: boolean }) {
   const failed = checks.length - passed;
 
   if (json) {
-    const out = { checks, passed, failed, requiredFailures };
+    const out: DoctorOutput = {
+      schemaVersion: DOCTOR_JSON_SCHEMA_VERSION,
+      horizonUrl,
+      sorobanUrl,
+      checks,
+      passed,
+      failed,
+      requiredFailures,
+    };
     console.log(JSON.stringify(out, null, 2));
     return requiredFailures > 0 ? 1 : 0;
   }
 
   console.log(pc.bold("\nNextellar Doctor\n"));
+  console.log(`  ${pc.dim("Horizon:" + " ".repeat(8))}${horizonUrl}`);
+  console.log(`  ${pc.dim("Soroban:" + " ".repeat(8))}${sorobanUrl}`);
+  console.log("");
   for (const c of checks) {
     const mark = c.ok ? pc.green("✔") : c.required ? pc.red("✖") : pc.yellow("⚠");
     const name = pc.bold(c.name.padEnd(16));
