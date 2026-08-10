@@ -8,22 +8,6 @@ import { NETWORKS } from '../config/networks';
 
 const Server = Horizon.Server;
 
-// Storage helper — mirrors src/lib/storage.ts
-const storage = {
-    get: (key) => {
-        if (typeof window === 'undefined') return null;
-        return window.localStorage.getItem(key);
-    },
-    set: (key, value) => {
-        if (typeof window === 'undefined') return;
-        window.localStorage.setItem(key, value);
-    },
-    remove: (key) => {
-        if (typeof window === 'undefined') return;
-        window.localStorage.removeItem(key);
-    },
-};
-
 // Create contexts
 const WalletContext = createContext(undefined);
 const WalletConfigContext = createContext(undefined);
