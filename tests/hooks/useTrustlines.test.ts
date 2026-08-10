@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-import { renderHook, act, waitFor } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 
 // Mock React hooks before importing the hook
 jest.mock('react', () => ({
@@ -41,11 +41,6 @@ type Trustline = {
   limit?: string;
   balance?: string;
   authorized?: boolean;
-};
-
-type TrustlinesOptions = {
-  horizonUrl?: string;
-  network?: 'TESTNET' | 'PUBLIC';
 };
 
 describe('useTrustlines (Template Hook)', () => {
