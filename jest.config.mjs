@@ -1,20 +1,19 @@
 export default {
   testEnvironment: 'node',
-  // .tsx is included so component tests can use ESM imports, matching .ts
-  extensionsToTreatAsEsm: ['.ts', '.tsx'],
+  extensionsToTreatAsEsm: ['.ts', '.tsx', '.jsx'],
   setupFilesAfterEnv: [],
   transform: {
     '^.+\\.[tj]sx?$': ['babel-jest', {
       presets: [
         ['@babel/preset-env', { targets: { node: 'current' }, modules: false }],
-        ['@babel/preset-typescript'],
-        // Automatic runtime: JSX compiles without an explicit React import
         ['@babel/preset-react', { runtime: 'automatic' }],
+        ['@babel/preset-typescript'],
       ],
     }],
   },
   moduleNameMapper: {
     '^\\.\\./contexts$': '<rootDir>/src/mocks/wallet-contexts-mock.ts',
+    '^@clack/prompts$': '<rootDir>/tests/mocks/clack-prompts.js',
     '^(\\.{1,2}/.*)\\.js$': '$1'
   },
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
@@ -23,6 +22,11 @@ export default {
     '**/tests/**/*.test.tsx',
     '**/src/**/*.test.ts',
     '**/__tests__/**/*.ts'
+  ],
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    // E2E tests are gated behind NEXTELLAR_E2E=1 and explicitly skipped in the test file
+    // but we keep them in testMatch so they can be run when needed
   ],
   collectCoverageFrom: [
     'src/**/*.ts',
