@@ -10,7 +10,7 @@ import {
   text,
 } from "@clack/prompts";
 import { detectPackageManager } from "./install.js";
-import { isValidUrl } from "./validate.js";
+import { isValidUrl, suggestProjectName, validateProjectName } from "./validate.js";
 
 export interface PromptResult {
   projectName: string;
@@ -41,7 +41,11 @@ export async function runInteractivePrompts(
     message: "Project name",
     initialValue: ctx.initialProjectName,
     validate: (value: string) => {
-      if (!value || value.trim().length === 0) return "Project name is required";
+      try {
+        validateProjectName(value);
+      } catch (err: any) {
+        return err.message;
+      }
     },
   });
 
@@ -181,12 +185,24 @@ export async function runInteractivePrompts(
 
   outro(pc.dim(`Creating ${projectName}...`));
 
-  return {
-    projectName,
-    horizonUrl,
-    sorobanUrl,
-    wallets,
-    packageManager,
-    skipInstall,
-  };
+  const result: PromptResult = { projectName };
+
+  if (!ctx.networkFlagProvided) {
+    result.horizonUrl = horizonUrl;
+    result.sorobanUrl = sorobanUrl;
+  }
+
+  if (!ctx.walletsFlagProvided) {
+    result.wallets = wallets;
+  }
+
+  if (!ctx.packageManagerFlagProvided) {
+    result.packageManager = packageManager;
+  }
+
+  if (!ctx.skipInstallFlagProvided) {
+    result.skipInstall = skipInstall;
+  }
+
+  return result;
 }

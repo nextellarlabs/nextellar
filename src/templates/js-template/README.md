@@ -1,6 +1,6 @@
 # {{APP_NAME}}
 
-This is a [Next.js 16](https://nextjs.org) project bootstrapped with [Nextellar](https://github.com/nextellarlabs/nextellar) - a Stellar blockchain dApp starter using **Tailwind CSS v4**.
+This is a [Next.js 16](https://nextjs.org) project bootstrapped with [Nextellar](https://github.com/nextellarlabs/nextellar) - a Stellar blockchain dApp starter using **Tailwind CSS v4** and **JavaScript** (no TypeScript).
 
 > ✨ **Congratulations!** You've successfully created a Nextellar project. When you scaffolded this app, you saw our friendly success animation and ASCII logo - that's how we celebrate your new Stellar dApp journey!
 
@@ -8,9 +8,14 @@ This is a [Next.js 16](https://nextjs.org) project bootstrapped with [Nextellar]
 
 This template includes pre-built Stellar blockchain integration:
 
-- **🔗 Wallet Connection**: `useStellarWallet` hook with Freighter wallet support
-- **💰 Balance Display**: Real-time XLM and asset balance fetching
-- **🎨 UI Components**: Ready-to-use `WalletConnectButton` component
+- **🔗 Wallet Connection**: `useStellarWallet` hook with multi-wallet support (Freighter, Rabet, XBull, Albedo, Lobstr, xBull)
+- **💰 Balance Display**: Real-time XLM and asset balance fetching via `useStellarBalances`
+- **🎨 UI Components**: Ready-to-use `WalletConnectButton` component and `ErrorBoundary`
+- **📡 Payment Operations**: `useStellarPayment` for sending payments
+- **📊 Transaction History**: `useTransactionHistory` for fetching account transactions
+- **🤝 Trustlines**: `useTrustlines` for managing asset trustlines
+- **📈 Offer Book**: `useOfferBook` for querying DEX order books
+- **🔗 Soroban Support**: `useSorobanContract` and `useSorobanEvents` for Soroban smart contract interaction
 - **🌐 Testnet Ready**: Pre-configured for Stellar testnet development
 
 ### Quick Stellar Setup
@@ -21,7 +26,7 @@ This template includes pre-built Stellar blockchain integration:
 
 ### Usage Example
 
-```tsx
+```jsx
 import WalletConnectButton from "@/components/WalletConnectButton";
 import { useStellarWallet } from "@/hooks/useStellarWallet";
 

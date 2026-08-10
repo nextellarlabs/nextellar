@@ -8,9 +8,15 @@ This is a [Next.js 16](https://nextjs.org) project bootstrapped with [Nextellar]
 
 This template includes pre-built Stellar blockchain integration:
 
-- **🔗 Wallet Connection**: `useStellarWallet` hook with Freighter wallet support
-- **💰 Balance Display**: Real-time XLM and asset balance fetching
-- **🎨 UI Components**: Ready-to-use `WalletConnectButton` component
+- **🔗 Wallet Connection**: `useStellarWallet` hook with multi-wallet support (Freighter, Rabet, XBull, Albedo, Lobstr, xBull)
+- **💰 Balance Display**: Real-time XLM and asset balance fetching via `useStellarBalances`
+- **🎨 UI Components**: Ready-to-use `WalletConnectButton`, `NetworkSwitcher`, and `TransactionList` components
+- **🌐 Network Switching**: Built-in testnet/mainnet network switching via `NetworkSwitcher`
+- **📡 Payment Operations**: `useStellarPayment` for sending payments
+- **📊 Transaction History**: `TransactionList` component powered by `useTransactionHistory` for fetching account transactions
+- **🤝 Trustlines**: `useTrustlines` for managing asset trustlines
+- **📈 Offer Book**: `useOfferBook` for querying DEX order books
+- **🔗 Soroban Support**: `useSorobanContract` and `useSorobanEvents` for Soroban smart contract interaction
 - **🌐 Testnet Ready**: Pre-configured for Stellar testnet development
 
 ### Quick Stellar Setup
@@ -58,6 +64,34 @@ The template includes minimal shadcn/ui-inspired components built inline. You ca
    Then replace the inline components in `WalletConnectButton.tsx`
 
 3. **Use your preferred UI library** - Easily swap out Button/Dropdown components
+
+### 📜 TransactionList Component
+
+The `TransactionList` component displays paginated Stellar transaction history using the `useTransactionHistory` hook. It renders transaction rows with direction indicators, operation type labels, amounts, counterparty addresses, relative timestamps, and transaction status.
+
+#### Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `limit` | `number` | `10` | Number of transactions per page (passed as `pageSize` to `useTransactionHistory`) |
+| `type` | `'payments' \| 'operations'` | `undefined` | Type of history to fetch (defaults to `'operations'` per the hook's default) |
+
+#### Usage Example
+
+```tsx
+import TransactionList from "@/components/TransactionList";
+
+export default function HistoryPage() {
+  return (
+    <div className="p-8 max-w-2xl mx-auto">
+      <h2 className="text-xl font-bold mb-4">Transaction History</h2>
+      <TransactionList limit={10} type="payments" />
+    </div>
+  );
+}
+```
+
+The component automatically integrates with the wallet context. When no wallet is connected, it displays a message prompting the user to connect.
 
 ### ⚠️ Development vs Production
 
