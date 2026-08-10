@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import { Horizon, TransactionBuilder, Operation, Networks, Asset, Memo, BASE_FEE } from '@stellar/stellar-sdk';
 import { WalletNetwork } from '@creit.tech/stellar-wallets-kit';
 import { kit } from '../lib/stellar-wallet-kit';
+import { storage } from '../lib/storage.js';
 import { NETWORKS } from '../config/networks';
 
 const Server = Horizon.Server;
