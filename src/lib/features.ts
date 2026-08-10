@@ -4,6 +4,8 @@
  * Dependencies are other feature keys that must be added first.
  */
 
+export type FeatureKind = "hook" | "component";
+
 export interface FeatureDef {
   id: string;
   description: string;
@@ -13,6 +15,8 @@ export interface FeatureDef {
   dependsOn: string[];
   /** npm packages to ensure installed (e.g. @stellar/stellar-sdk) */
   npmDependencies: string[];
+  /** How the feature is grouped in `nextellar add --list` (default: "hook") */
+  kind?: FeatureKind;
 }
 
 const FEATURES: Record<string, FeatureDef> = {
@@ -70,6 +74,58 @@ const FEATURES: Record<string, FeatureDef> = {
     dependsOn: ["wallet"],
     npmDependencies: ["@stellar/stellar-sdk"],
   },
+
+  // UI components. Each one is addable on its own so a project can pull in a
+  // single widget, and each depends on the hook feature it imports from — that
+  // is what guarantees the hooks land before the component that needs them.
+  "network-switcher": {
+    id: "network-switcher",
+    description: "NetworkSwitcher component (testnet/mainnet toggle)",
+    files: ["components/NetworkSwitcher.tsx"],
+    dependsOn: ["wallet"],
+    npmDependencies: [],
+    kind: "component",
+  },
+  "balance-display": {
+    id: "balance-display",
+    description: "BalanceDisplay component (renders useStellarBalances)",
+    files: ["components/BalanceDisplay.tsx"],
+    dependsOn: ["balances"],
+    npmDependencies: [],
+    kind: "component",
+  },
+  "send-form": {
+    id: "send-form",
+    description: "SendForm component (renders useStellarPayment)",
+    files: ["components/SendForm.tsx"],
+    dependsOn: ["payments"],
+    npmDependencies: [],
+    kind: "component",
+  },
+  "transaction-list": {
+    id: "transaction-list",
+    description: "TransactionList component (renders useTransactionHistory)",
+    files: ["components/TransactionList.tsx"],
+    dependsOn: ["wallet", "history"],
+    npmDependencies: [],
+    kind: "component",
+  },
+  components: {
+    id: "components",
+    description: "All Nextellar UI components and the hooks they render",
+    // No files of its own: the umbrella exists so `nextellar add components`
+    // pulls every component feature (and transitively their hooks) at once.
+    files: [],
+    dependsOn: [
+      "wallet",
+      "network-switcher",
+      "balance-display",
+      "send-form",
+      "transaction-list",
+    ],
+    npmDependencies: [],
+    kind: "component",
+  },
 };
 
 /**
@@ -87,12 +143,16 @@ export function getFeature(id: string): FeatureDef | undefined {
 }
 
 /**
- * Returns feature definitions for listing (id, description).
+ * Returns feature definitions for listing (id, description, kind).
  */
-export function listFeatures(): { id: string; description: string }[] {
+export function listFeatures(): {
+  id: string;
+  description: string;
+  kind: FeatureKind;
+}[] {
   return getFeatureIds().map((id) => {
     const f = FEATURES[id];
-    return { id, description: f.description };
+    return { id, description: f.description, kind: f.kind ?? "hook" };
   });
 }
 
@@ -100,21 +160,34 @@ export function listFeatures(): { id: string; description: string }[] {
  * Resolves a feature and its dependencies in install order (deps first).
  * No duplicates; order is valid for installation.
  */
-export function resolveFeatureWithDeps(featureId: string): FeatureDef[] {
+export function resolveFeatureWithDeps(
+  featureId: string,
+  registry: Record<string, FeatureDef> = FEATURES,
+): FeatureDef[] {
   const id = featureId.toLowerCase();
-  const def = FEATURES[id];
+  const def = registry[id] ?? registry[featureId];
   if (!def) return [];
 
   const seen = new Set<string>();
+  const visiting = new Set<string>();
   const ordered: FeatureDef[] = [];
 
   function visit(f: FeatureDef) {
+    const nodeId = f.id.toLowerCase();
+    if (seen.has(nodeId) || visiting.has(nodeId)) return;
+
+    visiting.add(nodeId);
+
     for (const depId of f.dependsOn) {
-      const dep = FEATURES[depId];
-      if (dep && !seen.has(depId)) visit(dep);
+      const depKey = depId.toLowerCase();
+      const dep = registry[depKey] ?? registry[depId];
+      if (dep) visit(dep);
     }
-    if (!seen.has(f.id)) {
-      seen.add(f.id);
+
+    visiting.delete(nodeId);
+
+    if (!seen.has(nodeId)) {
+      seen.add(nodeId);
       ordered.push(f);
     }
   }

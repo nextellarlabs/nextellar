@@ -11,6 +11,7 @@ import { runDeploy } from "../src/lib/deploy.js";
 import { displaySuccess, NEXTELLAR_LOGO } from "../src/lib/feedback.js";
 import { detectPackageManager } from "../src/lib/install.js";
 import { runInteractivePrompts } from "../src/lib/prompts.js";
+import { validateProjectName } from "../src/lib/validate.js";
 import {
   flushTelemetry,
   getTelemetryStatus,
@@ -53,10 +54,16 @@ program
   .command("doctor")
   .description("Run environment diagnostics")
   .option("--json", "output results as JSON for CI integration")
-  .action(async (cmdOpts: { json?: boolean }) => {
+  .option("--horizon-url <url>", "Horizon endpoint to check (default: from .nextellar/config.json or testnet)")
+  .option("--soroban-url <url>", "Soroban RPC endpoint to check (default: from .nextellar/config.json or testnet)")
+  .action(async (cmdOpts: { json?: boolean; horizonUrl?: string; sorobanUrl?: string }) => {
     try {
       const { runDoctor } = await import("../src/lib/doctor.js");
-      const exitCode = await runDoctor({ json: !!cmdOpts.json });
+      const exitCode = await runDoctor({
+        json: !!cmdOpts.json,
+        horizonUrl: cmdOpts.horizonUrl,
+        sorobanUrl: cmdOpts.sorobanUrl,
+      });
       await exitWithTelemetry(exitCode);
     } catch (err: any) {
       console.error("Failed to run doctor:", err?.message || err);
@@ -78,11 +85,21 @@ program
       const { listFeatures } = await import("../src/lib/features.js");
       if (cmdOpts.list) {
         const list = listFeatures();
+        const width = Math.max(...list.map((f) => f.id.length)) + 2;
+        const groups: { title: string; kind: string }[] = [
+          { title: "Hooks & providers:", kind: "hook" },
+          { title: "UI components:", kind: "component" },
+        ];
         console.log(pc.bold("Available features:\n"));
-        list.forEach(({ id, description }) => {
-          console.log(`  ${pc.cyan(id.padEnd(12))} ${pc.dim(description)}`);
+        groups.forEach(({ title, kind }) => {
+          const items = list.filter((f) => f.kind === kind);
+          if (items.length === 0) return;
+          console.log(pc.bold(title));
+          items.forEach(({ id, description }) => {
+            console.log(`  ${pc.cyan(id.padEnd(width))} ${pc.dim(description)}`);
+          });
+          console.log("");
         });
-        console.log("");
         return;
       }
       if (!feature || feature.trim() === "") {
@@ -252,6 +269,16 @@ program.action(async (projectName, options) => {
     return await exitWithTelemetry(1);
   }
 
+  if (!useTs && template !== "default") {
+    console.error(
+      pc.red(
+        `--javascript (or --no-typescript) currently only supports the default template. ` +
+          `Use --template default or omit --javascript/--no-typescript.`,
+      ),
+    );
+    return await exitWithTelemetry(1);
+  }
+
   // Clear console and show welcome banner
   if (process.stdout.isTTY) {
     process.stdout.write("\x1Bc");
@@ -278,6 +305,17 @@ program.action(async (projectName, options) => {
     hasArg("--horizon-url") || hasArg("--soroban-url");
   const packageManagerFlagProvided = hasArg("--package-manager");
   const skipInstallFlagProvided = hasArg("--skip-install");
+
+  // Validate project name against npm package naming rules early (non-interactive path).
+  // The interactive prompt path performs its own inline validation via prompts.ts.
+  if (!shouldPrompt) {
+    try {
+      validateProjectName(path.basename(projectName));
+    } catch (err: any) {
+      console.error(`\n❌ ${err.message}`);
+      return await exitWithTelemetry(1);
+    }
+  }
 
   let finalProjectName: string = projectName;
   let finalHorizonUrl: string | undefined = options.horizonUrl;
