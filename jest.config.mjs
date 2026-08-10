@@ -2,16 +2,20 @@ export default {
   testEnvironment: 'node',
   extensionsToTreatAsEsm: ['.ts'],
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
+  extensionsToTreatAsEsm: ['.ts', '.tsx', '.jsx'],
+  setupFilesAfterEnv: [],
   transform: {
     '^.+\\.[tj]sx?$': ['babel-jest', {
       presets: [
         ['@babel/preset-env', { targets: { node: 'current' }, modules: false }],
+        '@babel/preset-react',
         ['@babel/preset-typescript'],
       ],
     }],
   },
   moduleNameMapper: {
     '^\\.\\./contexts$': '<rootDir>/src/mocks/wallet-contexts-mock.ts',
+    '^@clack/prompts$': '<rootDir>/tests/mocks/clack-prompts.js',
     '^(\\.{1,2}/.*)\\.js$': '$1'
   },
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],

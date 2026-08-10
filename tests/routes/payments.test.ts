@@ -12,8 +12,6 @@ jest.mock("../../backend/routes/payments", () => {
   return { __esModule: true, default: null };
 });
 
-import paymentsRouter from "../../backend/routes/payments";
-
 function buildApp(router: express.Router) {
   const app = express();
   app.use(express.json());
