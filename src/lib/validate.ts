@@ -1,7 +1,4 @@
-/**
- * URL Validation Utilities
- * Provides validation for Horizon and Soroban endpoint URLs
- */
+import validateNpmPackageName from "validate-npm-package-name";
 
 /**
  * Validates if a given string is a valid HTTP/HTTPS URL
@@ -12,7 +9,6 @@ export function isValidUrl(url: string): boolean {
   if (!url || typeof url !== "string" || url.trim().length === 0) {
     return false;
   }
-
   try {
     const parsedUrl = new URL(url);
     // Only allow HTTP and HTTPS protocols
@@ -45,5 +41,40 @@ export function validateSorobanUrl(sorobanUrl: string): void {
     throw new Error(
       `Invalid Soroban URL: "${sorobanUrl}". Must be a valid HTTP/HTTPS URL.`,
     );
+  }
+}
+
+/**
+ * Suggest a slugified alternative for a project name.
+ * Simple implementation: lower‑case, replace spaces with hyphens, strip invalid chars.
+ */
+export function suggestProjectName(name: string): string | null {
+  const slug = name
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9\-]/g, "")
+    .replace(/^[-]+/, "");
+  if (!slug) return null;
+  const result = validateNpmPackageName(slug);
+  return result.validForNewPackages ? slug : null;
+}
+
+/**
+ * Validates a project name according to npm package naming rules.
+ * Throws a descriptive error when invalid, optionally including a suggestion.
+ */
+export function validateProjectName(name: string): void {
+  if (!name || typeof name !== "string" || name.trim().length === 0) {
+    throw new Error("Project name is required");
+  }
+  const result = validateNpmPackageName(name);
+  if (!result.validForNewPackages) {
+    const suggestion = suggestProjectName(name);
+    let message = `Invalid project name: "${name}"`;
+    if (suggestion) {
+      message += `\n\nDid you mean:\n\n${suggestion}`;
+    }
+    throw new Error(message);
   }
 }

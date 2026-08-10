@@ -31,6 +31,31 @@ describe('scaffold integration', () => {
     return dir;
   };
 
+  // Simulate a failure during the copy phase after some files have already
+  // been written into the target, so cleanup assertions prove a populated
+  // directory was actually removed (not just that nothing was created).
+  const expectCopyPhaseFailure = async (appName: string) => {
+    const copySpy = jest.spyOn(fs, 'copy').mockImplementation(async (_source, destination) => {
+      const targetDir = path.resolve(destination.toString());
+      await fs.ensureDir(targetDir);
+      await fs.writeFile(path.join(targetDir, 'partial.txt'), 'partial scaffold');
+      throw new Error('copy phase failed');
+    });
+
+    try {
+      await expect(
+        scaffold({
+          appName,
+          useTs: true,
+          template: 'minimal',
+          skipInstall: true,
+        }),
+      ).rejects.toThrow('copy phase failed');
+    } finally {
+      copySpy.mockRestore();
+    }
+  };
+
   beforeEach(() => {
     // Default: behaves like the real runInstall's skipInstall short-circuit,
     // so every pre-existing test below (all of which pass skipInstall: true)
@@ -51,7 +76,7 @@ describe('scaffold integration', () => {
       tmpParents.map(async (p) => {
         try {
           await fs.remove(p);
-        } catch (e) {
+        } catch {
           // ignore
         }
       })
@@ -89,7 +114,7 @@ describe('scaffold integration', () => {
     // stellar-wallet-kit should have injected default wallets and NETWORK should be TESTNET
     const kitFile = await fs.readFile(path.join(target, 'src/lib/stellar-wallet-kit.ts'), 'utf8');
     expect(kitFile).toContain(
-      'const INJECTED_WALLETS: string[] = ["freighter", "albedo", "lobstr"];',
+      'const INJECTED_WALLETS: string[] = ["freighter","albedo","lobstr"];',
     );
   });
 
@@ -143,7 +168,7 @@ describe('scaffold integration', () => {
     expect(packageJson.name).toBe(appName);
   });
 
-  test('throws when target directory already exists', async () => {
+  test('throws when target directory already exists without force and leaves it untouched', async () => {
     origCwd = process.cwd();
     const parent = await makeTempParent();
     process.chdir(parent);
@@ -151,6 +176,8 @@ describe('scaffold integration', () => {
     const appName = 'already-exists-app';
     const target = path.join(parent, appName);
     await fs.ensureDir(target);
+    const existingFile = path.join(target, 'existing.txt');
+    await fs.writeFile(existingFile, 'keep this project');
 
     await expect(
       scaffold({
@@ -160,6 +187,45 @@ describe('scaffold integration', () => {
         skipInstall: true,
       })
     ).rejects.toThrow(/already exists/i);
+
+    expect(await fs.readFile(existingFile, 'utf8')).toBe('keep this project');
+  });
+
+  test('keeps files outside the target directory after a copy-phase failure', async () => {
+    origCwd = process.cwd();
+    const parent = await makeTempParent();
+    process.chdir(parent);
+
+    const appName = 'copy-failure-boundary';
+    const outsideFile = path.join(parent, 'sibling-data', 'keep.txt');
+    await fs.outputFile(outsideFile, 'keep this file');
+
+    await expectCopyPhaseFailure(appName);
+
+    expect(await fs.readFile(outsideFile, 'utf8')).toBe('keep this file');
+  });
+
+  test('replaces an existing directory with the default scaffold when force and defaults are enabled', async () => {
+    origCwd = process.cwd();
+    const parent = await makeTempParent();
+    process.chdir(parent);
+
+    const appName = 'force-overwrite-app';
+    const target = path.join(parent, appName);
+    const legacyFile = path.join(target, 'legacy.txt');
+    await fs.outputFile(legacyFile, 'old project contents');
+
+    await scaffold({
+      appName,
+      useTs: true,
+      force: true,
+      defaults: true,
+      skipInstall: true,
+    });
+
+    expect(await fs.pathExists(target)).toBe(true);
+    expect(await fs.pathExists(legacyFile)).toBe(false);
+    expect(await fs.readFile(path.join(target, 'README.md'), 'utf8')).toContain(`# ${appName}`);
   });
 
   test('.git and node_modules are excluded from copy', async () => {
@@ -199,11 +265,177 @@ describe('scaffold integration', () => {
       // clean up markers from template dir
       try {
         await fs.remove(path.join(templateDirCandidate, '.git'));
-      } catch (_) {}
+      } catch {}
       try {
         await fs.remove(path.join(templateDirCandidate, 'node_modules'));
-      } catch (_) {}
+      } catch {}
     }
+  });
+
+  // -------------------------------------------------------------------------
+  // #680 — regression: no unresolved {{PLACEHOLDER}} tokens in scaffolded
+  // output, and no dead (unused) placeholders in the scaffold config map.
+  // -------------------------------------------------------------------------
+  describe('placeholder token hygiene (#680)', () => {
+    // The token pattern that scaffold.ts uses: {{ followed by one or more
+    // uppercase letters/underscores, followed by }}.
+    const TOKEN_REGEX = /\{\{[A-Z_]+\}\}/g;
+
+    // All template variants that scaffold() supports (useTs + template name
+    // combinations that map to a real template directory).
+    const TEMPLATE_VARIANTS: Array<{ useTs: boolean; template: string }> = [
+      { useTs: true,  template: 'default'  },
+      { useTs: true,  template: 'defi'     },
+      { useTs: true,  template: 'minimal'  },
+      { useTs: false, template: 'default'  }, // → js-template
+      { useTs: false, template: 'defi'     }, // → js-defi
+    ];
+
+    /**
+     * Recursively collect all regular files under `dir`, skipping
+     * node_modules and .git which are never scaffolded anyway.
+     */
+    async function collectFiles(dir: string): Promise<string[]> {
+      const entries = await fs.readdir(dir, { withFileTypes: true });
+      const results: string[] = [];
+      for (const entry of entries) {
+        if (entry.name === 'node_modules' || entry.name === '.git') continue;
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          results.push(...(await collectFiles(full)));
+        } else {
+          results.push(full);
+        }
+      }
+      return results;
+    }
+
+    test.each(TEMPLATE_VARIANTS)(
+      'no unresolved {{…}} tokens in scaffolded output: useTs=$useTs template=$template',
+      async ({ useTs, template }) => {
+        origCwd = process.cwd();
+        const parent = await makeTempParent('nextellar-ph-test-');
+        process.chdir(parent);
+
+        const appName = `ph-check-${template}-${useTs ? 'ts' : 'js'}`;
+
+        await scaffold({
+          appName,
+          useTs,
+          template,
+          skipInstall: true,
+        });
+
+        const targetDir = path.join(parent, appName);
+        const files = await collectFiles(targetDir);
+
+        // Collect every unresolved token across every scaffolded file.
+        const violations: Array<{ file: string; token: string }> = [];
+
+        for (const file of files) {
+          // Only inspect text-like files; skip binary/lock files that are
+          // never processed by scaffold's replaceInFile anyway.
+          const ext = path.extname(file).toLowerCase();
+          const binaryExts = new Set([
+            '.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico',
+            '.woff', '.woff2', '.ttf', '.eot', '.otf',
+            '.zip', '.tar', '.gz',
+          ]);
+          if (binaryExts.has(ext)) continue;
+
+          let content: string;
+          try {
+            content = await fs.readFile(file, 'utf8');
+          } catch {
+            // Unreadable as text — skip.
+            continue;
+          }
+
+          const matches = content.match(TOKEN_REGEX);
+          if (matches) {
+            const relPath = path.relative(targetDir, file);
+            for (const token of [...new Set(matches)]) {
+              violations.push({ file: relPath, token });
+            }
+          }
+        }
+
+        if (violations.length > 0) {
+          const detail = violations
+            .map(({ file, token }) => `  ${token}  in  ${file}`)
+            .join('\n');
+          throw new Error(
+            `Unresolved placeholder tokens found after scaffolding ` +
+            `"${template}" (useTs=${useTs}):\n${detail}`,
+          );
+        }
+      },
+    );
+
+    test('every token in scaffold.ts config map appears in at least one template source file', async () => {
+      // Read scaffold.ts source and extract all {{TOKEN}} keys from the
+      // `config` object literal.  We do this via a simple regex over the
+      // source text rather than importing the module, so we never actually
+      // run scaffold here — this is a pure static analysis check.
+      const scaffoldSrc = await fs.readFile(
+        path.resolve(__dirname, '../src/lib/scaffold.ts'),
+        'utf8',
+      );
+
+      // Match every "{{TOKEN}}" string literal that appears as a key in the
+      // config object (they always appear quoted inside the source).
+      const keyMatches = scaffoldSrc.match(/"(\{\{[A-Z_]+\}\})"/g) ?? [];
+      const configTokens = [
+        ...new Set(keyMatches.map((m) => m.replace(/"/g, ''))),
+      ];
+
+      expect(configTokens.length).toBeGreaterThan(0); // sanity: we found the config
+
+      // Collect all source files from every template directory.
+      const templatesRoot = path.resolve(__dirname, '../src/templates');
+      const templateDirs = await fs.readdir(templatesRoot);
+
+      // Read all template source files into a single concatenated string for
+      // fast multi-token membership checks.
+      let allTemplateSrc = '';
+      for (const dir of templateDirs) {
+        const fullDir = path.join(templatesRoot, dir);
+        const stat = await fs.stat(fullDir);
+        if (!stat.isDirectory()) continue;
+        const files = await collectFiles(fullDir);
+        for (const file of files) {
+          const ext = path.extname(file).toLowerCase();
+          const binaryExts = new Set([
+            '.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico',
+            '.woff', '.woff2', '.ttf', '.eot', '.otf',
+            '.zip', '.tar', '.gz',
+          ]);
+          if (binaryExts.has(ext)) continue;
+          try {
+            allTemplateSrc += await fs.readFile(file, 'utf8');
+          } catch {
+            // skip unreadable
+          }
+        }
+      }
+
+      // Every token in the config map MUST appear at least once in the
+      // template source files.  If it doesn't, it's a dead placeholder that
+      // will never be substituted and should be removed from scaffold.ts.
+      const deadTokens = configTokens.filter(
+        (token) => !allTemplateSrc.includes(token),
+      );
+
+      if (deadTokens.length > 0) {
+        throw new Error(
+          `Dead placeholder(s) found in scaffold.ts config — ` +
+          `defined but never used in any template file:\n` +
+          deadTokens.map((t) => `  ${t}`).join('\n') +
+          `\n\nEither add the token to the relevant template file(s) or ` +
+          `remove it from the config map in src/lib/scaffold.ts.`,
+        );
+      }
+    });
   });
 
   // #673 — an install-only failure must leave the scaffolded project

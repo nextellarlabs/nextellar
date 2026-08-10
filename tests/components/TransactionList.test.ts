@@ -13,6 +13,7 @@
  * - Error handling
  */
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import '@testing-library/jest-dom';
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 import React from 'react';
 

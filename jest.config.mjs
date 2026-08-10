@@ -1,9 +1,9 @@
 export default {
   testEnvironment: 'node',
-  extensionsToTreatAsEsm: ['.ts', '.tsx'],
-  setupFilesAfterEnv: ['<rootDir>/node_modules/@testing-library/jest-dom/jest-globals.js'],
+  extensionsToTreatAsEsm: ['.ts', '.tsx', '.jsx'],
+  setupFilesAfterEnv: [],
   transform: {
-    '^.+\\.(t|j)sx?$': ['babel-jest', {
+    '^.+\\.[tj]sx?$': ['babel-jest', {
       presets: [
         ['@babel/preset-env', { targets: { node: 'current' }, modules: false }],
         ['@babel/preset-react', { runtime: 'automatic' }],
@@ -13,16 +13,15 @@ export default {
   },
   moduleNameMapper: {
     '^\\.\\./contexts$': '<rootDir>/src/mocks/wallet-contexts-mock.ts',
-    '^(\\.{1,2}/.*)\\.js$': '$1',
+    '^@clack/prompts$': '<rootDir>/tests/mocks/clack-prompts.js',
+    '^(\\.{1,2}/.*)\\.js$': '$1'
   },
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
   testMatch: [
     '**/tests/**/*.test.ts',
     '**/tests/**/*.test.tsx',
     '**/src/**/*.test.ts',
-    '**/src/**/*.test.tsx',
-    '**/__tests__/**/*.ts',
-    '**/__tests__/**/*.tsx'
+    '**/__tests__/**/*.ts'
   ],
   testPathIgnorePatterns: [
     '/node_modules/',
