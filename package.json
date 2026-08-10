@@ -55,6 +55,7 @@
     "fs-extra": "^11.3.0",
     "gradient-string": "^3.0.0",
     "jsonwebtoken": "^9.0.3",
+    "lucide-react": "^0.447.0",
     "ora": "^8.2.0",
     "picocolors": "^1.1.1",
     "tar": "^7.4.3",

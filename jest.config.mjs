@@ -6,7 +6,7 @@ export default {
     '^.+\\.[tj]sx?$': ['babel-jest', {
       presets: [
         ['@babel/preset-env', { targets: { node: 'current' }, modules: false }],
-        '@babel/preset-react',
+        ['@babel/preset-react', { runtime: 'automatic' }],
         ['@babel/preset-typescript'],
       ],
     }],
