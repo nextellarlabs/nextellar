@@ -1,6 +1,16 @@
 // jest.setup.ts
 
-// 0) Stub BroadcastChannel (MSW uses it internally)
+// 1) Add TextEncoder/TextDecoder polyfill FIRST
+import { TextEncoder, TextDecoder } from 'util';
+Object.assign(global, { TextEncoder, TextDecoder });
+
+// 2) Import Jest globals for ESM
+import { jest } from '@jest/globals';
+Object.assign(global, { jest });
+
+import '@testing-library/jest-dom';
+
+// 2) Stub BroadcastChannel (MSW uses it internally)
 class BroadcastChannel {
   name: string;
   onmessage: ((event: { data: any }) => void) | null = null;
@@ -14,34 +24,33 @@ class BroadcastChannel {
     // no-op
   }
 }
-global.BroadcastChannel = BroadcastChannel as any;
+Object.assign(global, { BroadcastChannel });
 
-import { Headers, Request, Response, fetch } from 'undici';
-
-(globalThis as any).Headers = Headers;
-(globalThis as any).Request = Request;
-(globalThis as any).Response = Response;
-(globalThis as any).fetch = fetch;
-
-// 2) Polyfill TextEncoder/TextDecoder
-import { TextEncoder, TextDecoder } from 'util';
-global.TextEncoder = TextEncoder as any;
-global.TextDecoder = TextDecoder as any;
-
-// 3) Polyfill Web Streams API
+// 3) Polyfill Web Streams API (required before undici import)
 import {
   ReadableStream,
   WritableStream,
   TransformStream,
 } from 'web-streams-polyfill';
-global.ReadableStream  = ReadableStream  as any;
-global.WritableStream  = WritableStream  as any;
-global.TransformStream = TransformStream as any;
+Object.assign(global, { ReadableStream, WritableStream, TransformStream });
 
-// 4) MSW Setup
-import '@testing-library/jest-dom';
-import { server } from './src/mocks/server';
+// 4) Setup fetch polyfill for MSW and networked tests
+const undici = await import('undici');
+Object.assign(globalThis, {
+  Headers: undici.Headers,
+  Request: undici.Request,
+  Response: undici.Response,
+  fetch: undici.fetch,
+});
 
-beforeAll(() => server.listen());
-afterEach(() => server.resetHandlers());
-afterAll(() => server.close());
+// 5) MSW Setup (ESM-compatible dynamic import)
+try {
+  const { server } = await import('./src/mocks/server.js');
+  beforeAll(() => server.listen({ onUnhandledRequest: 'warn' }));
+  afterEach(() => server.resetHandlers());
+  afterAll(() => server.close());
+} catch (error) {
+  // MSW server not available, skip (e.g., when msw isn't installed)
+  // eslint-disable-next-line no-console
+  console.warn('MSW server not initialized:', error?.message ?? error);
+}

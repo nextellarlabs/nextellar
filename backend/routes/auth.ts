@@ -1,0 +1,318 @@
+import { Router, Request, Response, NextFunction } from "express";
+import {
+  SESSION_COOKIE_NAME,
+  sessionCookieOptions,
+} from "../middleware/session.js";
+import { sendError } from "../utils/response.js";
+
+const router = Router();
+
+const MAX_LOGIN_ATTEMPTS = 10;
+const RATE_LIMIT_WINDOW_MS = 60_000;
+
+type RateLimitBucket = {
+  attempts: number;
+  resetAt: number;
+};
+
+const ipBuckets = new Map<string, RateLimitBucket>();
+const usernameBuckets = new Map<string, RateLimitBucket>();
+
+type AuthDependencies = {
+  authenticateUser: (
+    username: string,
+    password: string,
+  ) => Promise<{ userId: string; token: string } | null>;
+  generateResetToken: (email: string) => Promise<string>;
+  sendResetEmail: (email: string, token: string) => Promise<void>;
+  sendAdminAlert: (adminEmail: string, requestedFor: string) => Promise<void>;
+};
+
+export const authDeps: AuthDependencies = {
+  authenticateUser: async (username: string, password: string) => {
+    void username;
+    void password;
+    return null;
+  },
+  generateResetToken: async (_email: string) => {
+    return "";
+  },
+  sendResetEmail: async (_email: string, _token: string) => {},
+  sendAdminAlert: async (_adminEmail: string, _requestedFor: string) => {},
+};
+
+function normalizeUsername(username: string): string {
+  return username.trim().toLowerCase();
+}
+
+function getClientIp(req: Request): string {
+  const forwardedFor = req.header("x-forwarded-for");
+  if (forwardedFor) {
+    const firstIp = forwardedFor.split(",")[0];
+    if (firstIp) {
+      return firstIp.trim();
+    }
+  }
+
+  return req.ip || req.socket.remoteAddress || "unknown";
+}
+
+function getBucket(
+  buckets: Map<string, RateLimitBucket>,
+  key: string,
+  now: number,
+): RateLimitBucket {
+  const existing = buckets.get(key);
+  if (!existing || existing.resetAt <= now) {
+    const replacement = { attempts: 0, resetAt: now + RATE_LIMIT_WINDOW_MS };
+    buckets.set(key, replacement);
+    return replacement;
+  }
+  return existing;
+}
+
+function incrementBucket(
+  buckets: Map<string, RateLimitBucket>,
+  key: string,
+  now: number,
+): RateLimitBucket {
+  const bucket = getBucket(buckets, key, now);
+  bucket.attempts += 1;
+  return bucket;
+}
+
+function clearBucket(buckets: Map<string, RateLimitBucket>, key: string): void {
+  buckets.delete(key);
+}
+
+function retryAfterSeconds(resetAt: number, now: number): number {
+  return Math.max(1, Math.ceil((resetAt - now) / 1000));
+}
+
+export function __resetLoginRateLimitState(): void {
+  ipBuckets.clear();
+  usernameBuckets.clear();
+}
+
+/**
+ * Allowlist of valid redirect paths.
+ */
+const ALLOWED_REDIRECT_PATHS = [
+  "/",
+  "/dashboard",
+  "/settings",
+  "/profile",
+  "/transactions",
+];
+
+/**
+ * Returns a safe redirect target. Rejects absolute URLs, external hosts,
+ * protocol-relative URLs, and paths not on the allowlist.
+ */
+export function sanitizeRedirect(raw: unknown): string {
+  if (typeof raw !== "string" || raw.length === 0) {
+    return "/";
+  }
+
+  const trimmed = raw.trim();
+
+  if (trimmed.startsWith("//")) {
+    return "/";
+  }
+
+  try {
+    const parsed = new URL(trimmed, "http://localhost");
+    if (parsed.origin !== "http://localhost") {
+      return "/";
+    }
+  } catch {
+    return "/";
+  }
+
+  if (!ALLOWED_REDIRECT_PATHS.includes(trimmed)) {
+    return "/";
+  }
+
+  return trimmed;
+}
+
+/**
+ * GET /auth/callback
+ */
+router.get("/auth/callback", (req: Request, res: Response) => {
+  const target = sanitizeRedirect(req.query.redirect);
+  res.redirect(target);
+});
+
+router.post(
+  "/auth/login",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const rawUsername =
+        typeof req.body?.username === "string" ? req.body.username : "";
+      const password =
+        typeof req.body?.password === "string" ? req.body.password : "";
+
+      if (!rawUsername || !password) {
+        sendError(res, 'MISSING_CREDENTIALS', 'username and password are required', 400);
+        return;
+      }
+
+      const username = normalizeUsername(rawUsername);
+      const ip = getClientIp(req);
+      const now = Date.now();
+
+      const ipBucket = getBucket(ipBuckets, ip, now);
+      const userBucket = getBucket(usernameBuckets, username, now);
+
+      if (
+        ipBucket.attempts >= MAX_LOGIN_ATTEMPTS ||
+        userBucket.attempts >= MAX_LOGIN_ATTEMPTS
+      ) {
+        const resetAt =
+          ipBucket.attempts >= MAX_LOGIN_ATTEMPTS
+            ? ipBucket.resetAt
+            : userBucket.resetAt;
+        res.setHeader("Retry-After", retryAfterSeconds(resetAt, now).toString());
+        sendError(res, 'RATE_LIMITED', 'Too many login attempts. Please retry later.', 429);
+        return;
+      }
+
+      const authResult = await authDeps.authenticateUser(username, password);
+
+      if (authResult) {
+        // If user has TOTP enabled, require a valid code
+        if (authResult.totpEnabled) {
+          const totpCode = typeof req.body?.totpCode === "string" ? req.body.totpCode.trim() : "";
+          if (!totpCode) {
+            sendError(res, 'MISSING_TOTP', 'TOTP code required for this account', 400);
+            return;
+          }
+          const totpValid = await authDeps.verifyTOTP(authResult.userId, totpCode);
+          if (!totpValid) {
+            sendError(res, 'INVALID_TOTP', 'Invalid TOTP code', 401);
+            return;
+          }
+        }
+        clearBucket(ipBuckets, ip);
+        clearBucket(usernameBuckets, username);
+        res.cookie(
+          SESSION_COOKIE_NAME,
+          authResult.token,
+          sessionCookieOptions(),
+        );
+        return res.status(200).json({ success: true, data: authResult });
+      }
+
+      incrementBucket(ipBuckets, ip, now);
+      incrementBucket(usernameBuckets, username, now);
+
+      const logEntry = {
+        timestamp: new Date().toISOString(),
+        ip,
+        username: username.substring(0, 64),
+        reason: "invalid_credentials",
+      };
+      console.log(`[AUTH_FAILURE] ${JSON.stringify(logEntry)}`);
+
+      sendError(res, 'INVALID_CREDENTIALS', 'Invalid credentials', 401);
+      return;
+    } catch (err) {
+      return next(err);
+    }
+  },
+);
+
+router.post(
+  "/forgot-password",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const email =
+        typeof req.body?.email === "string" ? req.body.email.trim() : "";
+
+      if (!email) {
+        return res
+          .status(400)
+          .json({ success: false, message: "email is required" });
+      }
+
+      const token = await authDeps.generateResetToken(email);
+      await authDeps.sendResetEmail(email, token);
+
+      const adminEmail = process.env.ADMIN_ALERT_EMAIL;
+      if (adminEmail) {
+        // Only send a notification — never include the reset token
+        await authDeps.sendAdminAlert(adminEmail, email);
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "If that email exists, a reset link has been sent.",
+      });
+    } catch (err) {
+      return next(err);
+    }
+  },
+);
+
+/**
+ * OAuth start route - initiates OAuth flow with external provider
+ */
+router.post(
+  '/oauth/start',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const provider = typeof req.body?.provider === 'string' ? req.body.provider : '';
+
+      if (!provider || !['google', 'github'].includes(provider)) {
+        return res.status(400).json({ error: 'Invalid provider' });
+      }
+
+      const clientId = process.env[`OAUTH_${provider.toUpperCase()}_CLIENT_ID`];
+      const redirectUri = process.env[`OAUTH_${provider.toUpperCase()}_REDIRECT_URI`];
+
+      if (!clientId || !redirectUri) {
+        return res.status(500).json({ error: 'OAuth not configured' });
+      }
+
+      const state = Buffer.from(Math.random().toString()).toString('base64');
+      const authorizationUrl = `https://oauth.provider.com/${provider}/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&state=${state}`;
+
+      res.status(200).json({ authorizationUrl });
+    } catch (err) {
+      return next(err);
+    }
+  },
+);
+
+/**
+ * OAuth callback route - handles OAuth provider response
+ */
+router.post(
+  '/oauth/callback',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const code = typeof req.body?.code === 'string' ? req.body.code : '';
+      const state = typeof req.body?.state === 'string' ? req.body.state : '';
+      const provider = typeof req.body?.provider === 'string' ? req.body.provider : '';
+
+      if (!code || !state || !provider) {
+        return res.status(400).json({ error: 'Missing OAuth parameters' });
+      }
+
+      // In production: exchange code for token, fetch user info, map to internal user
+      // For now, return a session token
+      const mockToken = 'mock_oauth_token_' + Date.now();
+
+      res.status(200).json({
+        success: true,
+        token: mockToken,
+        message: 'OAuth authentication successful'
+      });
+    } catch (err) {
+      return next(err);
+    }
+  },
+);
+
+export default router;
