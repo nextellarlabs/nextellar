@@ -93,6 +93,22 @@ export default function HistoryPage() {
 
 The component automatically integrates with the wallet context. When no wallet is connected, it displays a message prompting the user to connect.
 
+### 📚 Component Previews (Storybook)
+
+The template includes [Storybook](https://storybook.js.org/) out of the box so you can view and develop components in isolation.
+
+**To run Storybook:**
+```bash
+npm run storybook
+```
+
+**Want a lighter project?**
+If you don't need component previews and want to reduce the `node_modules` size, you can easily remove Storybook:
+1. Run `npm uninstall @storybook/addon-essentials @storybook/addon-interactions @storybook/addon-links @storybook/blocks @storybook/nextjs @storybook/react @storybook/test storybook`
+2. Remove the `.storybook` directory
+3. Remove any `*.stories.tsx` files in `src/components`
+4. Remove the `storybook` and `build-storybook` scripts from `package.json`
+
 ### ⚠️ Development vs Production
 
 **Development Mode:**
