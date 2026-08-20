@@ -1,5 +1,7 @@
 export default {
   testEnvironment: 'node',
+  extensionsToTreatAsEsm: ['.ts'],
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   extensionsToTreatAsEsm: ['.ts', '.tsx', '.jsx'],
   setupFilesAfterEnv: [],
   transform: {
