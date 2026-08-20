@@ -132,3 +132,100 @@ describe('deploy bundle (#669)', () => {
     expect(await fs.pathExists(path.join(extractDir, 'node_modules'))).toBe(false);
   });
 });
+
+// #641 — validation failures, dry-run safety, and the persisted deploy state,
+// exercised through the public runDeploy() entrypoint against the real tar
+// library (deploy no longer shells out to execa, so these use no execa mock).
+describe('runDeploy validation & state (#641)', () => {
+  const tmpDirs: string[] = [];
+  let logSpy: ReturnType<typeof jest.spyOn> | undefined;
+
+  const makeTempDir = async (): Promise<string> => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'nextellar-deploy-state-'));
+    tmpDirs.push(dir);
+    return dir;
+  };
+
+  // A minimal valid Next.js project: package.json with `next` + a `.next` dir.
+  const makeValidProject = async (name: string, withContracts = false): Promise<string> => {
+    const dir = await makeTempDir();
+    await fs.writeJson(path.join(dir, 'package.json'), {
+      name,
+      dependencies: { next: '^14.0.0' },
+    });
+    await fs.ensureDir(path.join(dir, '.next'));
+    if (withContracts) {
+      await fs.outputFile(path.join(dir, 'contracts', 'hello.rs'), '// stub');
+    }
+    return dir;
+  };
+
+  beforeEach(() => {
+    logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    logSpy?.mockRestore();
+  });
+
+  afterAll(async () => {
+    await Promise.all(tmpDirs.map((d) => fs.remove(d).catch(() => {})));
+  });
+
+  it('rejects a directory without package.json', async () => {
+    const dir = await makeTempDir();
+    await expect(runDeploy({ cwd: dir })).rejects.toThrow(/No package\.json found/i);
+  });
+
+  it('rejects a project without a next dependency', async () => {
+    const dir = await makeTempDir();
+    await fs.writeJson(path.join(dir, 'package.json'), { name: 'no-next', dependencies: {} });
+    await expect(runDeploy({ cwd: dir })).rejects.toThrow(/not a Next\.js project/i);
+  });
+
+  it('rejects when the .next build output is missing', async () => {
+    const dir = await makeTempDir();
+    await fs.writeJson(path.join(dir, 'package.json'), {
+      name: 'no-build',
+      dependencies: { next: '^14.0.0' },
+    });
+    await expect(runDeploy({ cwd: dir })).rejects.toThrow(/Missing production build/i);
+  });
+
+  it('--dry-run performs no writes (no .nextellar/deploy/ is created)', async () => {
+    const dir = await makeValidProject('dry-run-app');
+    await runDeploy({ cwd: dir, dryRun: true });
+    expect(await fs.pathExists(path.join(dir, '.nextellar', 'deploy'))).toBe(false);
+  });
+
+  it('writes latest-bundle.json with bundlePath, bundleSizeBytes, hasContracts and createdAt', async () => {
+    const dir = await makeValidProject('success-app', true);
+    const before = Date.now();
+
+    await runDeploy({ cwd: dir });
+
+    const state = await fs.readJson(
+      path.join(dir, '.nextellar', 'deploy', 'latest-bundle.json'),
+    );
+    expect(typeof state.bundlePath).toBe('string');
+    expect(path.isAbsolute(state.bundlePath)).toBe(true);
+    expect(state.bundlePath).toContain('.nextellar');
+    expect(await fs.pathExists(state.bundlePath)).toBe(true);
+    expect(typeof state.bundleSizeBytes).toBe('number');
+    expect(state.bundleSizeBytes).toBeGreaterThan(0);
+    expect(state.hasContracts).toBe(true);
+    expect(typeof state.createdAt).toBe('string');
+    const createdAtMs = new Date(state.createdAt).getTime();
+    expect(createdAtMs).toBeGreaterThanOrEqual(before);
+    expect(createdAtMs).toBeLessThanOrEqual(Date.now());
+  });
+
+  it('sets hasContracts to false when no contracts directory exists', async () => {
+    const dir = await makeValidProject('no-contracts-app', false);
+    await runDeploy({ cwd: dir });
+    const state = await fs.readJson(
+      path.join(dir, '.nextellar', 'deploy', 'latest-bundle.json'),
+    );
+    expect(state.hasContracts).toBe(false);
+  });
+});

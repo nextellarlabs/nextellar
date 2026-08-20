@@ -160,21 +160,34 @@ export function listFeatures(): {
  * Resolves a feature and its dependencies in install order (deps first).
  * No duplicates; order is valid for installation.
  */
-export function resolveFeatureWithDeps(featureId: string): FeatureDef[] {
+export function resolveFeatureWithDeps(
+  featureId: string,
+  registry: Record<string, FeatureDef> = FEATURES,
+): FeatureDef[] {
   const id = featureId.toLowerCase();
-  const def = FEATURES[id];
+  const def = registry[id] ?? registry[featureId];
   if (!def) return [];
 
   const seen = new Set<string>();
+  const visiting = new Set<string>();
   const ordered: FeatureDef[] = [];
 
   function visit(f: FeatureDef) {
+    const nodeId = f.id.toLowerCase();
+    if (seen.has(nodeId) || visiting.has(nodeId)) return;
+
+    visiting.add(nodeId);
+
     for (const depId of f.dependsOn) {
-      const dep = FEATURES[depId];
-      if (dep && !seen.has(depId)) visit(dep);
+      const depKey = depId.toLowerCase();
+      const dep = registry[depKey] ?? registry[depId];
+      if (dep) visit(dep);
     }
-    if (!seen.has(f.id)) {
-      seen.add(f.id);
+
+    visiting.delete(nodeId);
+
+    if (!seen.has(nodeId)) {
+      seen.add(nodeId);
       ordered.push(f);
     }
   }
