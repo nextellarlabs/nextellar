@@ -14,7 +14,8 @@
     "format:check": "prettier --check \"bin/**/*.ts\" \"src/lib/**/*.ts\" \"tests/**/*.{ts,tsx}\" \"*.{json,mjs}\" \"eslint.config.mjs\" \".github/**/*.yml\"",
     "clean": "rimraf dist",
     "verify:pack": "node scripts/verify-pack-contents.mjs",
-    "prepublishOnly": "npm run clean && npm test && npm run build"
+    "prepublishOnly": "npm run clean && npm test && npm run build",
+    "prepare": "husky"
   },
   "engines": {
     "node": ">=20.0.0"
@@ -87,8 +88,10 @@
     "eslint": "^9.39.1",
     "express": "^5.2.1",
     "globals": "^16.5.0",
+    "husky": "^9.1.7",
     "jest": "^30.0.5",
     "jest-environment-jsdom": "^30.0.5",
+    "lint-staged": "^17.3.0",
     "msw": "^2.10.4",
     "node-fetch": "^2.7.0",
     "prettier": "^3.6.2",
@@ -100,5 +103,14 @@
     "typescript-eslint": "^8.46.4",
     "undici": "^6.21.3",
     "web-streams-polyfill": "^4.1.0"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,mjs,yml,yaml,md}": [
+      "prettier --write"
+    ]
   }
 }
