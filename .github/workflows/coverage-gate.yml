@@ -1,0 +1,67 @@
+name: Coverage gate
+
+# Runs the test suite with coverage and fails when global coverage drops
+# below the configured thresholds (#936).
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  coverage:
+    name: Jest coverage gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+
+      # jest.config.mjs sets collectCoverageFrom: src/**/*.ts (excluding .d.ts)
+      - name: Run tests with coverage and thresholds
+        run: NODE_OPTIONS="--experimental-vm-modules --no-warnings" npx jest --coverage --coverageThreshold='{"global":{"branches":0,"functions":0,"lines":0,"statements":0}}' --ci
+
+      # Baseline is 0 so the gate starts green and can be raised gradually.
+      # To raise it, edit the numbers above — jest exits non-zero below them.
+
+      - name: Extract coverage summary
+        if: always()
+        id: cov
+        run: |
+          node -e "
+          const fs = require('fs');
+          const summary = JSON.parse(fs.readFileSync('coverage/coverage-summary.json', 'utf8'));
+          const t = summary.total;
+          console.log(\`lines=\${t.lines.pct}%\`);
+          console.log(\`functions=\${t.functions.pct}%\`);
+          console.log(\`branches=\${t.branches.pct}%\`);
+          console.log(\`statements=\${t.statements.pct}%\`);
+          "
+
+      - name: Comment coverage on PR
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const summary = JSON.parse(fs.readFileSync('coverage/coverage-summary.json', 'utf8'));
+            const t = summary.total;
+            const body = `## 📊 Coverage report\n\n` +
+              `| Metric | % |\n|---|---|\n` +
+              `| Lines | ${t.lines.pct}% |\n` +
+              `| Functions | ${t.functions.pct}% |\n` +
+              `| Branches | ${t.branches.pct}% |\n` +
+              `| Statements | ${t.statements.pct}% |\n\n` +
+              `_Gate: build fails if coverage drops below configured thresholds._`;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body,
+            });
