@@ -14,6 +14,16 @@ jest.unstable_mockModule('../src/lib/install.js', () => ({
   runInstall: mockRunInstall,
 }));
 
+// Disable the preflight toolchain gate in tests (#908): the sandboxed test
+// environment cannot spawn npm, and scaffold behavior is what we verify here.
+jest.unstable_mockModule('../src/lib/preflight.js', () => ({
+  runPreflight: async () => ({ ok: true, failures: [] }),
+  setPreflightDisabledForTest: () => {},
+  setNpmRunnerForTest: () => {},
+  checkNodeVersion: () => ({ ok: true, detail: 'test', fix: '' }),
+  checkNpmAvailable: async () => ({ ok: true, detail: 'test npm OK', fix: '' }),
+}));
+
 const { scaffold } = await import('../src/lib/scaffold');
 
 const __filename = fileURLToPath(import.meta.url);

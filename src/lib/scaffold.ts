@@ -6,6 +6,7 @@ import { trackScaffoldEvent } from "./telemetry.js";
 import { fileURLToPath } from "url";
 import { confirm } from "@clack/prompts";
 import { validateHorizonUrl, validateSorobanUrl } from "./validate.js";
+import { runPreflight, setPreflightDisabledForTest } from "./preflight.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -44,6 +45,18 @@ export async function scaffold(options: ScaffoldOptions) {
     force,
     defaults,
   } = options;
+
+  // Preflight toolchain check (#908): fail fast with guidance when the
+  // local Node.js/npm toolchain is too old, instead of crashing mid-install.
+  const preflight = await runPreflight();
+  if (!preflight.ok) {
+    for (const failure of preflight.failures) {
+      console.error(pc.red(`✖ ${failure}`));
+    }
+    throw new Error(
+      "Toolchain check failed. Fix the issues above and re-run scaffold.",
+    );
+  }
 
   const telemetryTemplate = template || "default";
   const telemetryLanguage = useTs ? "typescript" : "javascript";
