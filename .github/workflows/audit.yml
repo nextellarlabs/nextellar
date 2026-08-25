@@ -1,0 +1,195 @@
+name: Dependency Audit
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/audit.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    name: Audit Dependencies
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run npm audit
+        id: audit
+        continue-on-error: true
+        run: |
+          npm audit --audit-level=moderate --json > audit-report.json 2>&1
+          cat audit-report.json
+
+      - name: Parse audit results
+        id: parse
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const audit = JSON.parse(fs.readFileSync('audit-report.json', 'utf8'));
+            
+            const metadata = audit.metadata || {};
+            const vulnerabilities = metadata.vulnerabilities || {};
+            
+            const critical = vulnerabilities.critical || 0;
+            const high = vulnerabilities.high || 0;
+            const moderate = vulnerabilities.moderate || 0;
+            const low = vulnerabilities.low || 0;
+            
+            core.setOutput('critical', critical);
+            core.setOutput('high', high);
+            core.setOutput('moderate', moderate);
+            core.setOutput('low', low);
+            
+            const summary = `
+            ### 📊 Dependency Audit Results
+            
+            | Severity | Count |
+            |----------|-------|
+            | 🔴 Critical | ${critical} |
+            | 🟠 High | ${high} |
+            | 🟡 Moderate | ${moderate} |
+            | 🔵 Low | ${low} |
+            
+            **Total vulnerabilities**: ${critical + high + moderate + low}
+            `;
+            
+            core.setOutput('summary', summary);
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const summary = `${{ steps.parse.outputs.summary }}`;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: summary
+            });
+
+      - name: Upload audit report
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: npm-audit-report
+          path: audit-report.json
+          retention-days: 30
+
+      - name: Check severity gates
+        id: gate
+        run: |
+          CRITICAL=${{ steps.parse.outputs.critical }}
+          HIGH=${{ steps.parse.outputs.high }}
+          MODERATE=${{ steps.parse.outputs.moderate }}
+          
+          # Policy: fail on critical or high vulnerabilities
+          if [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ]; then
+            echo "FAIL_BUILD=true" >> $GITHUB_OUTPUT
+            echo "❌ Security policy violation: Found $CRITICAL critical and $HIGH high severity vulnerabilities"
+            exit 1
+          fi
+          
+          # Warn on moderate vulnerabilities
+          if [ "$MODERATE" -gt 0 ]; then
+            echo "⚠️ Warning: Found $MODERATE moderate severity vulnerabilities - remediate within 30 days"
+          fi
+
+      - name: Print severity report
+        if: always()
+        run: |
+          echo "### Vulnerability Summary"
+          echo "Critical: ${{ steps.parse.outputs.critical }}"
+          echo "High: ${{ steps.parse.outputs.high }}"
+          echo "Moderate: ${{ steps.parse.outputs.moderate }}"
+          echo "Low: ${{ steps.parse.outputs.low }}"
+
+      - name: Fail on policy violation
+        if: failure() && steps.gate.outcome == 'failure'
+        run: |
+          echo "Build failed due to security policy violation"
+          echo "See SECURITY.md for policy details"
+          exit 1
+
+  dependabot-check:
+    runs-on: ubuntu-latest
+    name: Check Dependabot Updates
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for vulnerable dependencies
+        uses: actions/dependency-review-action@v3
+        if: github.event_name == 'pull_request'
+        with:
+          fail-on-severity: moderate
+          allow-licenses: Apache-2.0, Apache-2.0+, Apache License 2.0, MIT, MIT+, ISC, BSD, BSD-2-Clause, BSD-3-Clause, 0BSD, Unlicense, MPL-2.0, LGPL-2.1, LGPL-3.0
+
+  codeql:
+    runs-on: ubuntu-latest
+    name: CodeQL Analysis
+    permissions:
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ['javascript']
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v2
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-and-quality
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+        continue-on-error: true
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
+        with:
+          category: "/language:javascript"

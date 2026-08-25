@@ -39,6 +39,14 @@ export interface PaymentOptions {
 }
 
 /**
+ * Account interface for multi-account support
+ */
+export interface WalletAccount {
+  address: string;
+  displayName?: string;
+}
+
+/**
  * Wallet context state
  */
 interface WalletContextState {
@@ -46,9 +54,12 @@ interface WalletContextState {
   publicKey?: string;
   walletName?: string;
   balances: Balance[];
+  accounts: WalletAccount[];
+  currentAccountIndex: number;
   connect: () => Promise<void>;
   disconnect: () => void;
   refreshBalances: () => Promise<void>;
+  switchAccount: (address: string) => Promise<void>;
   sendPayment?: (opts: PaymentOptions) => Promise<Horizon.HorizonApi.SubmitTransactionResponse>;
 }
 
@@ -102,6 +113,8 @@ export function WalletProvider({
   const [publicKey, setPublicKey] = useState<string>();
   const [walletName, setWalletName] = useState<string>();
   const [balances, setBalances] = useState<Balance[]>([]);
+  const [accounts, setAccounts] = useState<WalletAccount[]>([]);
+  const [currentAccountIndex, setCurrentAccountIndex] = useState(0);
 
   // Load saved network on mount
   useEffect(() => {
@@ -128,6 +141,32 @@ export function WalletProvider({
   }, [activeHorizonUrl]);
 
   /**
+   * Helper function to save accounts to storage
+   */
+  const saveAccountsToStorage = useCallback((accts: WalletAccount[], currentIndex: number) => {
+    storage.set('stellar_wallet_accounts', JSON.stringify(accts));
+    storage.set('stellar_wallet_current_account_index', currentIndex.toString());
+  }, []);
+
+  /**
+   * Helper function to load accounts from storage
+   */
+  const loadAccountsFromStorage = useCallback(() => {
+    const saved = storage.get('stellar_wallet_accounts');
+    const savedIndex = storage.get('stellar_wallet_current_account_index');
+    if (saved) {
+      try {
+        const accts = JSON.parse(saved) as WalletAccount[];
+        const index = savedIndex ? parseInt(savedIndex, 10) : 0;
+        return { accounts: accts, index: Math.max(0, Math.min(index, accts.length - 1)) };
+      } catch {
+        return { accounts: [], index: 0 };
+      }
+    }
+    return { accounts: [], index: 0 };
+  }, []);
+
+  /**
    * Connect to a Stellar wallet using the modal interface
    */
   const connect = useCallback(async () => {
@@ -144,9 +183,36 @@ export function WalletProvider({
           const { address } = await currentKit.getAddress();
           const { name } = option;
 
+          // Create or update account list
+          const newAccount: WalletAccount = {
+            address,
+            displayName: `${name} - ${address.slice(0, 6)}...${address.slice(-6)}`,
+          };
+
           setPublicKey(address);
           setWalletName(name);
           setConnected(true);
+
+          // Check if account already exists in list
+          setAccounts((prevAccounts) => {
+            const existingIndex = prevAccounts.findIndex((acc) => acc.address === address);
+            let updatedAccounts: WalletAccount[];
+            let newIndex: number;
+
+            if (existingIndex >= 0) {
+              // Account already exists, switch to it
+              updatedAccounts = prevAccounts;
+              newIndex = existingIndex;
+            } else {
+              // New account, add to list
+              updatedAccounts = [...prevAccounts, newAccount];
+              newIndex = updatedAccounts.length - 1;
+            }
+
+            setCurrentAccountIndex(newIndex);
+            saveAccountsToStorage(updatedAccounts, newIndex);
+            return updatedAccounts;
+          });
 
           storage.set('stellar_wallet_connected', 'true');
           storage.set('stellar_wallet_id', option.id);
@@ -171,7 +237,7 @@ export function WalletProvider({
       console.error('Failed to connect wallet:', error);
       throw error;
     }
-  }, [activeNetworkKey]);
+  }, [activeNetworkKey, saveAccountsToStorage]);
 
   /**
    * Disconnect wallet and clear state
@@ -183,15 +249,53 @@ export function WalletProvider({
       setPublicKey(undefined);
       setWalletName(undefined);
       setBalances([]);
+      setAccounts([]);
+      setCurrentAccountIndex(0);
 
       storage.remove('stellar_wallet_connected');
       storage.remove('stellar_wallet_id');
       storage.remove('stellar_wallet_address');
       storage.remove('stellar_wallet_name');
+      storage.remove('stellar_wallet_accounts');
+      storage.remove('stellar_wallet_current_account_index');
     } catch (error) {
       console.error('Failed to disconnect wallet:', error);
     }
   }, []);
+
+  /**
+   * Switch to a different account in the accounts list
+   */
+  const switchAccount = useCallback(
+    async (address: string) => {
+      const accountIndex = accounts.findIndex((acc) => acc.address === address);
+      if (accountIndex < 0) {
+        console.error('Account not found:', address);
+        return;
+      }
+
+      setPublicKey(address);
+      setCurrentAccountIndex(accountIndex);
+      saveAccountsToStorage(accounts, accountIndex);
+
+      // Update storage with new active address
+      storage.set('stellar_wallet_address', address);
+
+      // Load balances for the new account
+      try {
+        const account = await serverRef.current.accounts().accountId(address).call();
+        setBalances(account.balances);
+      } catch (error: unknown) {
+        if (error && typeof error === 'object' && 'response' in error && (error as { response?: { status?: number } }).response?.status === 404) {
+          setBalances([]);
+        } else {
+          console.error('Failed to load balances for account:', error);
+          setBalances([]);
+        }
+      }
+    },
+    [accounts, saveAccountsToStorage]
+  );
 
   /**
    * Switch the active network.
@@ -306,6 +410,24 @@ export function WalletProvider({
             setWalletName(savedName || 'Unknown');
             setConnected(true);
 
+            // Load saved accounts or create new account list
+            const { accounts: savedAccounts, index: savedIndex } = loadAccountsFromStorage();
+            if (savedAccounts.length > 0) {
+              setAccounts(savedAccounts);
+              setCurrentAccountIndex(savedIndex);
+            } else {
+              // Create initial account list if none saved
+              const newAccounts: WalletAccount[] = [
+                {
+                  address,
+                  displayName: `${savedName} - ${address.slice(0, 6)}...${address.slice(-6)}`,
+                },
+              ];
+              setAccounts(newAccounts);
+              setCurrentAccountIndex(0);
+              saveAccountsToStorage(newAccounts, 0);
+            }
+
             try {
               const account = await serverRef.current.accounts().accountId(address).call();
               setBalances(account.balances);
@@ -322,21 +444,26 @@ export function WalletProvider({
           storage.remove('stellar_wallet_id');
           storage.remove('stellar_wallet_address');
           storage.remove('stellar_wallet_name');
+          storage.remove('stellar_wallet_accounts');
+          storage.remove('stellar_wallet_current_account_index');
         }
       }
     };
 
     autoReconnect();
-  }, [activeNetworkKey]);
+  }, [activeNetworkKey, loadAccountsFromStorage, saveAccountsToStorage]);
 
   const walletValue: WalletContextState = {
     connected,
     publicKey,
     walletName,
     balances,
+    accounts,
+    currentAccountIndex,
     connect,
     disconnect,
     refreshBalances,
+    switchAccount,
     sendPayment: connected ? sendPayment : undefined,
   };
 

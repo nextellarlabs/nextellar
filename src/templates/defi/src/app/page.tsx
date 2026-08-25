@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useState, useEffect } from 'react';
 import WalletConnectButton from '../components/WalletConnectButton';
 import NetworkSwitcher from '../components/NetworkSwitcher';
+import CounterDemo from '../components/CounterDemo';
 
 // Theme toggle hook
 function useTheme() {
@@ -109,7 +110,14 @@ export default function Home() {
 
         {/* Main Content - Centered */}
         <main className="flex-1 flex items-center justify-center px-6 py-12">
-          <div className="max-w-4xl mx-auto w-full">
+          <div className="w-full">
+            {/* Counter Demo - Full width */}
+            <div className="mb-16">
+              <CounterDemo />
+            </div>
+
+            {/* Original content */}
+            <div className="max-w-4xl mx-auto w-full">
             {/* Steps */}
             <div className="mb-12 sm:mb-16 space-y-8 sm:space-y-6">
               <div className="flex items-start sm:items-center text-left">

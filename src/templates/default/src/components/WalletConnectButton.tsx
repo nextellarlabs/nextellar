@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useWallet } from '../contexts';
+import AccountSwitcher from './AccountSwitcher';
 
 // Simple inline SVG icons
 const WalletIcon = () => (
@@ -22,13 +23,15 @@ interface WalletConnectButtonProps {
 }
 
 /**
- * Simple Wallet Connect Button - Matches the "Deploy to Stellar" button style
+ * Wallet Connect Button with Account Switcher
  * 
  * A clean, reusable button component that integrates with Stellar wallets.
+ * When connected, displays the current account and provides a dropdown
+ * to switch between multiple connected accounts.
  * Follows the same design system as the main CTA buttons.
  */
 export default function WalletConnectButton({ theme = 'light' }: WalletConnectButtonProps) {
-  const { connected, connect, disconnect, walletName } = useWallet();
+  const { connected, connect, disconnect, walletName, accounts } = useWallet();
   const [isLoading, setIsLoading] = useState(false);
 
   const handleClick = async () => {
@@ -58,19 +61,23 @@ export default function WalletConnectButton({ theme = 'light' }: WalletConnectBu
   };
 
   return (
-    <button 
-      onClick={handleClick}
-      disabled={isLoading}
-      className={`px-8 py-3 font-medium rounded-full transition-colors ${
-        theme === 'light' 
-          ? 'bg-black text-white hover:bg-gray-800' 
-          : 'bg-white text-black hover:bg-gray-200'
-      } ${isLoading ? 'opacity-75 cursor-not-allowed' : ''}`}
-    >
-      <span className="flex items-center gap-2">
-        {getIcon()}
-        {getButtonText()}
-      </span>
-    </button>
+    <div className="flex items-center gap-3">
+      <button 
+        onClick={handleClick}
+        disabled={isLoading}
+        className={`px-8 py-3 font-medium rounded-full transition-colors ${
+          theme === 'light' 
+            ? 'bg-black text-white hover:bg-gray-800' 
+            : 'bg-white text-black hover:bg-gray-200'
+        } ${isLoading ? 'opacity-75 cursor-not-allowed' : ''}`}
+      >
+        <span className="flex items-center gap-2">
+          {getIcon()}
+          {getButtonText()}
+        </span>
+      </button>
+      
+      {connected && accounts.length > 0 && <AccountSwitcher />}
+    </div>
   );
 }
