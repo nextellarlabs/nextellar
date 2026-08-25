@@ -8,6 +8,7 @@ import {
   Address,
   Contract,
   Account,
+  StrKey,
 } from "@stellar/stellar-sdk";
 
 /**
@@ -17,6 +18,23 @@ export interface SorobanContractOptions {
   contractId: string;
   sorobanRpc?: string;
   network?: "TESTNET" | "PUBLIC";
+}
+
+/**
+ * Validates that a string is a well-formed Soroban contract ID
+ * (a StrKey-encoded contract address, e.g. "C...", 56 characters).
+ * @param contractId - The contract ID string to validate
+ * @returns true if the contract ID is valid, false otherwise
+ */
+export function isValidContractId(contractId: string): boolean {
+  if (
+    !contractId ||
+    typeof contractId !== "string" ||
+    contractId.trim().length === 0
+  ) {
+    return false;
+  }
+  return StrKey.isValidContract(contractId.trim());
 }
 
 /**
@@ -174,6 +192,12 @@ export function useSorobanContract(
     sorobanRpc = "{{SOROBAN_URL}}",
     network = "TESTNET",
   } = opts;
+
+  if (!isValidContractId(contractId)) {
+    throw new Error(
+      `Invalid Soroban contract ID: "${contractId}". Must be a valid StrKey-encoded contract address (56 characters, starting with "C"). Did you forget to set your contract ID in .env.local?`,
+    );
+  }
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
