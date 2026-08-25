@@ -1,18 +1,17 @@
 /**
  * @jest-environment jsdom
  */
+import { jest } from '@jest/globals';
 import { renderHook, act } from '@testing-library/react';
 
-// Mock React hooks before importing the hook
-jest.mock('react', () => ({
-  useCallback: (fn: any) => fn,
-  useRef: (initial: any) => ({ current: initial }),
-  useEffect: () => {},
-  useState: (initial: any) => [initial, jest.fn()],
-}));
-
-// Virtual mock for Stellar SDK since it's not a dependency of the main CLI
-jest.mock('@stellar/stellar-sdk', () => ({
+// Virtual mock for Stellar SDK since it's not a dependency of the main CLI.
+// This repo runs Jest under real ESM (--experimental-vm-modules), so the
+// classic jest.mock() factory (which relies on babel's hoist-to-require
+// transform) can't be used here — jest.unstable_mockModule is the
+// ESM-native equivalent. Nothing in this file imports 'react' directly
+// (only @testing-library/react, a separate package), so no react mock is
+// needed.
+await jest.unstable_mockModule('@stellar/stellar-sdk', () => ({
   Horizon: {
     Server: jest.fn(),
   },
@@ -30,7 +29,7 @@ jest.mock('@stellar/stellar-sdk', () => ({
   Asset: jest.fn(),
   BASE_FEE: '100',
   Transaction: jest.fn(),
-}), { virtual: true });
+}));
 
 // Mock the hook import to avoid module loading issues during testing
 const mockUseTrustlines = jest.fn();
@@ -160,8 +159,8 @@ describe('useTrustlines (Template Hook)', () => {
       submitChangeTrustWithSecret: jest.fn().mockResolvedValue({ success: true, hash: 'tx_hash_123' }),
     });
 
-    // Setup mocked SDK components
-    const StellarSDK = jest.requireMock('@stellar/stellar-sdk');
+    // Setup mocked SDK components (dynamic import resolves to the mocked module)
+    const StellarSDK = await import('@stellar/stellar-sdk');
     StellarSDK.Horizon.Server.mockImplementation(() => mockServer);
     StellarSDK.TransactionBuilder.mockImplementation(() => mockTransactionBuilder);
     StellarSDK.Transaction.mockImplementation((xdr: any) => ({

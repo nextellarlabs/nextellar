@@ -21,7 +21,9 @@ export default {
     '**/tests/**/*.test.ts',
     '**/tests/**/*.test.tsx',
     '**/src/**/*.test.ts',
-    '**/__tests__/**/*.ts'
+    '**/src/**/*.test.tsx',
+    '**/__tests__/**/*.ts',
+    '**/__tests__/**/*.tsx'
   ],
   testPathIgnorePatterns: [
     '/node_modules/',

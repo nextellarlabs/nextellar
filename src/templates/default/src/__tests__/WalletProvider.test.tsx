@@ -1,9 +1,22 @@
+/**
+ * @jest-environment jsdom
+ */
+import { jest } from '@jest/globals';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
-import { WalletProvider, useWallet, WalletAccount } from '../contexts/WalletProvider';
+
+// This repo runs Jest under real ESM (--experimental-vm-modules), so the
+// classic jest.mock() factory (which relies on babel's hoist-to-require
+// transform) can't reliably intercept these modules — jest.unstable_mockModule
+// is the ESM-native equivalent, and (unlike jest.mock) it must be registered,
+// and awaited, before anything imports the mocked module. WalletProvider now
+// loads '../lib/stellar-wallet-kit' lazily via dynamic import() from inside
+// its callbacks (see WalletProvider.tsx), so registering the mock here before
+// WalletProvider itself is imported below is sufficient to cover both the
+// lazy wallet-kit import and the top-level '@stellar/stellar-sdk' import.
 
 // Mock the kit
-jest.mock('../lib/stellar-wallet-kit', () => ({
+await jest.unstable_mockModule('../lib/stellar-wallet-kit', () => ({
   kit: jest.fn(() => ({
     openModal: jest.fn(),
     setWallet: jest.fn(),
@@ -11,11 +24,12 @@ jest.mock('../lib/stellar-wallet-kit', () => ({
     disconnect: jest.fn(() => Promise.resolve()),
     signTransaction: jest.fn(),
   })),
+  WalletNetwork: { PUBLIC: 'PUBLIC', TESTNET: 'TESTNET' },
 }));
 
 // Mock storage
 const mockStorage = new Map<string, string>();
-jest.mock('../lib/storage', () => ({
+await jest.unstable_mockModule('../lib/storage', () => ({
   storage: {
     get: (key: string) => mockStorage.get(key),
     set: (key: string, value: string) => mockStorage.set(key, value),
@@ -24,7 +38,7 @@ jest.mock('../lib/storage', () => ({
 }));
 
 // Mock Horizon Server
-jest.mock('@stellar/stellar-sdk', () => ({
+await jest.unstable_mockModule('@stellar/stellar-sdk', () => ({
   Horizon: {
     Server: jest.fn(() => ({
       accounts: () => ({
@@ -47,6 +61,9 @@ jest.mock('@stellar/stellar-sdk', () => ({
   Memo: { text: jest.fn() },
   BASE_FEE: '100',
 }));
+
+const { WalletProvider, useWallet } = await import('../contexts/WalletProvider');
+type WalletAccount = { address: string; displayName?: string };
 
 describe('WalletProvider - Multi-Account Support', () => {
   beforeEach(() => {

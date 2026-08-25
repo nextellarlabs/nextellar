@@ -8,6 +8,7 @@ import gradient from "gradient-string";
 import { scaffold } from "../src/lib/scaffold.js";
 import { upgrade } from "../src/lib/upgrade.js";
 import { runDeploy } from "../src/lib/deploy.js";
+import { runClean } from "../src/lib/clean.js";
 import { displaySuccess, NEXTELLAR_LOGO } from "../src/lib/feedback.js";
 import { detectPackageManager } from "../src/lib/install.js";
 import { runInteractivePrompts } from "../src/lib/prompts.js";
@@ -191,6 +192,20 @@ program
         cwd: process.cwd(),
         dryRun: !!cmdOpts.dryRun,
       });
+    } catch (err: any) {
+      console.error(`\n❌ Error: ${err?.message || err}`);
+      await exitWithTelemetry(1);
+    } finally {
+      await flushTelemetry();
+    }
+  });
+
+program
+  .command("clean")
+  .description("Remove .nextellar/build artifacts")
+  .action(async () => {
+    try {
+      await runClean({ cwd: process.cwd() });
     } catch (err: any) {
       console.error(`\n❌ Error: ${err?.message || err}`);
       await exitWithTelemetry(1);
