@@ -10,10 +10,19 @@ import {
   Memo,
   BASE_FEE
 } from '@stellar/stellar-sdk';
-import { ISupportedWallet, WalletNetwork } from "@creit.tech/stellar-wallets-kit";
-import { kit } from '../lib/stellar-wallet-kit';
+// `ISupportedWallet`/`WalletNetwork` are only imported for their types below;
+// the runtime enum value is read off the lazily-loaded module at call sites
+// (see `loadWalletKit`) so this file never eagerly pulls in
+// `@creit.tech/stellar-wallets-kit`.
+import type { ISupportedWallet, WalletNetwork } from "@creit.tech/stellar-wallets-kit";
 import { NETWORKS } from '../config/networks';
 import { storage } from '../lib/storage';
+
+// `@creit.tech/stellar-wallets-kit` pulls in every wallet connector module
+// (Freighter, Albedo, Lobstr, xBull, Hana). None of that is needed for the
+// initial render, so it's loaded lazily and only when a wallet action is
+// actually invoked (connect, disconnect, or the mount-time auto-reconnect).
+const loadWalletKit = () => import('../lib/stellar-wallet-kit');
 
 const Server = Horizon.Server;
 
@@ -133,6 +142,7 @@ export function WalletProvider({
   const connect = useCallback(async () => {
     try {
       // Get fresh kit instance (handles dynamic options)
+      const { kit, WalletNetwork } = await loadWalletKit();
       const walletNetwork = activeNetworkKey === 'mainnet' ? WalletNetwork.PUBLIC : WalletNetwork.TESTNET;
       const currentKit = kit(walletNetwork);
 
@@ -178,6 +188,7 @@ export function WalletProvider({
    */
   const disconnect = useCallback(async () => {
     try {
+      const { kit } = await loadWalletKit();
       await kit().disconnect();
       setConnected(false);
       setPublicKey(undefined);
@@ -268,7 +279,7 @@ export function WalletProvider({
         signedTxXdr = transaction.toXDR();
       } else {
         // Sign with wallet
-        const { signTransaction } = await import('../lib/stellar-wallet-kit');
+        const { signTransaction } = await loadWalletKit();
         signedTxXdr = await signTransaction({
           unsignedTransaction: transaction.toXDR(),
           address: publicKey,
@@ -296,6 +307,7 @@ export function WalletProvider({
 
       if (wasConnected === 'true' && savedWalletId && savedAddress) {
         try {
+          const { kit, WalletNetwork } = await loadWalletKit();
           const walletNetwork = activeNetworkKey === 'mainnet' ? WalletNetwork.PUBLIC : WalletNetwork.TESTNET;
           const currentKit = kit(walletNetwork);
           currentKit.setWallet(savedWalletId);
