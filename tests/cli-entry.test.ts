@@ -63,4 +63,26 @@ describe('nextellar CLI', () => {
     expect(stdout).not.toContain('Nextellar scaffold complete');
     expect(await fs.pathExists(tmpDir)).toBe(false);
   }, 30000);
+
+  describe('clean (#904)', () => {
+    it('removes .nextellar/build and exits cleanly', async () => {
+      const buildDir = path.join(tmpDir, '.nextellar', 'build');
+      await fs.outputFile(path.join(buildDir, 'artifact.txt'), 'stale build output');
+
+      const { exitCode, stdout } = await execa('node', [cli, 'clean'], { cwd: tmpDir });
+
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('Removed .nextellar/build');
+      expect(await fs.pathExists(buildDir)).toBe(false);
+    }, 15000);
+
+    it('exits cleanly (no error) when .nextellar/build does not exist', async () => {
+      await fs.ensureDir(tmpDir);
+
+      const { exitCode, stdout } = await execa('node', [cli, 'clean'], { cwd: tmpDir });
+
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('Nothing to clean');
+    }, 15000);
+  });
 });
