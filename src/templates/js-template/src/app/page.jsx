@@ -3,6 +3,7 @@ import Image from "next/image";
 import { useState, useEffect } from 'react';
 import WalletConnectButton from '../components/WalletConnectButton';
 import NetworkSwitcher from '../components/NetworkSwitcher';
+import TransactionList from '../components/TransactionList';
 // Theme toggle hook
 function useTheme() {
     const [theme, setTheme] = useState('light');
@@ -111,6 +112,16 @@ export default function Home() {
               <a href="https://github.com/nextellarlabs/nextellar" target="_blank" rel="noopener noreferrer" className={`w-full sm:w-auto px-8 py-4 backdrop-blur-md font-semibold rounded-full border transition-all hover:scale-105 active:scale-95 flex items-center justify-center ${theme === 'light' ? 'bg-white/30 text-black border-gray-300/50 hover:bg-white/40' : 'bg-white/5 text-white border-white/10 hover:bg-white/10'}`}>
                 View Docs
               </a>
+            </div>
+
+            {/* Transaction History */}
+            <div className={`mt-12 rounded-2xl overflow-hidden border ${theme === 'light' ? 'bg-white/80 border-gray-200/60 shadow-sm' : 'bg-white/5 border-white/10'}`}>
+              <div className={`px-6 py-4 border-b ${theme === 'light' ? 'border-gray-100' : 'border-white/10'}`}>
+                <h2 className={`text-base font-semibold ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
+                  Transaction History
+                </h2>
+              </div>
+              <TransactionList limit={10} />
             </div>
           </div>
         </main>
