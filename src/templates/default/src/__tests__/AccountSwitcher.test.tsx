@@ -1,3 +1,7 @@
+/**
+ * @jest-environment jsdom
+ */
+import { jest } from '@jest/globals';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import AccountSwitcher from '../components/AccountSwitcher';
 import { WalletContext, WalletAccount } from '../contexts/WalletProvider';

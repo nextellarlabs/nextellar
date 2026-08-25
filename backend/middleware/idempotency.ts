@@ -15,8 +15,10 @@ interface IdempotencyEntry {
 
 const idempotencyStore = new Map<string, IdempotencyEntry>();
 
-// Cleanup expired entries every 5 minutes
-setInterval(() => {
+// Cleanup expired entries every 5 minutes.
+// unref() so this timer alone doesn't keep the process (or a test runner
+// that imports this module) alive after everything else has finished.
+const cleanupInterval = setInterval(() => {
     const now = Date.now();
     for (const [key, entry] of idempotencyStore.entries()) {
         if (entry.expiresAt < now) {
@@ -24,6 +26,7 @@ setInterval(() => {
         }
     }
 }, 5 * 60 * 1000);
+cleanupInterval.unref?.();
 
 /**
  * Idempotency middleware.

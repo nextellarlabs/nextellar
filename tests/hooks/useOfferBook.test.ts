@@ -1,6 +1,7 @@
 /**
  * @jest-environment jsdom
  */
+import { jest } from '@jest/globals';
 import { renderHook, act, waitFor } from '@testing-library/react';
 
 import { useOfferBook } from '../../src/templates/js-template/src/hooks/useOfferBook.js';
