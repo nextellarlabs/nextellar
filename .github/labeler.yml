@@ -1,0 +1,33 @@
+# Changed-paths labeler configuration (#935).
+
+CLI core:
+- changed:
+    - "**/bin/**"
+    - "src/lib/**"
+
+CLI entrypoint:
+- changed:
+    - "bin/**"
+
+Scaffold templates:
+- changed:
+    - "src/templates/**"
+
+Tests:
+- changed:
+    - "tests/**"
+    - "**/__tests__/**"
+
+CI / workflows:
+- changed:
+    - ".github/**"
+
+Documentation:
+- changed:
+    - "**/*.md"
+    - "docs/**"
+
+Dependencies:
+- changed:
+    - "package.json"
+    - "package-lock.json"
