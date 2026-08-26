@@ -38,10 +38,31 @@ export function isValidContractId(contractId: string): boolean {
 }
 
 /**
+ * Result returned by simulateContractCall.
+ * Provides a preview of the decoded return value and network fees before
+ * actually submitting the transaction.
+ */
+export interface SimulateContractCallResult {
+  /** Decoded return value from the simulation */
+  result: unknown;
+  /**
+   * Minimum resource fee (in stroops) that the network requires for this
+   * transaction, as reported by the Soroban RPC.
+   */
+  minResourceFee: string;
+  /** The ledger number at which the simulation was performed */
+  latestLedger: number;
+}
+
+/**
  * Return type for the useSorobanContract hook
  */
 export interface SorobanContractReturn {
   callFunction: (name: string, args: TypedArg[]) => Promise<unknown>;
+  simulateContractCall: (
+    name: string,
+    args: TypedArg[]
+  ) => Promise<SimulateContractCallResult>;
   buildInvokeXDR: (name: string, args: TypedArg[]) => Promise<string>;
   submitInvokeWithSecret: (
     xdr: string,
@@ -583,6 +604,87 @@ export function useSorobanContract(
     [contractId, networkPassphrase, rpcServer, toXdrValue, fromXdrValue]
   );
 
+  // ── simulateContractCall ───────────────────────────────────────────────────
+
+  /**
+   * Simulate a contract call and return the decoded result **plus** fee
+   * information — without submitting the transaction to the network.
+   *
+   * Use this to display a preview panel to the user before they confirm and
+   * actually submit the call (via `buildInvokeXDR` + `submitInvokeWithSecret`
+   * or a wallet adapter).
+   *
+   * @param name - Contract function name
+   * @param args - Arguments; each may be a plain JS value or `{ value, type }` for disambiguation
+   * @returns `{ result, minResourceFee, latestLedger }`
+   *
+   * @example
+   * ```tsx
+   * const preview = await simulateContractCall('transfer', [
+   *   { value: 'GABC...', type: 'address' },
+   *   { value: 1_000_000n, type: 'u128' },
+   * ]);
+   * console.log('Estimated fee:', preview.minResourceFee, 'stroops');
+   * console.log('Return value:', preview.result);
+   * ```
+   */
+  const simulateContractCall = useCallback(
+    async (
+      name: string,
+      args: TypedArg[] = []
+    ): Promise<SimulateContractCallResult> => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const dummyKeypair = Keypair.random();
+        const dummyAccount = new Account(dummyKeypair.publicKey(), "0");
+
+        const contract = new Contract(contractId);
+        const operation = contract.call(name, ...args.map(toXdrValue));
+
+        const txBuilder = new TransactionBuilder(dummyAccount, {
+          fee: "100",
+          networkPassphrase,
+        })
+          .addOperation(operation)
+          .setTimeout(30);
+
+        const transaction = txBuilder.build();
+        const simulation = await rpcServer.simulateTransaction(transaction);
+
+        if ("error" in simulation && simulation.error) {
+          throw new Error(`Simulation failed: ${simulation.error}`);
+        }
+
+        const decodedResult =
+          "result" in simulation && simulation.result?.retval
+            ? fromXdrValue(simulation.result.retval)
+            : null;
+
+        const minResourceFee =
+          "minResourceFee" in simulation
+            ? String(simulation.minResourceFee)
+            : "0";
+
+        const latestLedger =
+          "latestLedger" in simulation
+            ? Number(simulation.latestLedger)
+            : 0;
+
+        setError(null);
+        return { result: decodedResult, minResourceFee, latestLedger };
+      } catch (err) {
+        const error = err as Error;
+        setError(error);
+        throw error;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [contractId, networkPassphrase, rpcServer, toXdrValue, fromXdrValue]
+  );
+
   // ── buildInvokeXDR ─────────────────────────────────────────────────────────
 
   /**
@@ -666,6 +768,7 @@ export function useSorobanContract(
 
   return {
     callFunction,
+    simulateContractCall,
     buildInvokeXDR,
     submitInvokeWithSecret,
     loading,

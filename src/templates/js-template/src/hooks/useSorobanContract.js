@@ -191,6 +191,66 @@ export function useSorobanContract(opts) {
         }
     }, [contractId, networkPassphrase, rpcServer, toXdrValue, fromXdrValue]);
     /**
+     * Simulate a contract call and return the decoded result **plus** fee
+     * information — without submitting the transaction to the network.
+     *
+     * Use this to display a preview panel before the user confirms and submits.
+     *
+     * @param {string} name - The name of the contract function to simulate
+     * @param {Array} args - Array of arguments to pass to the function
+     * @returns {Promise<{result: unknown, minResourceFee: string, latestLedger: number}>}
+     *
+     * @example
+     * ```js
+     * const preview = await simulateContractCall('transfer', ['GABC...', 1000]);
+     * console.log('Estimated fee:', preview.minResourceFee, 'stroops');
+     * console.log('Return value:', preview.result);
+     * ```
+     */
+    const simulateContractCall = useCallback(async (name, args = []) => {
+        setLoading(true);
+        setError(null);
+        try {
+            const dummyKeypair = Keypair.random();
+            const dummyAccount = new Account(dummyKeypair.publicKey(), "0");
+            const contract = new Contract(contractId);
+            const operation = contract.call(name, ...args.map(toXdrValue));
+            const txBuilder = new TransactionBuilder(dummyAccount, {
+                fee: "100",
+                networkPassphrase,
+            })
+                .addOperation(operation)
+                .setTimeout(30);
+            const transaction = txBuilder.build();
+            const simulation = await rpcServer.simulateTransaction(transaction);
+            if ("error" in simulation && simulation.error) {
+                throw new Error(`Simulation failed: ${simulation.error}`);
+            }
+            const decodedResult =
+                "result" in simulation && simulation.result?.retval
+                    ? fromXdrValue(simulation.result.retval)
+                    : null;
+            const minResourceFee =
+                "minResourceFee" in simulation
+                    ? String(simulation.minResourceFee)
+                    : "0";
+            const latestLedger =
+                "latestLedger" in simulation
+                    ? Number(simulation.latestLedger)
+                    : 0;
+            setError(null);
+            return { result: decodedResult, minResourceFee, latestLedger };
+        }
+        catch (err) {
+            const error = err;
+            setError(error);
+            throw error;
+        }
+        finally {
+            setLoading(false);
+        }
+    }, [contractId, networkPassphrase, rpcServer, toXdrValue, fromXdrValue]);
+    /**
      * Build an unsigned contract invocation XDR
      * This method creates a transaction XDR that can be signed and submitted later.
      *
@@ -264,6 +324,7 @@ export function useSorobanContract(opts) {
     }, [networkPassphrase, rpcServer]);
     return {
         callFunction,
+        simulateContractCall,
         buildInvokeXDR,
         submitInvokeWithSecret,
         loading,
