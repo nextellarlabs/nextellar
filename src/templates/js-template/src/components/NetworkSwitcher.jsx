@@ -63,17 +63,19 @@ export default function NetworkSwitcher() {
         <select
           value={activeNetworkKey}
           onChange={handleNetworkChange}
+          aria-label="Network"
           className="bg-transparent border-none text-sm font-semibold focus:ring-0 cursor-pointer text-gray-900 dark:text-gray-100 outline-none pr-2 appearance-none"
         >
           <option value="testnet" className="bg-white dark:bg-gray-900">{NETWORKS.testnet.name}</option>
           <option value="mainnet" className="bg-white dark:bg-gray-900">{NETWORKS.mainnet.name}</option>
         </select>
-        
-        <svg 
-          className="w-4 h-4 text-gray-400 dark:text-gray-500 pointer-events-none -ml-1" 
-          fill="none" 
-          stroke="currentColor" 
+
+        <svg
+          className="w-4 h-4 text-gray-400 dark:text-gray-500 pointer-events-none -ml-1"
+          fill="none"
+          stroke="currentColor"
           viewBox="0 0 24 24"
+          aria-hidden="true"
         >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
