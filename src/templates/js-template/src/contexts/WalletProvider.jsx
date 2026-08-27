@@ -9,8 +9,8 @@ import { NETWORKS } from '../config/networks';
 const Server = Horizon.Server;
 
 // Create contexts
-const WalletContext = createContext(undefined);
-const WalletConfigContext = createContext(undefined);
+export const WalletContext = createContext(undefined);
+export const WalletConfigContext = createContext(undefined);
 
 /**
  * Wallet Provider Component
