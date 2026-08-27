@@ -1,7 +1,8 @@
 import path from "path";
 import fs from "fs-extra";
 import pc from "picocolors";
-import { detectPackageManager, runInstall } from "./install.js";
+import { execa } from "execa";
+import { detectPackageManager, runInstall, type PackageManager } from "./install.js";
 import { trackScaffoldEvent } from "./telemetry.js";
 import { fileURLToPath } from "url";
 import { confirm } from "@clack/prompts";
@@ -20,11 +21,12 @@ export interface ScaffoldOptions {
   wallets?: string[];
   defaults?: boolean;
   skipInstall?: boolean;
-  packageManager?: "npm" | "yarn" | "pnpm";
+  packageManager?: PackageManager;
   installTimeout?: number;
   telemetryEnabled?: boolean;
   cliVersion?: string;
   force?: boolean;
+  git?: boolean;
 }
 
 export async function scaffold(options: ScaffoldOptions) {
@@ -43,6 +45,7 @@ export async function scaffold(options: ScaffoldOptions) {
     cliVersion,
     force,
     defaults,
+    git,
   } = options;
 
   const telemetryTemplate = template || "default";
@@ -256,6 +259,22 @@ export async function scaffold(options: ScaffoldOptions) {
           `  cd ${appName}\n` +
           `  ${result.packageManager} install\n`,
       );
+    }
+
+    // Initialize a git repository in the newly scaffolded project unless the
+    // user opted out with --no-git (or --git false). Defaults to on, matching
+    // the behavior most users expect from a scaffolding tool.
+    if (git !== false) {
+      try {
+        await execa("git", ["init"], { cwd: targetDir, stdio: "ignore" });
+      } catch (error: any) {
+        console.warn(
+          pc.yellow(
+            `⚠️  Could not initialize git repository (${error?.message || "unknown error"}). ` +
+              `You can run \`git init\` yourself later.`,
+          ),
+        );
+      }
     }
 
     void trackScaffoldEvent(
