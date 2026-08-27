@@ -24,6 +24,14 @@ Thank you for considering contributing! We welcome contributions of any size. To
    npm link
    ```
 
+`npm install` also sets up a **pre-commit hook** (via [Husky](https://typicode.github.io/husky/) + [lint-staged](https://github.com/okonet/lint-staged)) that runs ESLint (with `--fix`) and Prettier on the files you've staged, so lint/format issues are caught before they reach CI rather than after. It only checks staged files, so it stays fast — it does not run the full test suite. If a file fails to auto-fix, the commit is blocked with the error printed to the terminal; fix the issue, `git add` the file again, and retry the commit.
+
+To run the same checks manually against the whole repo (e.g. after a rebase, or before opening a PR):
+```bash
+npm run lint
+npm run format:check
+```
+
 ## 3. Create a Branch
 Use descriptive branch names, prefixed by type:
 - `feature/<short-description>`
