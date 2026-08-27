@@ -1,8 +1,20 @@
 /**
  * @jest-environment jsdom
  */
-import { renderHook, act } from "@testing-library/react";
 import { jest } from "@jest/globals";
+import {
+  act,
+  DEFAULT_PAGE_SIZE as PAGE_SIZE,
+  flush,
+  INVALID_PUBLIC_KEY_NO_G as INVALID_KEY_NO_G,
+  INVALID_PUBLIC_KEY_SHORT as INVALID_KEY_SHORT,
+  makeHorizonPage as makePage,
+  makeHorizonResponse as makeResponse,
+  PUBLIC_KEY as VALID_PUBLIC_KEY,
+  PUBLIC_KEY_2 as VALID_PUBLIC_KEY_2,
+  renderHook,
+  silenceConsole,
+} from "../helpers";
 
 await jest.unstable_mockModule(
   "@stellar/stellar-sdk",
@@ -21,74 +33,34 @@ const {
 // via jest.config moduleNameMapper, so useWalletConfig() returns undefined.
 
 // Import the REAL hook – its SDK dependency is resolved to the shared mock.
-const { useTransactionHistory } = await import(
-  "../../src/templates/default/src/hooks/useTransactionHistory.js"
-);
-
-// ── Test fixtures ─────────────────────────────────────────────────────────────
-
-const VALID_PUBLIC_KEY =
-  "GABC1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234";
-const VALID_PUBLIC_KEY_2 =
-  "GDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234";
-const INVALID_KEY_SHORT = "GABC";
-const INVALID_KEY_NO_G = "XABC1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234";
-
-const PAGE_SIZE = 10;
-
-/** Build a mock Horizon operation record. */
-function makeRecord(index: number) {
-  return {
-    id: `op-${index}`,
-    paging_token: `pt-${index}`,
-    type: "payment",
-    type_i: 1,
-    created_at: `2024-01-01T00:${String(index).padStart(2, "0")}:00Z`,
-    transaction_hash: `txhash-${index}`,
-    source_account: VALID_PUBLIC_KEY,
-    amount: `${(10 + index).toFixed(7)}`,
-    asset_type: "native",
-  };
-}
-
-/** Build a page of records. */
-function makePage(start: number, count: number) {
-  return Array.from({ length: count }, (_, i) => makeRecord(start + i));
-}
-
-/** Build a successful Horizon response. */
-function makeResponse(records: ReturnType<typeof makeRecord>[]) {
-  return { records };
-}
+const { useTransactionHistory } =
+  await import("../../src/templates/default/src/hooks/useTransactionHistory.js");
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe("useTransactionHistory (Template Hook)", () => {
-  let consoleErrorSpy: jest.SpyInstance;
-  let consoleWarnSpy: jest.SpyInstance;
+  let restoreConsole: () => void;
+  let consoleWarnSpy: ReturnType<typeof jest.spyOn>;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    restoreConsole = silenceConsole(["error"]);
     consoleWarnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
   });
 
   afterEach(() => {
-    consoleErrorSpy.mockRestore();
+    restoreConsole();
     consoleWarnSpy.mockRestore();
   });
-
-  /** Flush microtasks so async state updates from the hook are applied. */
-  async function flush() {
-    await act(async () => {});
-  }
 
   // ── 1. Return shape ─────────────────────────────────────────────────────
 
   it("should return the correct public API shape", async () => {
     mockHorizonCall.mockResolvedValue(makeResponse([]));
 
-    const { result } = renderHook(() => useTransactionHistory(VALID_PUBLIC_KEY));
+    const { result } = renderHook(() =>
+      useTransactionHistory(VALID_PUBLIC_KEY),
+    );
     await flush();
 
     expect(Array.isArray(result.current.items)).toBe(true);
@@ -183,7 +155,9 @@ describe("useTransactionHistory (Template Hook)", () => {
 
     it("should advance cursor across multiple fetchNextPage calls", async () => {
       // Page 1
-      mockHorizonCall.mockResolvedValueOnce(makeResponse(makePage(0, PAGE_SIZE)));
+      mockHorizonCall.mockResolvedValueOnce(
+        makeResponse(makePage(0, PAGE_SIZE)),
+      );
 
       const { result } = renderHook(() =>
         useTransactionHistory(VALID_PUBLIC_KEY, { pageSize: PAGE_SIZE }),
@@ -191,13 +165,17 @@ describe("useTransactionHistory (Template Hook)", () => {
       await flush();
 
       // Page 2
-      mockHorizonCall.mockResolvedValueOnce(makeResponse(makePage(10, PAGE_SIZE)));
+      mockHorizonCall.mockResolvedValueOnce(
+        makeResponse(makePage(10, PAGE_SIZE)),
+      );
       await act(async () => {
         await result.current.fetchNextPage();
       });
 
       // Page 3
-      mockHorizonCall.mockResolvedValueOnce(makeResponse(makePage(20, PAGE_SIZE)));
+      mockHorizonCall.mockResolvedValueOnce(
+        makeResponse(makePage(20, PAGE_SIZE)),
+      );
       await act(async () => {
         await result.current.fetchNextPage();
       });
@@ -213,7 +191,9 @@ describe("useTransactionHistory (Template Hook)", () => {
     });
 
     it("should set hasMore to false when fetchNextPage returns fewer than pageSize", async () => {
-      mockHorizonCall.mockResolvedValueOnce(makeResponse(makePage(0, PAGE_SIZE)));
+      mockHorizonCall.mockResolvedValueOnce(
+        makeResponse(makePage(0, PAGE_SIZE)),
+      );
 
       const { result } = renderHook(() =>
         useTransactionHistory(VALID_PUBLIC_KEY, { pageSize: PAGE_SIZE }),
@@ -272,7 +252,8 @@ describe("useTransactionHistory (Template Hook)", () => {
       mockHorizonCall.mockResolvedValueOnce(makeResponse(makePage(0, 5)));
 
       const { result, rerender } = renderHook(
-        ({ pk }: { pk: string }) => useTransactionHistory(pk, { pageSize: PAGE_SIZE }),
+        ({ pk }: { pk: string }) =>
+          useTransactionHistory(pk, { pageSize: PAGE_SIZE }),
         { initialProps: { pk: VALID_PUBLIC_KEY } },
       );
       await flush();
@@ -292,7 +273,8 @@ describe("useTransactionHistory (Template Hook)", () => {
       mockHorizonCall.mockResolvedValueOnce(makeResponse(makePage(0, 5)));
 
       const { result, rerender } = renderHook(
-        ({ pk }: { pk: string | null }) => useTransactionHistory(pk, { pageSize: PAGE_SIZE }),
+        ({ pk }: { pk: string | null }) =>
+          useTransactionHistory(pk, { pageSize: PAGE_SIZE }),
         { initialProps: { pk: VALID_PUBLIC_KEY as string | null } },
       );
       await flush();
@@ -311,23 +293,35 @@ describe("useTransactionHistory (Template Hook)", () => {
 
   describe("error handling", () => {
     it("should set error for invalid (too-short) public key", async () => {
-      mockHorizonCall.mockRejectedValue(new Error("Invalid Stellar public key format"));
+      mockHorizonCall.mockRejectedValue(
+        new Error("Invalid Stellar public key format"),
+      );
 
-      const { result } = renderHook(() => useTransactionHistory(INVALID_KEY_SHORT));
+      const { result } = renderHook(() =>
+        useTransactionHistory(INVALID_KEY_SHORT),
+      );
       await flush();
 
       expect(result.current.error).toBeTruthy();
-      expect(result.current.error?.message).toContain("Invalid Stellar public key");
+      expect(result.current.error?.message).toContain(
+        "Invalid Stellar public key",
+      );
     });
 
     it("should set error for public key not starting with G", async () => {
-      mockHorizonCall.mockRejectedValue(new Error("Invalid Stellar public key format"));
+      mockHorizonCall.mockRejectedValue(
+        new Error("Invalid Stellar public key format"),
+      );
 
-      const { result } = renderHook(() => useTransactionHistory(INVALID_KEY_NO_G));
+      const { result } = renderHook(() =>
+        useTransactionHistory(INVALID_KEY_NO_G),
+      );
       await flush();
 
       expect(result.current.error).toBeTruthy();
-      expect(result.current.error?.message).toContain("Invalid Stellar public key");
+      expect(result.current.error?.message).toContain(
+        "Invalid Stellar public key",
+      );
     });
 
     it("should set error on network failure", async () => {
@@ -337,7 +331,9 @@ describe("useTransactionHistory (Template Hook)", () => {
         }),
       );
 
-      const { result } = renderHook(() => useTransactionHistory(VALID_PUBLIC_KEY));
+      const { result } = renderHook(() =>
+        useTransactionHistory(VALID_PUBLIC_KEY),
+      );
       await flush();
 
       expect(result.current.error).toBeTruthy();
@@ -346,7 +342,9 @@ describe("useTransactionHistory (Template Hook)", () => {
 
     it("should preserve previous items when an error occurs on fetchNextPage", async () => {
       // Successful first page
-      mockHorizonCall.mockResolvedValueOnce(makeResponse(makePage(0, PAGE_SIZE)));
+      mockHorizonCall.mockResolvedValueOnce(
+        makeResponse(makePage(0, PAGE_SIZE)),
+      );
 
       const { result } = renderHook(() =>
         useTransactionHistory(VALID_PUBLIC_KEY, { pageSize: PAGE_SIZE }),
@@ -377,7 +375,9 @@ describe("useTransactionHistory (Template Hook)", () => {
       });
       mockHorizonCall.mockRejectedValue(notFoundError);
 
-      const { result } = renderHook(() => useTransactionHistory(VALID_PUBLIC_KEY));
+      const { result } = renderHook(() =>
+        useTransactionHistory(VALID_PUBLIC_KEY),
+      );
       await flush();
 
       expect(result.current.items).toHaveLength(0);
@@ -426,7 +426,9 @@ describe("useTransactionHistory (Template Hook)", () => {
   describe("refresh", () => {
     it("should reset items and fetch from the beginning", async () => {
       // Initial fetch
-      mockHorizonCall.mockResolvedValueOnce(makeResponse(makePage(0, PAGE_SIZE)));
+      mockHorizonCall.mockResolvedValueOnce(
+        makeResponse(makePage(0, PAGE_SIZE)),
+      );
 
       const { result } = renderHook(() =>
         useTransactionHistory(VALID_PUBLIC_KEY, { pageSize: PAGE_SIZE }),
@@ -435,7 +437,9 @@ describe("useTransactionHistory (Template Hook)", () => {
       expect(result.current.items).toHaveLength(PAGE_SIZE);
 
       // Load second page
-      mockHorizonCall.mockResolvedValueOnce(makeResponse(makePage(10, PAGE_SIZE)));
+      mockHorizonCall.mockResolvedValueOnce(
+        makeResponse(makePage(10, PAGE_SIZE)),
+      );
       await act(async () => {
         await result.current.fetchNextPage();
       });

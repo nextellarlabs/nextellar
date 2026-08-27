@@ -1,8 +1,8 @@
 /**
  * @jest-environment jsdom
  */
-import { jest } from '@jest/globals';
-import { renderHook, act } from '@testing-library/react';
+import { jest } from "@jest/globals";
+import { act, renderHook, SAMPLE_BALANCES, USDC_ISSUER } from "../helpers";
 
 // Virtual mock for Stellar SDK since it's not a dependency of the main CLI.
 // This repo runs Jest under real ESM (--experimental-vm-modules), so the
@@ -11,7 +11,7 @@ import { renderHook, act } from '@testing-library/react';
 // ESM-native equivalent. Nothing in this file imports 'react' directly
 // (only @testing-library/react, a separate package), so no react mock is
 // needed.
-await jest.unstable_mockModule('@stellar/stellar-sdk', () => ({
+await jest.unstable_mockModule("@stellar/stellar-sdk", () => ({
   Horizon: {
     Server: jest.fn(),
   },
@@ -28,7 +28,7 @@ type Balance = {
   limit?: string;
 };
 
-describe('useStellarBalances (Template Hook)', () => {
+describe("useStellarBalances (Template Hook)", () => {
   let mockServer: any;
   let mockAccountsCall: jest.Mock;
   let consoleErrorSpy: jest.SpyInstance;
@@ -40,7 +40,7 @@ describe('useStellarBalances (Template Hook)', () => {
     jest.useFakeTimers();
 
     // Mock console.error to avoid test noise
-    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
 
     // Create mock server with chained methods
     mockAccountsCall = jest.fn();
@@ -54,19 +54,7 @@ describe('useStellarBalances (Template Hook)', () => {
 
     // Setup the mock hook to return the expected API
     mockUseStellarBalances.mockReturnValue({
-      balances: [
-        {
-          asset_type: 'native',
-          balance: '100.0000000',
-        },
-        {
-          asset_type: 'credit_alphanum4',
-          asset_code: 'USDC',
-          asset_issuer: 'GCKFBEIYTKP2NM3BZXBIQXSJBEM3NTWGCAPXFQBHGTHZOO',
-          balance: '250.5000000',
-          limit: '922337203685.4775807',
-        }
-      ],
+      balances: SAMPLE_BALANCES,
       loading: false,
       error: null,
       refresh: jest.fn(),
@@ -74,7 +62,7 @@ describe('useStellarBalances (Template Hook)', () => {
     });
 
     // Setup mocked SDK components
-    const StellarSDK = await import('@stellar/stellar-sdk');
+    const StellarSDK = await import("@stellar/stellar-sdk");
     StellarSDK.Horizon.Server.mockImplementation(() => mockServer);
   });
 
@@ -83,37 +71,37 @@ describe('useStellarBalances (Template Hook)', () => {
     consoleErrorSpy.mockRestore();
   });
 
-  it('should return balances state with proper structure', () => {
+  it("should return balances state with proper structure", () => {
     const { result } = renderHook(() => mockUseStellarBalances());
 
     expect(Array.isArray(result.current.balances)).toBe(true);
-    expect(typeof result.current.loading).toBe('boolean');
-    expect(typeof result.current.refresh).toBe('function');
-    expect(typeof result.current.stopPolling).toBe('function');
+    expect(typeof result.current.loading).toBe("boolean");
+    expect(typeof result.current.refresh).toBe("function");
+    expect(typeof result.current.stopPolling).toBe("function");
   });
 
-  it('should return expected balance data', () => {
+  it("should return expected balance data", () => {
     const { result } = renderHook(() => mockUseStellarBalances());
 
     const balances = result.current.balances;
     expect(balances).toHaveLength(2);
 
     // Check native XLM balance
-    const xlmBalance = balances.find((b: Balance) => b.asset_type === 'native');
+    const xlmBalance = balances.find((b: Balance) => b.asset_type === "native");
     expect(xlmBalance).toBeDefined();
-    expect(xlmBalance?.balance).toBe('100.0000000');
+    expect(xlmBalance?.balance).toBe("100.0000000");
 
     // Check USDC balance
-    const usdcBalance = balances.find((b: Balance) => b.asset_code === 'USDC');
+    const usdcBalance = balances.find((b: Balance) => b.asset_code === "USDC");
     expect(usdcBalance).toBeDefined();
-    expect(usdcBalance?.asset_issuer).toBe('GCKFBEIYTKP2NM3BZXBIQXSJBEM3NTWGCAPXFQBHGTHZOO');
-    expect(usdcBalance?.balance).toBe('250.5000000');
-    expect(usdcBalance?.limit).toBe('922337203685.4775807');
+    expect(usdcBalance?.asset_issuer).toBe(USDC_ISSUER);
+    expect(usdcBalance?.balance).toBe("250.5000000");
+    expect(usdcBalance?.limit).toBe("922337203685.4775807");
   });
 
-  it('should handle loading state', () => {
+  it("should handle loading state", () => {
     const mockLoadingState = jest.fn().mockReturnValue({
-      balances: [],
+      balances: [] as typeof SAMPLE_BALANCES,
       loading: true,
       error: null,
       refresh: jest.fn(),
@@ -125,8 +113,8 @@ describe('useStellarBalances (Template Hook)', () => {
     expect(result.current.balances).toHaveLength(0);
   });
 
-  it('should handle error state', () => {
-    const testError = new Error('Network error: Failed to connect to Horizon');
+  it("should handle error state", () => {
+    const testError = new Error("Network error: Failed to connect to Horizon");
     const mockErrorState = jest.fn().mockReturnValue({
       balances: [],
       loading: false,
@@ -140,7 +128,7 @@ describe('useStellarBalances (Template Hook)', () => {
     expect(result.current.loading).toBe(false);
   });
 
-  it('should handle empty balances gracefully', () => {
+  it("should handle empty balances gracefully", () => {
     const mockEmptyState = jest.fn().mockReturnValue({
       balances: [],
       loading: false,
@@ -154,7 +142,7 @@ describe('useStellarBalances (Template Hook)', () => {
     expect(result.current.error).toBeNull();
   });
 
-  it('should call refresh function', async () => {
+  it("should call refresh function", async () => {
     const { result } = renderHook(() => mockUseStellarBalances());
 
     await act(async () => {
@@ -164,7 +152,7 @@ describe('useStellarBalances (Template Hook)', () => {
     expect(result.current.refresh).toHaveBeenCalled();
   });
 
-  it('should call stopPolling function', () => {
+  it("should call stopPolling function", () => {
     const { result } = renderHook(() => mockUseStellarBalances());
 
     act(() => {
@@ -174,17 +162,17 @@ describe('useStellarBalances (Template Hook)', () => {
     expect(result.current.stopPolling).toHaveBeenCalled();
   });
 
-  it('should validate balance structure', () => {
+  it("should validate balance structure", () => {
     const { result } = renderHook(() => mockUseStellarBalances());
 
     const balances = result.current.balances;
     balances.forEach((balance: Balance) => {
-      expect(typeof balance.asset_type).toBe('string');
-      expect(typeof balance.balance).toBe('string');
-      
-      if (balance.asset_type !== 'native') {
-        expect(typeof balance.asset_code).toBe('string');
-        expect(typeof balance.asset_issuer).toBe('string');
+      expect(typeof balance.asset_type).toBe("string");
+      expect(typeof balance.balance).toBe("string");
+
+      if (balance.asset_type !== "native") {
+        expect(typeof balance.asset_code).toBe("string");
+        expect(typeof balance.asset_issuer).toBe("string");
       }
     });
   });
