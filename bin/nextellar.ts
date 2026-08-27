@@ -170,10 +170,11 @@ program
   .command("upgrade")
   .description("Upgrade an existing Nextellar project to the latest template files")
   .option("--dry-run", "Show what would change without applying it", false)
+  .option("--check", "Dry preview with changelog display", false)
   .option("--yes", "Apply changes without prompting", false)
   .action(async (options) => {
     try {
-      await upgrade({ dryRun: options.dryRun, yes: options.yes });
+      await upgrade({ dryRun: options.dryRun, yes: options.yes, check: options.check });
     } catch (err: any) {
       console.error(`\n❌ Error: ${err.message}`);
       await exitWithTelemetry(1);
@@ -186,11 +187,14 @@ program
   .command("deploy")
   .description("Validate and prepare a deployment bundle for Nextellar Cloud")
   .option("--dry-run", "validate and show what would be deployed without bundling")
-  .action(async (cmdOpts: { dryRun?: boolean }) => {
+  .option("--size-threshold <bytes>", "bundle size threshold in bytes (default: 50MB)", "52428800")
+  .action(async (cmdOpts: { dryRun?: boolean; sizeThreshold?: string }) => {
     try {
+      const sizeThreshold = cmdOpts.sizeThreshold ? parseInt(cmdOpts.sizeThreshold, 10) : undefined;
       await runDeploy({
         cwd: process.cwd(),
         dryRun: !!cmdOpts.dryRun,
+        sizeThreshold,
       });
     } catch (err: any) {
       console.error(`\n❌ Error: ${err?.message || err}`);
