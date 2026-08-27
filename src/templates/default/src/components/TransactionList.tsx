@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useWallet } from '../contexts';
 import { useTransactionHistory, type OperationItem } from '../hooks/useTransactionHistory';
+import { SkeletonList } from './Skeleton';
+import EmptyState from './EmptyState';
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -165,28 +167,6 @@ function getStatus(item: OperationItem): { label: string; successful: boolean } 
   return { label: 'Success', successful: true };
 }
 
-// ── Skeleton row ──────────────────────────────────────────────────────────────
-
-function SkeletonRow() {
-  return (
-    <div
-      className="flex items-center gap-4 p-4 animate-pulse"
-      role="status"
-      aria-label="Loading transaction"
-    >
-      <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex-shrink-0" />
-      <div className="flex-1 min-w-0 space-y-2">
-        <div className="h-4 w-28 bg-gray-200 dark:bg-gray-700 rounded" />
-        <div className="h-3 w-20 bg-gray-200 dark:bg-gray-700 rounded" />
-      </div>
-      <div className="flex-shrink-0 text-right space-y-2">
-        <div className="h-4 w-20 bg-gray-200 dark:bg-gray-700 rounded ml-auto" />
-        <div className="h-3 w-14 bg-gray-200 dark:bg-gray-700 rounded ml-auto" />
-      </div>
-    </div>
-  );
-}
-
 // ── TransactionRow ────────────────────────────────────────────────────────────
 
 interface TransactionRowProps {
@@ -310,16 +290,7 @@ export default function TransactionList({
 
   // ── Initial loading state ────────────────────────────────────
   if (loading && items.length === 0) {
-    return (
-      <div className="w-full" role="status" aria-label="Loading transaction history">
-        <div className="divide-y divide-gray-100 dark:divide-gray-800">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <SkeletonRow key={i} />
-          ))}
-        </div>
-        <span className="sr-only">Loading transaction history...</span>
-      </div>
-    );
+    return <SkeletonList rows={4} label="Loading transaction history" />;
   }
 
   // ── Error state (no items loaded yet) ─────────────────────────
@@ -349,19 +320,15 @@ export default function TransactionList({
   // ── Empty state ───────────────────────────────────────────────
   if (!loading && items.length === 0) {
     return (
-      <div className="w-full p-10 text-center" role="status">
-        <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 mb-4">
-          <Receipt className="w-6 h-6 text-gray-400 dark:text-gray-500" aria-hidden="true" />
-        </div>
-        <p className="text-gray-600 dark:text-gray-400 text-sm font-medium">
-          {connected ? 'No transactions yet' : 'Connect wallet to view transactions'}
-        </p>
-        <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">
-          {connected
+      <EmptyState
+        icon={<Receipt className="w-6 h-6 text-gray-400 dark:text-gray-500" aria-hidden="true" />}
+        title={connected ? 'No transactions yet' : 'Connect wallet to view transactions'}
+        description={
+          connected
             ? 'Your transaction history will appear here'
-            : 'Your transactions will appear once your wallet is connected'}
-        </p>
-      </div>
+            : 'Your transactions will appear once your wallet is connected'
+        }
+      />
     );
   }
 

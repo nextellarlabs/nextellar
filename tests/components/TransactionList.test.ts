@@ -261,8 +261,18 @@ describe('TransactionList Component', () => {
 
       render(React.createElement(TransactionList));
 
-      const skeletons = screen.getAllByLabelText('Loading transaction');
-      expect(skeletons).toHaveLength(4);
+      // The list of rows is now a single labeled status region (via the
+      // shared SkeletonList component) rather than 4 individually-labeled
+      // rows, so a screen reader announces the loading state once instead
+      // of 4 redundant times.
+      expect(
+        screen.getByRole('status', { name: 'Loading transaction history' }),
+      ).toBeInTheDocument();
+      const skeletons = screen
+        .getByRole('status', { name: 'Loading transaction history' })
+        .querySelectorAll('.animate-pulse');
+      // Each row renders 5 pulsing blocks (avatar + 2 lines + 2 lines).
+      expect(skeletons).toHaveLength(4 * 5);
     });
   });
 
