@@ -6,7 +6,7 @@ import { trackScaffoldEvent } from "./telemetry.js";
 import { fileURLToPath } from "url";
 import { confirm } from "@clack/prompts";
 import { validateHorizonUrl, validateSorobanUrl } from "./validate.js";
-import { runPreflight, setPreflightDisabledForTest } from "./preflight.js";
+import { runPreflight } from "./preflight.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -46,9 +46,11 @@ export async function scaffold(options: ScaffoldOptions) {
     defaults,
   } = options;
 
-  // Preflight toolchain check (#908): fail fast with guidance when the
-  // local Node.js/npm toolchain is too old, instead of crashing mid-install.
-  const preflight = await runPreflight();
+  // Preflight toolchain check (#908): fail fast with guidance when the local
+  // Node.js toolchain is too old, instead of crashing mid-install. npm is only
+  // required when we will actually install, so skip that check for
+  // --skip-install / offline scaffolding.
+  const preflight = await runPreflight(undefined, 20, !!skipInstall);
   if (!preflight.ok) {
     for (const failure of preflight.failures) {
       console.error(pc.red(`✖ ${failure}`));

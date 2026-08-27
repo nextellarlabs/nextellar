@@ -1,7 +1,4 @@
-// Copyright (c) 2026 StellarDevTools
-// SPDX-License-Identifier: MIT
-
-//! Preflight toolchain checks for scaffold (#908).
+// Preflight toolchain checks for scaffold (#908).
 //!
 //! Fails fast with actionable guidance when the local Node.js/npm toolchain
 //! is too old to run the scaffolded project, instead of crashing mid-install.
@@ -95,6 +92,7 @@ let preflightDisabled = false;
 export async function runPreflight(
   npmRunner?: NpmRunner,
   minNodeMajor = 20,
+  skipNpm = false,
 ): Promise<PreflightResult> {
   if (preflightDisabled) return { ok: true, failures: [] };
   const effectiveRunner = npmRunner ?? npmRunnerOverride;
@@ -103,8 +101,12 @@ export async function runPreflight(
   const nodeCheck = checkNodeVersion(minNodeMajor);
   if (!nodeCheck.ok) failures.push(`${nodeCheck.detail}. ${nodeCheck.fix}`);
 
-  const npmCheck = await checkNpmAvailable(effectiveRunner);
-  if (!npmCheck.ok) failures.push(`${npmCheck.detail}. ${npmCheck.fix}`);
+  // npm is only needed for the install step; skip the check when the caller
+  // opts out of install (e.g. --skip-install / offline scaffolding).
+  if (!skipNpm) {
+    const npmCheck = await checkNpmAvailable(effectiveRunner);
+    if (!npmCheck.ok) failures.push(`${npmCheck.detail}. ${npmCheck.fix}`);
+  }
 
   return { ok: failures.length === 0, failures };
 }
