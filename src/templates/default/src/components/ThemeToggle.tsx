@@ -43,7 +43,7 @@ export default function ThemeToggle() {
             className={`inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors ${
               selected
                 ? 'bg-black text-white dark:bg-white dark:text-black'
-                : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/10'
+                : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/10'
             }`}
           >
             <Icon className="w-4 h-4" aria-hidden="true" />

@@ -73,6 +73,8 @@ export default function Home() {
         )}
       </div>
 
+      <div className="absolute inset-0 bg-white/75 dark:bg-black/75" aria-hidden="true" />
+
       {/* Content */}
       <div className="relative z-10 min-h-screen flex flex-col">
         {/* Header */}
