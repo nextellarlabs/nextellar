@@ -28,6 +28,54 @@ describe('nextellar CLI', () => {
     expect(await fs.pathExists(tmpDir)).toBe(true);
   }, 30000);
 
+  describe('--yes / --defaults non-interactive flag (#948)', () => {
+    it('--yes scaffolds without prompting, same as --defaults', async () => {
+      const { exitCode, stdout } = await execa('node', [
+        cli,
+        tmpDir,
+        '--typescript',
+        '--yes',
+        '--skip-install'
+      ]);
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('✔ Nextellar scaffold complete!');
+      expect(await fs.pathExists(tmpDir)).toBe(true);
+    }, 30000);
+
+    it('-y short flag works the same as --yes', async () => {
+      const { exitCode, stdout } = await execa('node', [
+        cli,
+        tmpDir,
+        '--typescript',
+        '-y',
+        '--skip-install'
+      ]);
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('✔ Nextellar scaffold complete!');
+      expect(await fs.pathExists(tmpDir)).toBe(true);
+    }, 30000);
+
+    it('errors clearly when the required project-name argument is missing, even with --defaults', async () => {
+      const { exitCode, stderr } = await execa(
+        'node',
+        [cli, '--defaults'],
+        { reject: false }
+      );
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain("missing required argument 'project-name'");
+    }, 15000);
+
+    it('errors clearly when the required project-name argument is missing, even with --yes', async () => {
+      const { exitCode, stderr } = await execa(
+        'node',
+        [cli, '--yes'],
+        { reject: false }
+      );
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain("missing required argument 'project-name'");
+    }, 15000);
+  });
+
   it('should fail fast on --javascript --template minimal before banner and prompts', async () => {
     const { exitCode, stderr, stdout } = await execa('node', [
       cli,

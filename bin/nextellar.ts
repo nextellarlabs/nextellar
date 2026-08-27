@@ -238,6 +238,11 @@ program
   )
   .option("-d, --defaults", "skip prompts and use defaults", false)
   .option(
+    "-y, --yes",
+    "alias for --defaults: skip prompts and use defaults",
+    false,
+  )
+  .option(
     "--skip-install",
     "skip dependency installation after scaffolding",
     false,
@@ -264,6 +269,10 @@ program
   .option("--no-telemetry", "disable telemetry for this invocation");
 
 program.action(async (projectName, options) => {
+  // --yes is an alias for --defaults; normalize once so every downstream
+  // check only has to look at options.defaults.
+  options.defaults = options.defaults || options.yes;
+
   const template = options.template || "default";
   const validTemplates = ["default", "minimal", "defi"];
   const useTs = options.typescript && !options.javascript;
