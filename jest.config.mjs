@@ -1,7 +1,7 @@
 export default {
   testEnvironment: 'node',
   extensionsToTreatAsEsm: ['.ts', '.tsx', '.jsx'],
-  setupFilesAfterEnv: [],
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.jest-dom.ts'],
   transform: {
     '^.+\\.[tj]sx?$': ['babel-jest', {
       presets: [
