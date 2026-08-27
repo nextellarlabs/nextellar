@@ -8,6 +8,7 @@ import { fileURLToPath } from "url";
 interface UpgradeOptions {
   dryRun?: boolean;
   yes?: boolean;
+  check?: boolean;
 }
 
 const STELLAR_PKGS = [
@@ -159,6 +160,26 @@ export async function upgrade(opts: UpgradeOptions = {}) {
   }
   for (const [k, v] of Object.entries(pkgChanges)) console.log(` - package.json: ${k} ${v.from || "(new)"} → ${v.to}`);
   console.log(pc.dim(`Unchanged: ${unchangedCount} file(s)`));
+
+  // Display changelog summary
+  if (changes.length > 0) {
+    console.log("");
+    console.log(pc.cyan("Changelog:"));
+    for (const c of changes) {
+      const isNew = !(await fs.pathExists(c.projectFile));
+      if (isNew) {
+        console.log(` + ${pc.green(c.file)} (new file)`);
+      } else {
+        console.log(` ~ ${pc.yellow(c.file)} (modified)`);
+      }
+    }
+  }
+
+  if (opts.check) {
+    console.log("");
+    console.log(pc.magenta("--check specified; dry preview only. No files were modified."));
+    return;
+  }
 
   if (opts.dryRun) {
     console.log("");

@@ -170,10 +170,11 @@ program
   .command("upgrade")
   .description("Upgrade an existing Nextellar project to the latest template files")
   .option("--dry-run", "Show what would change without applying it", false)
+  .option("--check", "Dry preview with changelog display", false)
   .option("--yes", "Apply changes without prompting", false)
   .action(async (options) => {
     try {
-      await upgrade({ dryRun: options.dryRun, yes: options.yes });
+      await upgrade({ dryRun: options.dryRun, yes: options.yes, check: options.check });
     } catch (err: any) {
       console.error(`\n❌ Error: ${err.message}`);
       await exitWithTelemetry(1);
@@ -186,11 +187,14 @@ program
   .command("deploy")
   .description("Validate and prepare a deployment bundle for Nextellar Cloud")
   .option("--dry-run", "validate and show what would be deployed without bundling")
-  .action(async (cmdOpts: { dryRun?: boolean }) => {
+  .option("--size-threshold <bytes>", "bundle size threshold in bytes (default: 50MB)", "52428800")
+  .action(async (cmdOpts: { dryRun?: boolean; sizeThreshold?: string }) => {
     try {
+      const sizeThreshold = cmdOpts.sizeThreshold ? parseInt(cmdOpts.sizeThreshold, 10) : undefined;
       await runDeploy({
         cwd: process.cwd(),
         dryRun: !!cmdOpts.dryRun,
+        sizeThreshold,
       });
     } catch (err: any) {
       console.error(`\n❌ Error: ${err?.message || err}`);
@@ -234,6 +238,11 @@ program
   )
   .option("-d, --defaults", "skip prompts and use defaults", false)
   .option(
+    "-y, --yes",
+    "alias for --defaults: skip prompts and use defaults",
+    false,
+  )
+  .option(
     "--skip-install",
     "skip dependency installation after scaffolding",
     false,
@@ -260,6 +269,10 @@ program
   .option("--no-telemetry", "disable telemetry for this invocation");
 
 program.action(async (projectName, options) => {
+  // --yes is an alias for --defaults; normalize once so every downstream
+  // check only has to look at options.defaults.
+  options.defaults = options.defaults || options.yes;
+
   const template = options.template || "default";
   const validTemplates = ["default", "minimal", "defi"];
   const useTs = options.typescript && !options.javascript;
