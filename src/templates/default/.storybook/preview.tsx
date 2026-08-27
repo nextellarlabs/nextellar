@@ -1,7 +1,21 @@
 import type { Preview } from "@storybook/react";
+import { withThemeByClassName } from "@storybook/addon-themes";
 import "../src/app/globals.css";
 
 const preview: Preview = {
+  decorators: [
+    withThemeByClassName({
+      themes: {
+        light: "",
+        dark: "dark",
+      },
+      defaultTheme: "light",
+    }),
+    (Story, { globals, args }) => {
+      const theme = globals.theme === "dark" ? "dark" : "light";
+      return <Story args={{ ...args, theme }} />;
+    },
+  ],
   parameters: {
     controls: {
       matchers: {
