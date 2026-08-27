@@ -319,6 +319,26 @@ Added to `package.json`:
 }
 ```
 
+## Secret Scanning
+
+In addition to dependency vulnerabilities, CI scans every push to `main` and every pull request for **accidentally committed secrets** (API keys, private keys, access tokens, etc.) using [TruffleHog](https://github.com/trufflesecurity/trufflehog).
+
+**Workflow:** `.github/workflows/secret-scanning.yml`
+
+**How it works:**
+- On a pull request, only the commits introduced by that PR are scanned (`base` = the PR's base commit, `head` = the PR's head commit) — pre-existing history is not re-flagged on every run.
+- On a direct push to `main`, the pushed commit range is scanned.
+- `--only-verified` restricts findings to secrets TruffleHog has actively verified against the issuing service (e.g. confirmed a live AWS key actually authenticates), which keeps the check low-noise — it will not fail the build on a string that merely *looks* like a key.
+- `--fail` causes the job (and therefore the check) to fail if any verified secret is found, blocking the PR from being merged until it's addressed.
+
+**If the check fails:**
+1. Read the job log for the flagged file, line, and detector type.
+2. **Rotate the credential immediately** at the issuing service — assume it is compromised the moment it was pushed, even if you plan to remove it from history.
+3. Remove the secret from the current commit (amend or a new commit) and, if it was pushed to a shared branch, treat the exposure as already public: rotating the credential is the actual fix, not just deleting the line.
+4. Add the credential to `.env` / your secret manager instead, and confirm `.env*` is covered by `.gitignore`.
+
+**Local prevention:** the pre-commit hook (see [CONTRIBUTING.md](./CONTRIBUTING.md)) does not run a secret scan — it only lints and formats staged files. Avoid staging real credentials at all; use `.env.local` (already gitignored) for anything sensitive during local development.
+
 ## References
 
 - [npm audit documentation](https://docs.npmjs.com/auditing-package-contents-for-security-vulnerabilities)
