@@ -45,6 +45,23 @@ jobs:
       - name: Verify package contents
         run: npm run verify:pack
 
+  e2e-default:
+    name: E2E — default scaffold + next build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run E2E test (default template scaffold → install → next build)
+        run: npm run test:e2e
+        timeout-minutes: 10
+
   pack-guard:
     name: npm pack size guard
     runs-on: ubuntu-latest
