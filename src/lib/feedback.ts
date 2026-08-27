@@ -26,7 +26,15 @@ export async function displaySuccess(
     if (skipInstall) {
       console.log(`  ${packageManager} install`);
     }
-    console.log(`  ${packageManager} run dev\n`);
+    console.log(`  ${packageManager} run dev`);
+    console.log(`\n${pc.bold("Available commands:")}`);
+    console.log(`  ${packageManager} run dev        Start development server`);
+    console.log(`  ${packageManager} run build      Build for production`);
+    console.log(`  ${packageManager} run start      Start production server`);
+    console.log(`  ${packageManager} run lint        Run linter`);
+    console.log(`\n${pc.bold("Deployment:")}`);
+    console.log(`  npx vercel              Deploy to Vercel`);
+    console.log(`  nextellar deploy        Deploy to Nextellar Cloud (coming soon)\n`);
     return;
   }
 
@@ -47,6 +55,17 @@ export async function displaySuccess(
     `  ${pc.dim("──────────────────────────────────────────────────")}\n`
   );
 
+  console.log(`  ${pc.bold("Available commands:")}`);
+  console.log(`  ${pc.cyan(`${packageManager} run dev`)}        Start development server`);
+  console.log(`  ${pc.cyan(`${packageManager} run build`)}      Build for production`);
+  console.log(`  ${pc.cyan(`${packageManager} run start`)}      Start production server`);
+  console.log(`  ${pc.cyan(`${packageManager} run lint`)}        Run linter`);
+  console.log(
+    `  ${pc.dim("──────────────────────────────────────────────────")}\n`
+  );
+
   console.log(`  ${pc.magenta("✦")} ${pc.italic("Deployment:")}`);
+  console.log(`  ${pc.dim("npx vercel")}              Deploy to Vercel`);
+  console.log(`  ${pc.dim("nextellar deploy")}        Deploy to Nextellar Cloud (coming soon)`);
   console.log(`  ${pc.dim("Check out nextellar.dev for more guides.")}\n`);
 }
