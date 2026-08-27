@@ -45,6 +45,27 @@ jobs:
       - name: Verify package contents
         run: npm run verify:pack
 
+  e2e-default:
+    name: E2E — default scaffold + next build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+
+      # Scope to the default-template E2E only (#858). `npm run test:e2e` runs
+      # the whole tests/e2e suite (default + js + templates) — each a real npm
+      # install + next build — which won't fit in one PR job. Run jest against
+      # just the default test, with the same env the test:e2e script sets.
+      - name: Run E2E test (default template scaffold → install → next build)
+        run: NEXTELLAR_E2E=1 NODE_OPTIONS="--experimental-vm-modules --no-warnings" npx jest tests/e2e/scaffold-default.e2e.test.ts
+        timeout-minutes: 15
+
   pack-guard:
     name: npm pack size guard
     runs-on: ubuntu-latest
