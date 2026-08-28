@@ -13,8 +13,19 @@ const defaultRetval = xdr.ScVal.scvString("ok").toXDR("base64");
 const customAccountHandler = http.get(
   "https://horizon-testnet.stellar.org/accounts/:accountId",
   ({ params }) => {
+    const accountId = Array.isArray(params.accountId)
+      ? params.accountId[0]
+      : params.accountId;
+
+    if (!accountId) {
+      return HttpResponse.json(
+        { status: 400, title: "Bad Request", detail: "Account ID is required" },
+        { status: 400 }
+      );
+    }
+
     // Return 404 for specific account IDs (for testing unfunded accounts)
-    if (params.accountId === "UNFUNDED_ACCOUNT_ID") {
+    if (accountId === "UNFUNDED_ACCOUNT_ID") {
       return HttpResponse.json(
         {
           status: 404,
@@ -26,7 +37,7 @@ const customAccountHandler = http.get(
     }
 
     // Use the helper function from horizon-handlers to create mock account
-    const account = createMockAccount(params.accountId);
+    const account = createMockAccount(accountId);
     return HttpResponse.json(account, { status: 200 });
   }
 );
