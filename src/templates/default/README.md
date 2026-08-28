@@ -123,6 +123,45 @@ If you don't need component previews and want to reduce the `node_modules` size,
 - Implement proper external wallet signing
 - Add error handling for wallet connection failures
 
+## Optional: i18n
+
+This template ships with i18n scaffolding (`src/contexts/I18nProvider.tsx`) and one example locale (`src/locales/en.ts`), but it's **not wired in by default** — opt in only if your app needs it.
+
+To enable it, wrap your app layout:
+
+```tsx
+// src/app/layout.tsx
+import { I18nProvider } from "@/contexts";
+
+<I18nProvider>
+  <YourApp />
+</I18nProvider>
+```
+
+Then read messages with the `useTranslation` hook:
+
+```tsx
+import { useTranslation } from "@/contexts";
+
+function Greeting() {
+  const { t, locale, setLocale } = useTranslation();
+  return <h1>{t('home.title')}</h1>;
+}
+```
+
+`t()` resolves a dot-path into the active locale's messages and substitutes any `{token}` placeholders you pass as the second argument (e.g. `t('wallet.connected', { address })`).
+
+**Adding a locale:** copy `src/locales/en.ts`, translate every value, keep every key, then register it in `I18nProvider.tsx`'s `locales` map:
+
+```ts
+// src/contexts/I18nProvider.tsx
+import { fr } from '../locales/fr';
+
+export const locales = { en, fr } as const;
+```
+
+The chosen locale persists across sessions the same way the theme choice does.
+
 ## Getting Started
 
 First, run the development server:
