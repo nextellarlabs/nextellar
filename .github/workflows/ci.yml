@@ -23,6 +23,28 @@ jobs:
 
       - run: npm run format:check
 
+  coverage-gate:
+    name: Coverage threshold gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+
+      # jest.config.mjs's coverageThreshold fails this step (non-zero exit)
+      # if coverage drops below the configured floor (#936). Unlike
+      # dependencies.yml's `npm test -- --coverage` (continue-on-error:
+      # true, only runs on package.json/package-lock.json changes), this
+      # runs on every PR and actually gates the merge. Distinct from the
+      # `coverage` job below, which only posts a PR comment and does not
+      # block the merge on its own.
+      - run: npm test -- --coverage
+
   package:
     name: Build and verify package
     runs-on: ubuntu-latest
