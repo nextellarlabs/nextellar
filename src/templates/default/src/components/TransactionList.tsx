@@ -121,7 +121,7 @@ function formatAmount(amount?: string): string {
 }
 
 function getAssetLabel(item: OperationItem): string {
-  const op = item as Record<string, unknown>;
+  const op = item as unknown as Record<string, unknown>;
   if (op.asset_type === 'native') return 'XLM';
   if (typeof op.asset_code === 'string') return op.asset_code;
   return 'XLM';
@@ -133,7 +133,7 @@ function getCounterparty(
   item: OperationItem,
   walletAddress: string,
 ): { address: string | null; isReceived: boolean } {
-  const op = item as Record<string, unknown>;
+  const op = item as unknown as Record<string, unknown>;
 
   // Payment operations have explicit from/to
   if (typeof op.from === 'string' && typeof op.to === 'string') {
@@ -156,7 +156,7 @@ function getCounterparty(
 const TRANSACTION_SUCCESSFUL = 'transaction_successful' as const;
 
 function getStatus(item: OperationItem): { label: string; successful: boolean } {
-  const op = item as Record<string, unknown>;
+  const op = item as unknown as Record<string, unknown>;
   if (typeof op[TRANSACTION_SUCCESSFUL] === 'boolean') {
     return {
       label: op[TRANSACTION_SUCCESSFUL] ? 'Success' : 'Failed',
@@ -177,7 +177,7 @@ interface TransactionRowProps {
 function TransactionRow({ item, walletAddress }: TransactionRowProps) {
   const { address: counterparty, isReceived } = getCounterparty(item, walletAddress);
   const status = getStatus(item);
-  const op = item as Record<string, unknown>;
+  const op = item as unknown as Record<string, unknown>;
   const hasAmount = typeof op.amount === 'string' && op.amount !== '';
 
   return (

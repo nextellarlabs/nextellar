@@ -20,6 +20,7 @@
     "generate:bindings": "ts-node bin/generate-soroban-bindings.ts",
     "clean": "rimraf dist",
     "verify:pack": "node scripts/verify-pack-contents.mjs",
+    "analyze:bundles": "node scripts/analyze-template-bundles.mjs",
     "prepublishOnly": "npm run clean && npm test && npm run build",
     "prepare": "husky"
   },
