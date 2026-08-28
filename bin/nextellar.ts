@@ -249,7 +249,7 @@ program
   )
   .option(
     "--package-manager <manager>",
-    "choose package manager (npm, yarn, pnpm)",
+    "choose package manager (npm, yarn, pnpm, bun)",
   )
   .option(
     "-c, --with-contracts",
@@ -259,6 +259,15 @@ program
   .option(
     "--force",
     "overwrite existing directory",
+    false,
+  )
+  .option(
+    "--no-git",
+    "skip initializing a git repository in the new project (defaults to on)",
+  )
+  .option(
+    "--git-init",
+    "explicitly initialize a git repository in the new project",
     false,
   )
   .option(
@@ -351,7 +360,7 @@ program.action(async (projectName, options) => {
   let finalWallets: string[] = walletsFlagProvided
     ? splitWallets(options.wallets)
     : [];
-  let finalPackageManager: "npm" | "yarn" | "pnpm" | undefined = options
+  let finalPackageManager: "npm" | "yarn" | "pnpm" | "bun" | undefined = options
     .packageManager;
   let finalSkipInstall: boolean = options.skipInstall;
 
@@ -423,6 +432,7 @@ program.action(async (projectName, options) => {
       telemetryEnabled: options.telemetry,
       cliVersion: pkg.version,
       force: options.force,
+      git: options.git !== false,
     });
 
     const pkgManager = detectPackageManager(

@@ -23,6 +23,7 @@ describe('install utilities', () => {
     it('returns explicit package manager when provided', () => {
       expect(detectPackageManager('/test', 'yarn')).toBe('yarn');
       expect(detectPackageManager('/test', 'pnpm')).toBe('pnpm');
+      expect(detectPackageManager('/test', 'bun')).toBe('bun');
     });
 
     it('detects from npm_config_user_agent', () => {
@@ -31,6 +32,31 @@ describe('install utilities', () => {
 
       process.env.npm_config_user_agent = 'pnpm/6.0.0';
       expect(detectPackageManager('/test')).toBe('pnpm');
+
+      process.env.npm_config_user_agent = 'bun/1.0.0';
+      expect(detectPackageManager('/test')).toBe('bun');
+    });
+
+    it('detects from lockfiles when present', async () => {
+      const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'nextellar-lock-'));
+      try {
+        await fs.writeFile(path.join(dir, 'bun.lockb'), '');
+        expect(detectPackageManager(dir)).toBe('bun');
+        await fs.remove(path.join(dir, 'bun.lockb'));
+
+        await fs.writeFile(path.join(dir, 'pnpm-lock.yaml'), '');
+        expect(detectPackageManager(dir)).toBe('pnpm');
+        await fs.remove(path.join(dir, 'pnpm-lock.yaml'));
+
+        await fs.writeFile(path.join(dir, 'yarn.lock'), '');
+        expect(detectPackageManager(dir)).toBe('yarn');
+        await fs.remove(path.join(dir, 'yarn.lock'));
+
+        await fs.writeFile(path.join(dir, 'package-lock.json'), '{}');
+        expect(detectPackageManager(dir)).toBe('npm');
+      } finally {
+        await fs.remove(dir);
+      }
     });
 
     it('defaults to npm when no lockfiles exist', () => {
@@ -43,6 +69,7 @@ describe('install utilities', () => {
       expect(getInstallCommand('npm')).toEqual(['npm', ['install', '--no-audit', '--no-fund']]);
       expect(getInstallCommand('yarn')).toEqual(['yarn', ['install', '--non-interactive']]);
       expect(getInstallCommand('pnpm')).toEqual(['pnpm', ['install', '--no-frozen-lockfile']]);
+      expect(getInstallCommand('bun')).toEqual(['bun', ['install']]);
     });
   });
 
