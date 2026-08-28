@@ -33,6 +33,9 @@ interface WalletConnectButtonProps {
 export default function WalletConnectButton({ theme = 'light' }: WalletConnectButtonProps) {
   const { connected, connect, disconnect, walletName, accounts } = useWallet();
   const [isLoading, setIsLoading] = useState(false);
+  const actionLabel = connected
+    ? `Disconnect ${walletName ?? 'wallet'}`
+    : 'Connect Stellar wallet';
 
   const handleClick = async () => {
     setIsLoading(true);
@@ -63,12 +66,15 @@ export default function WalletConnectButton({ theme = 'light' }: WalletConnectBu
   return (
     <div className="flex items-center gap-3">
       <button 
+        type="button"
         onClick={handleClick}
         disabled={isLoading}
-        className={`px-8 py-3 font-medium rounded-full transition-colors ${
+        aria-label={isLoading ? `${actionLabel} in progress` : actionLabel}
+        aria-busy={isLoading}
+        className={`px-8 py-3 font-medium rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
           theme === 'light' 
-            ? 'bg-black text-white hover:bg-gray-800' 
-            : 'bg-white text-black hover:bg-gray-200'
+            ? 'bg-black text-white hover:bg-gray-800 focus-visible:ring-gray-900 focus-visible:ring-offset-white' 
+            : 'bg-white text-black hover:bg-gray-200 focus-visible:ring-white focus-visible:ring-offset-gray-950'
         } ${isLoading ? 'opacity-75 cursor-not-allowed' : ''}`}
       >
         <span className="flex items-center gap-2">
