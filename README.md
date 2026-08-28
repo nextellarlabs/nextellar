@@ -105,6 +105,9 @@ Full API reference, guides, and examples live at:
 Telemetry and privacy details:  
 🔗 [docs/telemetry.md](docs/telemetry.md)
 
+Per-template bundle analysis and size budgets:  
+🔗 [docs/bundle-budgets.md](docs/bundle-budgets.md)
+
 ---
 
 ## 🤝 Contributing

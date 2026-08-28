@@ -44,16 +44,16 @@ export default function NetworkSwitcher() {
           <div className="relative">
             <div
               className={`w-2.5 h-2.5 rounded-full ${
-                isTestnet ? "bg-green-500" : "bg-orange-500"
+                isTestnet ? "bg-green-700" : "bg-orange-700"
               }`}
             />
             <div
               className={`absolute inset-0 w-2.5 h-2.5 rounded-full animate-ping opacity-75 ${
-                isTestnet ? "bg-green-400" : "bg-orange-400"
+                isTestnet ? "bg-green-600" : "bg-orange-600"
               }`}
             />
           </div>
-          <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 hidden sm:inline">
+          <span className="text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 hidden sm:inline">
             Network
           </span>
         </div>
@@ -71,7 +71,7 @@ export default function NetworkSwitcher() {
         </select>
 
         <svg
-          className="w-4 h-4 text-gray-400 dark:text-gray-500 pointer-events-none -ml-1"
+          className="w-4 h-4 text-gray-600 dark:text-gray-300 pointer-events-none -ml-1"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"

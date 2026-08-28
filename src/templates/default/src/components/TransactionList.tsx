@@ -121,7 +121,7 @@ function formatAmount(amount?: string): string {
 }
 
 function getAssetLabel(item: OperationItem): string {
-  const op = item as Record<string, unknown>;
+  const op = item as unknown as Record<string, unknown>;
   if (op.asset_type === 'native') return 'XLM';
   if (typeof op.asset_code === 'string') return op.asset_code;
   return 'XLM';
@@ -133,7 +133,7 @@ function getCounterparty(
   item: OperationItem,
   walletAddress: string,
 ): { address: string | null; isReceived: boolean } {
-  const op = item as Record<string, unknown>;
+  const op = item as unknown as Record<string, unknown>;
 
   // Payment operations have explicit from/to
   if (typeof op.from === 'string' && typeof op.to === 'string') {
@@ -156,7 +156,7 @@ function getCounterparty(
 const TRANSACTION_SUCCESSFUL = 'transaction_successful' as const;
 
 function getStatus(item: OperationItem): { label: string; successful: boolean } {
-  const op = item as Record<string, unknown>;
+  const op = item as unknown as Record<string, unknown>;
   if (typeof op[TRANSACTION_SUCCESSFUL] === 'boolean') {
     return {
       label: op[TRANSACTION_SUCCESSFUL] ? 'Success' : 'Failed',
@@ -177,7 +177,7 @@ interface TransactionRowProps {
 function TransactionRow({ item, walletAddress }: TransactionRowProps) {
   const { address: counterparty, isReceived } = getCounterparty(item, walletAddress);
   const status = getStatus(item);
-  const op = item as Record<string, unknown>;
+  const op = item as unknown as Record<string, unknown>;
   const hasAmount = typeof op.amount === 'string' && op.amount !== '';
 
   return (
@@ -210,7 +210,7 @@ function TransactionRow({ item, walletAddress }: TransactionRowProps) {
             </span>
           )}
         </div>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 font-mono truncate">
+        <p className="text-xs text-gray-600 dark:text-gray-300 mt-0.5 font-mono truncate">
           {truncateAddress(counterparty)}
         </p>
       </div>
@@ -226,20 +226,20 @@ function TransactionRow({ item, walletAddress }: TransactionRowProps) {
             {isReceived ? '+' : '-'}
             {formatAmount(op.amount as string)}
             {' '}
-            <span className="font-normal text-gray-500 dark:text-gray-400">
+            <span className="font-normal text-gray-500 dark:text-gray-300">
               {getAssetLabel(item)}
             </span>
           </p>
         ) : (
-          <p className="text-xs text-gray-400 dark:text-gray-500">
+          <p className="text-xs text-gray-600 dark:text-gray-300">
             {formatOperationType(item.type)}
           </p>
         )}
         <div className="flex items-center gap-1 justify-end mt-0.5">
-          <Clock className="w-3 h-3 text-gray-400 dark:text-gray-500" aria-hidden="true" />
+          <Clock className="w-3 h-3 text-gray-600 dark:text-gray-300" aria-hidden="true" />
           <time
             dateTime={item.created_at}
-            className="text-xs text-gray-400 dark:text-gray-500 tabular-nums"
+            className="text-xs text-gray-600 dark:text-gray-300 tabular-nums"
           >
             {relativeTime(item.created_at)}
           </time>
@@ -298,12 +298,12 @@ export default function TransactionList({
     return (
       <div className="w-full p-10 text-center" role="alert">
         <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/20 mb-4">
-          <AlertCircle className="w-6 h-6 text-red-500" aria-hidden="true" />
+          <AlertCircle className="w-6 h-6 text-red-700 dark:text-red-300" aria-hidden="true" />
         </div>
         <p className="text-gray-600 dark:text-gray-400 text-sm font-medium">
           Failed to load transactions
         </p>
-        <p className="text-gray-400 dark:text-gray-500 text-xs mt-1 max-w-xs mx-auto">
+        <p className="text-gray-600 dark:text-gray-300 text-xs mt-1 max-w-xs mx-auto">
           {error.message || 'An unexpected error occurred.'}
         </p>
         <button
@@ -321,7 +321,7 @@ export default function TransactionList({
   if (!loading && items.length === 0) {
     return (
       <EmptyState
-        icon={<Receipt className="w-6 h-6 text-gray-400 dark:text-gray-500" aria-hidden="true" />}
+        icon={<Receipt className="w-6 h-6 text-gray-600 dark:text-gray-300" aria-hidden="true" />}
         title={connected ? 'No transactions yet' : 'Connect wallet to view transactions'}
         description={
           connected
@@ -341,7 +341,7 @@ export default function TransactionList({
           className="flex items-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-900/10 border-b border-red-100 dark:border-red-900/20"
           role="alert"
         >
-          <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" aria-hidden="true" />
+          <AlertCircle className="w-4 h-4 text-red-700 dark:text-red-300 flex-shrink-0" aria-hidden="true" />
           <p className="text-xs text-red-600 dark:text-red-400 flex-1">
             {error.message || 'Failed to load more transactions.'}
           </p>
