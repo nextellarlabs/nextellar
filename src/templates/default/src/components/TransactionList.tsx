@@ -5,6 +5,7 @@ import { useWallet } from '../contexts';
 import { useTransactionHistory, type OperationItem } from '../hooks/useTransactionHistory';
 import { SkeletonList } from './Skeleton';
 import EmptyState from './EmptyState';
+import CopyButton from './CopyButton';
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -210,9 +211,12 @@ function TransactionRow({ item, walletAddress }: TransactionRowProps) {
             </span>
           )}
         </div>
-        <p className="text-xs text-gray-600 dark:text-gray-300 mt-0.5 font-mono truncate">
-          {truncateAddress(counterparty)}
-        </p>
+        <div className="flex items-center gap-1 mt-0.5">
+          <p className="text-xs text-gray-600 dark:text-gray-300 font-mono truncate">
+            {truncateAddress(counterparty)}
+          </p>
+          {counterparty && <CopyButton value={counterparty} label="address" size={12} />}
+        </div>
       </div>
 
       {/* Amount and time */}
