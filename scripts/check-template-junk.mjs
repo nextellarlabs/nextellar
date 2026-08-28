@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 
 const forbidden = [
   "node_modules",
@@ -10,15 +10,16 @@ const forbidden = [
 ];
 
 try {
-  const files = execSync("git ls-files 'src/templates/**'", {
+  const files = execFileSync("git", ["ls-files", "src/templates"], {
     encoding: "utf8",
   });
 
   const offenders = files
     .split("\n")
+    .map((f) => f.trim())
     .filter(Boolean)
     .filter((file) =>
-      forbidden.some((dir) => file.includes(`/${dir}/`))
+      forbidden.some((dir) => file.includes(`/${dir}/`) || file.includes(`\\${dir}\\`))
     );
 
   if (offenders.length > 0) {
