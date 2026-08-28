@@ -38,6 +38,9 @@ test-*/
 tmp-test-*/
 *.log
 
+# Jest coverage output (see .github/workflows/ci.yml coverage job)
+/coverage/
+
 # Nextellar specific
 # Ignore .nextellar/ in project roots (scaffolded output), but keep the
 # template versions that are part of the CLI source and must be shipped.

@@ -9,6 +9,7 @@
     "build": "npx tsc -p tsconfig.build.json",
     "start": "ts-node bin/nextellar.ts",
     "test": "cross-env NODE_OPTIONS=\"--experimental-vm-modules --no-warnings\" jest",
+    "test:coverage": "cross-env NODE_OPTIONS=\"--experimental-vm-modules --no-warnings\" jest --coverage --json --testLocationInResults --outputFile=coverage/report.json",
     "test:e2e": "cross-env NEXTELLAR_E2E=1 NODE_OPTIONS=\"--experimental-vm-modules --no-warnings\" jest tests/e2e",
     "lint": "eslint bin src/lib tests",
     "format:check": "prettier --check \"bin/**/*.ts\" \"src/lib/**/*.ts\" \"tests/**/*.{ts,tsx}\" \"*.{json,mjs}\" \"eslint.config.mjs\" \".github/**/*.yml\"",
@@ -19,6 +20,7 @@
     "generate:bindings": "ts-node bin/generate-soroban-bindings.ts",
     "clean": "rimraf dist",
     "verify:pack": "node scripts/verify-pack-contents.mjs",
+    "analyze:bundles": "node scripts/analyze-template-bundles.mjs",
     "prepublishOnly": "npm run clean && npm test && npm run build",
     "prepare": "husky"
   },

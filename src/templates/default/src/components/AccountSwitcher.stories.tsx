@@ -8,6 +8,7 @@ const baseWalletContext = {
   publicKey: 'GABC1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12',
   walletName: 'Freighter',
   balances: [],
+  accounts: [],
   connect: async () => {},
   disconnect: async () => {},
   refreshBalances: async () => {},

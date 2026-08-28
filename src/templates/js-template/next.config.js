@@ -52,6 +52,7 @@ const nextConfig = {
         headers: SECURITY_HEADERS,
       },
     ];
+  },
   images: {
     // Serve modern, smaller formats to browsers that support them —
     // next/image negotiates via Accept headers and falls back to the
