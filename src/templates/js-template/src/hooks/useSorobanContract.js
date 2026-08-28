@@ -1,5 +1,18 @@
 import { useState, useCallback, useMemo } from "react";
-import { rpc, TransactionBuilder, Networks, Keypair, xdr, Address, Contract, Account, } from "@stellar/stellar-sdk";
+import { rpc, TransactionBuilder, Networks, Keypair, xdr, Address, Contract, Account, StrKey, } from "@stellar/stellar-sdk";
+
+/**
+ * Validates that a string is a well-formed Soroban contract ID
+ * (a StrKey-encoded contract address, e.g. "C...", 56 characters).
+ * @param {string} contractId - The contract ID string to validate
+ * @returns {boolean} true if the contract ID is valid, false otherwise
+ */
+export function isValidContractId(contractId) {
+    if (!contractId || typeof contractId !== "string" || contractId.trim().length === 0) {
+        return false;
+    }
+    return StrKey.isValidContract(contractId.trim());
+}
 /**
  * Custom React hook for interacting with Soroban smart contracts
  *
@@ -46,6 +59,9 @@ import { rpc, TransactionBuilder, Networks, Keypair, xdr, Address, Contract, Acc
  */
 export function useSorobanContract(opts) {
     const { contractId, sorobanRpc = "https://soroban-testnet.stellar.org", network = "TESTNET", } = opts;
+    if (!isValidContractId(contractId)) {
+        throw new Error(`Invalid Soroban contract ID: "${contractId}". Must be a valid StrKey-encoded contract address (56 characters, starting with "C"). Did you forget to set your contract ID in .env.local?`);
+    }
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     // Get network passphrase based on network selection

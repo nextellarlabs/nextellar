@@ -24,6 +24,14 @@ Thank you for considering contributing! We welcome contributions of any size. To
    npm link
    ```
 
+`npm install` also sets up a **pre-commit hook** (via [Husky](https://typicode.github.io/husky/) + [lint-staged](https://github.com/okonet/lint-staged)) that runs ESLint (with `--fix`) and Prettier on the files you've staged, so lint/format issues are caught before they reach CI rather than after. It only checks staged files, so it stays fast — it does not run the full test suite. If a file fails to auto-fix, the commit is blocked with the error printed to the terminal; fix the issue, `git add` the file again, and retry the commit.
+
+To run the same checks manually against the whole repo (e.g. after a rebase, or before opening a PR):
+```bash
+npm run lint
+npm run format:check
+```
+
 ## 3. Create a Branch
 Use descriptive branch names, prefixed by type:
 - `feature/<short-description>`
@@ -48,6 +56,18 @@ npm run build
 ```
 Ensure all checks pass before submitting.
 
+### E2E Tests (Optional but Recommended)
+
+For changes to scaffolding or templates, run the E2E tests to ensure production builds work:
+
+```bash
+npm run test:e2e
+```
+
+E2E tests are **skipped by default** in `npm test` because they take 2-5 minutes. They validate that scaffolded apps install and build successfully.
+
+See `tests/e2e/README.md` for more details.
+
 ## 6. Commit and Push
 - Write clear, concise commit messages.
 - Push your branch:
@@ -63,6 +83,27 @@ Ensure all checks pass before submitting.
 ## 8. Code Review & Merge
 - Address any feedback.
 - Once approved, your PR will be merged and you’ll be credited as a contributor!
+
+## 9. Finding Product Issues to Contribute To
+
+When looking for issues to work on, use GitHub's labeling system to filter for suitable tasks. Common labels include:
+
+- `good first issue` – Ideal for newcomers to the project.
+- `help wanted` – Issues that need additional assistance.
+- `product` – Issues related to product features or improvements.
+
+You can filter issues directly on GitHub:
+
+```text
+is:issue is:open label:"good first issue"
+```
+
+or use the UI:
+1. Navigate to the **Issues** tab of the Nextellar repository.
+2. Click **Labels** and select the desired label(s).
+3. Review the filtered list and pick an issue that matches your interests and skill set.
+
+Make sure to read the issue description and any associated discussion before starting work.
 
 ---
 

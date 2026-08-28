@@ -1,5 +1,10 @@
 # Nextellar
 
+[![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/nextellarlabs/nextellar/ci.yml?branch=main&label=CI&style=flat-square)](https://github.com/nextellarlabs/nextellar/actions/workflows/ci.yml)
+[![Dependency Audit](https://img.shields.io/github/actions/workflow/status/nextellarlabs/nextellar/audit.yml?branch=main&label=Security%20Audit&style=flat-square)](https://github.com/nextellarlabs/nextellar/actions/workflows/audit.yml)
+[![npm Version](https://img.shields.io/npm/v/nextellar.svg?style=flat-square)](https://www.npmjs.com/package/nextellar)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
+
 Nextellar is a one-step CLI toolkit that bootstraps a production-ready Next.js + TypeScript application with built-in Stellar blockchain support. Scaffold a full-stack dApp starter—complete with wallet connection, payment hooks, smart-contract integration, UI components, and best-practice defaults—so you can focus on features, not setup.
 
 ---
@@ -23,6 +28,12 @@ Nextellar is a one-step CLI toolkit that bootstraps a production-ready Next.js +
   - ESLint, Prettier, Jest + React Testing Library
   - Storybook for component previews
   - GitHub Actions CI for linting, testing, and build
+- **🔒 Security First**
+  - Automated dependency auditing (daily)
+  - Strict severity gates (fail on critical/high)
+  - Dependabot auto-updates for security patches
+  - CodeQL static analysis
+  - See [SECURITY.md](SECURITY.md) for details
 
 ---
 
@@ -93,6 +104,9 @@ Full API reference, guides, and examples live at:
 
 Telemetry and privacy details:  
 🔗 [docs/telemetry.md](docs/telemetry.md)
+
+Per-template bundle analysis and size budgets:  
+🔗 [docs/bundle-budgets.md](docs/bundle-budgets.md)
 
 ---
 

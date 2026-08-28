@@ -1,11 +1,13 @@
 import path from "path";
 import fs from "fs-extra";
 import pc from "picocolors";
-import { detectPackageManager, runInstall } from "./install.js";
+import { execa } from "execa";
+import { detectPackageManager, runInstall, type PackageManager } from "./install.js";
 import { trackScaffoldEvent } from "./telemetry.js";
 import { fileURLToPath } from "url";
 import { confirm } from "@clack/prompts";
 import { validateHorizonUrl, validateSorobanUrl } from "./validate.js";
+import { runPreflight } from "./preflight.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,12 +22,13 @@ export interface ScaffoldOptions {
   wallets?: string[];
   defaults?: boolean;
   skipInstall?: boolean;
-  packageManager?: "npm" | "yarn" | "pnpm";
+  packageManager?: PackageManager;
   installTimeout?: number;
   telemetryEnabled?: boolean;
   cliVersion?: string;
   force?: boolean;
   dryRun?: boolean;
+  git?: boolean;
 }
 
 export async function scaffold(options: ScaffoldOptions) {
@@ -45,7 +48,22 @@ export async function scaffold(options: ScaffoldOptions) {
     force,
     defaults,
     dryRun,
+    git,
   } = options;
+
+  // Preflight toolchain check (#908): fail fast with guidance when the local
+  // Node.js toolchain is too old, instead of crashing mid-install. npm is only
+  // required when we will actually install, so skip that check for
+  // --skip-install / offline scaffolding.
+  const preflight = await runPreflight(undefined, 20, !!skipInstall);
+  if (!preflight.ok) {
+    for (const failure of preflight.failures) {
+      console.error(pc.red(`✖ ${failure}`));
+    }
+    throw new Error(
+      "Toolchain check failed. Fix the issues above and re-run scaffold.",
+    );
+  }
 
   const telemetryTemplate = template || "default";
   const telemetryLanguage = useTs ? "typescript" : "javascript";
@@ -55,13 +73,17 @@ export async function scaffold(options: ScaffoldOptions) {
     wallets && wallets.length > 0 ? wallets : ["freighter", "albedo", "lobstr"];
 
   const templateName = template || "default";
-  if (!useTs && templateName !== "default") {
+  const JS_TEMPLATES: Record<string, string> = {
+    default: "js-template",
+    defi: "js-defi",
+  };
+  if (!useTs && !JS_TEMPLATES[templateName]) {
     throw new Error(
-      `Template "${templateName}" is not available for JavaScript yet. Please use the default template with --javascript.`,
+      `Template "${templateName}" is not available for JavaScript yet. Please use the default or defi template with --javascript.`,
     );
   }
 
-  const resolvedTemplateName = useTs ? templateName : "js-template";
+  const resolvedTemplateName = useTs ? templateName : JS_TEMPLATES[templateName];
 
   // Validate custom URL overrides if provided
   if (horizonUrl) {
@@ -179,6 +201,13 @@ export async function scaffold(options: ScaffoldOptions) {
     await fs.remove(targetDir);
   }
 
+  // Tracks whether fs.copy completed, so the catch block below only wipes
+  // targetDir for failures before/during that copy (#673) — once files are
+  // scaffolded, a later install failure must never delete them, or "run
+  // install manually" (the error message we give the user) becomes
+  // impossible: there'd be nothing left to install into.
+  let filesScaffolded = false;
+
   try {
     await fs.copy(templateDir, targetDir, {
       filter: (src) => {
@@ -187,6 +216,7 @@ export async function scaffold(options: ScaffoldOptions) {
       },
       preserveTimestamps: true,
     });
+    filesScaffolded = true;
 
     if (withContracts) {
       const contractsTemplateDir = path.join(
@@ -272,6 +302,7 @@ export async function scaffold(options: ScaffoldOptions) {
 
     const filesToProcess = [
       path.join(targetDir, "package.json"),
+      path.join(targetDir, "package-lock.json"),
       path.join(targetDir, "README.md"),
       path.join(targetDir, "src/contexts/WalletProvider.tsx"),
       path.join(targetDir, "src/contexts/WalletProvider.jsx"),
@@ -299,9 +330,33 @@ export async function scaffold(options: ScaffoldOptions) {
     });
 
     if (!result.success && !skipInstall) {
+      // Files are already on disk at this point (filesScaffolded is true) —
+      // tell the user exactly what to run rather than the old generic
+      // message, which was misleading anyway: the catch block used to
+      // delete targetDir right after this throw, making "run install
+      // manually" impossible (#673).
       throw new Error(
-        `Dependency installation failed. Please run "${result.packageManager} install" manually in "${appName}".`,
+        `Dependency installation failed, but your project files were created.\n` +
+          `Finish setup by running:\n\n` +
+          `  cd ${appName}\n` +
+          `  ${result.packageManager} install\n`,
       );
+    }
+
+    // Initialize a git repository in the newly scaffolded project unless the
+    // user opted out with --no-git (or --git false). Defaults to on, matching
+    // the behavior most users expect from a scaffolding tool.
+    if (git !== false) {
+      try {
+        await execa("git", ["init"], { cwd: targetDir, stdio: "ignore" });
+      } catch (error: any) {
+        console.warn(
+          pc.yellow(
+            `⚠️  Could not initialize git repository (${error?.message || "unknown error"}). ` +
+              `You can run \`git init\` yourself later.`,
+          ),
+        );
+      }
     }
 
     void trackScaffoldEvent(
@@ -321,7 +376,11 @@ export async function scaffold(options: ScaffoldOptions) {
       { noTelemetryFlag: telemetryEnabled === false },
     );
   } catch (error) {
-    if (await fs.pathExists(targetDir)) {
+    // Only clean up when scaffolding didn't get far enough to leave a
+    // usable project behind (#673) — a copy-phase failure leaves nothing
+    // worth keeping, but an install-only failure leaves real, valuable
+    // work that the user was just told how to finish setting up.
+    if (!filesScaffolded && (await fs.pathExists(targetDir))) {
       console.log(pc.yellow(`Cleaning up incomplete project directory "${appName}"...`));
       await fs.remove(targetDir);
     }

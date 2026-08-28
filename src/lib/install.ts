@@ -4,9 +4,11 @@ import fs from "fs-extra";
 import pc from "picocolors";
 import ora from "ora";
 
+export type PackageManager = "npm" | "yarn" | "pnpm" | "bun";
+
 export interface InstallOptions {
   cwd: string;
-  packageManager?: "npm" | "yarn" | "pnpm";
+  packageManager?: PackageManager;
   timeout?: number;
   skipInstall?: boolean;
   captureOutput?: boolean; // For testing
@@ -29,21 +31,24 @@ export interface InstallResult {
 export function detectPackageManager(
   cwd: string,
   packageManager?: string
-): "npm" | "yarn" | "pnpm" {
+): PackageManager {
   // 1. Explicit flag takes precedence
   if (packageManager) {
-    return packageManager as "npm" | "yarn" | "pnpm";
+    return packageManager as PackageManager;
   }
 
   // 2. Check npm_config_user_agent (set by package managers when running scripts)
   const userAgent = process.env.npm_config_user_agent;
   if (userAgent) {
+    if (userAgent.includes("bun")) return "bun";
     if (userAgent.includes("yarn")) return "yarn";
     if (userAgent.includes("pnpm")) return "pnpm";
     if (userAgent.includes("npm")) return "npm";
   }
 
   // 3. Check for lockfiles
+  if (fs.existsSync(path.join(cwd, "bun.lockb"))) return "bun";
+  if (fs.existsSync(path.join(cwd, "bun.lock"))) return "bun";
   if (fs.existsSync(path.join(cwd, "pnpm-lock.yaml"))) return "pnpm";
   if (fs.existsSync(path.join(cwd, "yarn.lock"))) return "yarn";
   if (fs.existsSync(path.join(cwd, "package-lock.json"))) return "npm";
@@ -56,7 +61,7 @@ export function detectPackageManager(
  * Returns the install command and arguments for the given package manager
  */
 export function getInstallCommand(
-  packageManager: "npm" | "yarn" | "pnpm"
+  packageManager: PackageManager
 ): [string, string[]] {
   switch (packageManager) {
     case "npm":
@@ -65,9 +70,48 @@ export function getInstallCommand(
       return ["yarn", ["install", "--non-interactive"]];
     case "pnpm":
       return ["pnpm", ["install", "--no-frozen-lockfile"]];
+    case "bun":
+      return ["bun", ["install"]];
     default:
       return ["npm", ["install", "--no-audit", "--no-fund"]];
   }
+}
+
+/**
+ * Common network/registry failure signatures worth calling out explicitly
+ * rather than leaving the user to decode a raw npm/yarn/pnpm stack trace
+ * (#673). Matched against the install error's message.
+ */
+const NETWORK_ERROR_HINTS: Array<{ pattern: RegExp; hint: string }> = [
+  {
+    pattern: /ENOTFOUND/,
+    hint: "DNS lookup failed — check your internet connection, or that the configured registry URL is correct.",
+  },
+  {
+    pattern: /ETIMEDOUT/,
+    hint: "The request timed out — check your internet connection, or try again on a more stable network.",
+  },
+  {
+    pattern: /EAI_AGAIN/,
+    hint: "Temporary DNS resolution failure — check your internet connection and try again.",
+  },
+  {
+    pattern: /\b403\b|Forbidden/,
+    hint: "Received a 403 Forbidden from the registry — check your registry authentication, or that you're not behind a proxy blocking the request.",
+  },
+  {
+    pattern: /proxy/i,
+    hint: "A proxy may be interfering with the request — check your package manager's proxy configuration (e.g. `npm config get proxy`).",
+  },
+];
+
+/**
+ * Returns a targeted, human hint for a known network/registry failure
+ * pattern in `errorMessage`, or undefined if nothing matched.
+ */
+export function networkErrorHint(errorMessage: string | undefined): string | undefined {
+  if (!errorMessage) return undefined;
+  return NETWORK_ERROR_HINTS.find(({ pattern }) => pattern.test(errorMessage))?.hint;
 }
 
 /**
@@ -124,6 +168,11 @@ export async function runInstall(
     console.error("\n🔧 To resolve this issue:");
     console.error(`   cd ${path.basename(cwd)}`);
     console.error(`   ${command} ${args.join(" ")}`);
+
+    const hint = networkErrorHint(errorMessage);
+    if (hint) {
+      console.error(`\n💡 ${hint}`);
+    }
 
     if (logPath) {
       console.error(

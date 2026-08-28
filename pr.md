@@ -2,10 +2,10 @@
 
 ## Issues closed
 
-- #897 — Add dry-run preview mode to `nextellar scaffold`
-- #898 — Display placeholder substitutions in scaffold plan
-- #899 — List template files before scaffolding
-- #900 — Show contracts overlay files in dry-run output
+- Closes #897 — Add dry-run preview mode to `nextellar scaffold`
+- Closes #898 — Display placeholder substitutions in scaffold plan
+- Closes #899 — List template files before scaffolding
+- Closes #900 — Show contracts overlay files in dry-run output
 
 ---
 

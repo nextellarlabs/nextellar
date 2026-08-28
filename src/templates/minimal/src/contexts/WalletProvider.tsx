@@ -10,9 +10,17 @@ import {
   Memo,
   BASE_FEE
 } from '@stellar/stellar-sdk';
-import { ISupportedWallet } from "@creit.tech/stellar-wallets-kit";
-import { kit } from '../lib/stellar-wallet-kit';
+// `ISupportedWallet` is only imported for its type below; the wallets-kit
+// package itself is loaded lazily (see `loadWalletKit`) so this file never
+// eagerly pulls in `@creit.tech/stellar-wallets-kit`.
+import type { ISupportedWallet } from "@creit.tech/stellar-wallets-kit";
 import { storage } from '../lib/storage';
+
+// `@creit.tech/stellar-wallets-kit` pulls in every wallet connector module
+// (Freighter, Albedo, Lobstr, xBull, Hana). None of that is needed for the
+// initial render, so it's loaded lazily and only when a wallet action is
+// actually invoked (connect, disconnect, or the mount-time auto-reconnect).
+const loadWalletKit = () => import('../lib/stellar-wallet-kit');
 
 const Server = Horizon.Server;
 
@@ -71,8 +79,8 @@ interface WalletProviderProps {
 }
 
 // Create contexts
-const WalletContext = createContext<WalletContextState | undefined>(undefined);
-const WalletConfigContext = createContext<WalletConfigContextState | undefined>(undefined);
+export const WalletContext = createContext<WalletContextState | undefined>(undefined);
+export const WalletConfigContext = createContext<WalletConfigContextState | undefined>(undefined);
 
 /**
  * Wallet Provider Component
@@ -106,6 +114,7 @@ export function WalletProvider({
   const connect = useCallback(async () => {
     try {
       // Get fresh kit instance (handles dynamic options)
+      const { kit } = await loadWalletKit();
       const currentKit = kit();
 
       await currentKit.openModal({
@@ -150,6 +159,7 @@ export function WalletProvider({
    */
   const disconnect = useCallback(async () => {
     try {
+      const { kit } = await loadWalletKit();
       await kit().disconnect();
       setConnected(false);
       setPublicKey(undefined);
@@ -224,7 +234,7 @@ export function WalletProvider({
         signedTxXdr = transaction.toXDR();
       } else {
         // Sign with wallet
-        const { signTransaction } = await import('../lib/stellar-wallet-kit');
+        const { signTransaction } = await loadWalletKit();
         signedTxXdr = await signTransaction({
           unsignedTransaction: transaction.toXDR(),
           address: publicKey,
@@ -252,6 +262,7 @@ export function WalletProvider({
 
       if (wasConnected === 'true' && savedWalletId && savedAddress) {
         try {
+          const { kit } = await loadWalletKit();
           const currentKit = kit();
           currentKit.setWallet(savedWalletId);
           const { address } = await currentKit.getAddress();

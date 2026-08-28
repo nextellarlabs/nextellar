@@ -4,6 +4,8 @@
  * Tests import mockGetEvents / mockServerConstructor to control behavior.
  */
 
+import { jest } from '@jest/globals';
+
 export const mockGetEvents = jest.fn();
 
 export const mockServerConstructor = jest.fn().mockImplementation(() => ({
