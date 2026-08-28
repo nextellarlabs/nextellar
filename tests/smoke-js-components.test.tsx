@@ -40,6 +40,7 @@ const [
   { default: JsNetworkSwitcher },
   { default: JsWalletConnectButton },
   { default: DefiErrorBoundary },
+  { default: DefiNetworkSwitcher },
   { default: DefiWalletConnectButton },
   { useWallet },
 ] = await Promise.all([
@@ -47,6 +48,7 @@ const [
   import("../src/templates/js-template/src/components/NetworkSwitcher"),
   import("../src/templates/js-template/src/components/WalletConnectButton"),
   import("../src/templates/js-defi/src/components/ErrorBoundary"),
+  import("../src/templates/js-defi/src/components/NetworkSwitcher"),
   import("../src/templates/js-defi/src/components/WalletConnectButton"),
   import("../src/mocks/wallet-contexts-mock"),
 ]);
@@ -107,6 +109,17 @@ describe("js-defi components smoke tests (#894)", () => {
     );
     expect(container).toBeInTheDocument();
     expect(screen.getByText("JS defi child content")).toBeInTheDocument();
+  });
+
+  it("renders NetworkSwitcher cleanly", async () => {
+    let renderResult: ReturnType<typeof render>;
+    await act(async () => {
+      renderResult = render(<DefiNetworkSwitcher />);
+    });
+    expect(renderResult!.container).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: "Network" }),
+    ).toBeInTheDocument();
   });
 
   it("renders WalletConnectButton cleanly when disconnected", () => {
