@@ -47,6 +47,10 @@ const SECURITY_HEADERS = [
 ];
 
 const nextConfig: NextConfig = {
+  // Produces a self-contained `.next/standalone` build (minimal
+  // node_modules, no full monorepo copy needed) — what the Dockerfile
+  // (see the "Deploy: Dockerfile and compose" doc) is built around.
+  output: "standalone",
   async headers() {
     return [
       {
