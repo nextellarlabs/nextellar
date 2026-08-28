@@ -2,17 +2,26 @@
  * @jest-environment jsdom
  */
 import { jest } from "@jest/globals";
-import {
-  act,
-  BTC,
-  flush,
-  HORIZON_TESTNET_URL as HORIZON_URL,
-  renderHook,
-  USDC,
-  waitFor,
-} from "../helpers";
+import { renderHook, act, waitFor } from "@testing-library/react";
 
 import { useOfferBook } from "../../src/templates/js-template/src/hooks/useOfferBook.js";
+import {
+  useFakeHookTimers,
+  useRealHookTimers,
+  flush,
+  advanceAndFlush,
+} from "../helpers/fake-timers.js";
+
+const HORIZON_URL = "https://horizon-testnet.stellar.org";
+
+const USDC = {
+  code: "USDC",
+  issuer: "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
+};
+const BTC = {
+  code: "BTC",
+  issuer: "GDXTJEK4JZNSTNQAWA53RZNS2GIKTDRPEUWDXELFMKU52XNECNVDVUTD",
+};
 
 function makeOrderbookResponse(bids: any[] = [], asks: any[] = []) {
   return { bids, asks };
@@ -127,41 +136,42 @@ describe("useOfferBook", () => {
     expect(result.current.error!.message).toContain("500");
   });
 
-  it("supports polling when pollIntervalMs is set", async () => {
-    jest.useFakeTimers();
-
-    const { result } = renderHook(() =>
-      useOfferBook("XLM", USDC, {
-        horizonUrl: HORIZON_URL,
-        pollIntervalMs: 5000,
-      }),
-    );
-
-    // Wait for initial fetch
-    await flush();
-    const initialCount = mockFetch.mock.calls.length;
-
-    // Advance past one poll interval
-    await act(async () => {
-      jest.advanceTimersByTime(5000);
-    });
-    await flush();
-
-    expect(mockFetch.mock.calls.length).toBeGreaterThan(initialCount);
-
-    // Stop polling
-    act(() => {
-      result.current.stopPolling();
+  describe("polling", () => {
+    beforeEach(() => {
+      useFakeHookTimers();
     });
 
-    const countAfterStop = mockFetch.mock.calls.length;
-
-    await act(async () => {
-      jest.advanceTimersByTime(10000);
+    afterEach(() => {
+      useRealHookTimers();
     });
 
-    expect(mockFetch.mock.calls.length).toBe(countAfterStop);
+    it("supports polling when pollIntervalMs is set", async () => {
+      const { result } = renderHook(() =>
+        useOfferBook("XLM", USDC, {
+          horizonUrl: HORIZON_URL,
+          pollIntervalMs: 5000,
+        }),
+      );
 
-    jest.useRealTimers();
+      // Wait for initial fetch
+      await flush();
+      const initialCount = mockFetch.mock.calls.length;
+
+      // Advance past one poll interval
+      await advanceAndFlush(5000);
+
+      expect(mockFetch.mock.calls.length).toBeGreaterThan(initialCount);
+
+      // Stop polling
+      act(() => {
+        result.current.stopPolling();
+      });
+
+      const countAfterStop = mockFetch.mock.calls.length;
+
+      await advanceAndFlush(10000);
+
+      expect(mockFetch.mock.calls.length).toBe(countAfterStop);
+    });
   });
 });

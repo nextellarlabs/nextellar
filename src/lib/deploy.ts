@@ -7,6 +7,7 @@ export interface DeployOptions {
   cwd?: string;
   dryRun?: boolean;
   token?: string;
+  sizeThreshold?: number;
 }
 
 interface DeployContext {
@@ -52,6 +53,22 @@ export async function runDeploy(options: DeployOptions = {}): Promise<void> {
   console.log(`  Path: ${pc.cyan(bundlePath)}`);
   console.log(`  Size: ${pc.cyan(formatBytes(bundleStats.size))}`);
   console.log(`  Saved: ${pc.cyan(path.join(projectRoot, DEPLOY_STATE_DIR, DEPLOY_STATE_FILE))}`);
+
+  // Bundle size report and threshold warning
+  const sizeThreshold = options.sizeThreshold || 50 * 1024 * 1024; // Default 50MB
+  const sizeMB = bundleStats.size / (1024 * 1024);
+  const thresholdMB = sizeThreshold / (1024 * 1024);
+
+  console.log(`\n${pc.cyan("Bundle Size Report:")}`);
+  console.log(`  Total: ${pc.bold(formatBytes(bundleStats.size))}`);
+  console.log(`  Threshold: ${pc.dim(formatBytes(sizeThreshold))}`);
+
+  if (bundleStats.size > sizeThreshold) {
+    console.log(`\n${pc.yellow("⚠ Warning:")} Bundle size (${formatBytes(bundleStats.size)}) exceeds threshold (${formatBytes(sizeThreshold)})`);
+    console.log(`  Consider optimizing your build or increasing the threshold with --size-threshold`);
+  } else {
+    console.log(`\n${pc.green("✔")} Bundle size is within acceptable limits`);
+  }
 
   // TODO(platform): accept --token <api-token> and authenticate upload requests.
   // TODO(platform): POST bundle to /v1/deployments and stream deployment logs.

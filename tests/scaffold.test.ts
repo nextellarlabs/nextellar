@@ -14,6 +14,18 @@ jest.unstable_mockModule('../src/lib/install.js', () => ({
   runInstall: mockRunInstall,
 }));
 
+const mockExeca = jest.fn();
+jest.unstable_mockModule('execa', () => ({ execa: mockExeca }));
+// Disable the preflight toolchain gate in tests (#908): the sandboxed test
+// environment cannot spawn npm, and scaffold behavior is what we verify here.
+jest.unstable_mockModule('../src/lib/preflight.js', () => ({
+  runPreflight: async () => ({ ok: true, failures: [] }),
+  setPreflightDisabledForTest: () => {},
+  setNpmRunnerForTest: () => {},
+  checkNodeVersion: () => ({ ok: true, detail: 'test', fix: '' }),
+  checkNpmAvailable: async () => ({ ok: true, detail: 'test npm OK', fix: '' }),
+}));
+
 const { scaffold } = await import('../src/lib/scaffold');
 
 const __filename = fileURLToPath(import.meta.url);
@@ -66,6 +78,8 @@ describe('scaffold integration', () => {
         ? { success: true, packageManager: 'skipped' }
         : { success: true, packageManager: 'npm' }
     );
+    mockExeca.mockReset();
+    mockExeca.mockResolvedValue(undefined);
   });
 
   afterEach(async () => {
@@ -270,6 +284,113 @@ describe('scaffold integration', () => {
         await fs.remove(path.join(templateDirCandidate, 'node_modules'));
       } catch {}
     }
+  });
+
+  // -------------------------------------------------------------------------
+  // #896 — control whether a git repo is initialized in the new project.
+  // -------------------------------------------------------------------------
+  describe('git init behavior (#896)', () => {
+    test('runs `git init` in the new project by default', async () => {
+      origCwd = process.cwd();
+      const parent = await makeTempParent();
+      process.chdir(parent);
+
+      const appName = 'git-default-app';
+      await scaffold({
+        appName,
+        useTs: true,
+        template: 'minimal',
+        skipInstall: true,
+      });
+
+      const target = path.join(parent, appName);
+      expect(mockExeca).toHaveBeenCalledWith('git', ['init'], {
+        cwd: target,
+        stdio: 'ignore',
+      });
+    });
+
+    test('skips `git init` when git: false is passed', async () => {
+      origCwd = process.cwd();
+      const parent = await makeTempParent();
+      process.chdir(parent);
+
+      const appName = 'git-disabled-app';
+      await scaffold({
+        appName,
+        useTs: true,
+        template: 'minimal',
+        skipInstall: true,
+        git: false,
+      });
+
+      expect(mockExeca).not.toHaveBeenCalled();
+    });
+
+    test('continues scaffolding even when `git init` fails', async () => {
+      mockExeca.mockRejectedValueOnce(new Error('git not found'));
+      origCwd = process.cwd();
+      const parent = await makeTempParent();
+      process.chdir(parent);
+
+      const appName = 'git-fails-app';
+      await scaffold({
+        appName,
+        useTs: true,
+        template: 'minimal',
+        skipInstall: true,
+      });
+
+      const target = path.join(parent, appName);
+      expect(await fs.pathExists(path.join(target, 'package.json'))).toBe(true);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // #895 — pass the selected package manager through to install.
+  // -------------------------------------------------------------------------
+  describe('package manager flag (#895)', () => {
+    test('passes the selected package manager to runInstall', async () => {
+      mockRunInstall.mockResolvedValueOnce({
+        success: true,
+        packageManager: 'bun',
+      });
+
+      origCwd = process.cwd();
+      const parent = await makeTempParent();
+      process.chdir(parent);
+
+      const appName = 'pm-flag-app';
+      await scaffold({
+        appName,
+        useTs: true,
+        template: 'minimal',
+        skipInstall: false,
+        packageManager: 'bun',
+      });
+
+      expect(mockRunInstall).toHaveBeenCalledWith(
+        expect.objectContaining({ cwd: path.join(parent, appName), packageManager: 'bun' }),
+      );
+    });
+
+    test('defaults to npm detection when no package manager is passed', async () => {
+      origCwd = process.cwd();
+      const parent = await makeTempParent();
+      process.chdir(parent);
+
+      const appName = 'pm-default-app';
+      await scaffold({
+        appName,
+        useTs: true,
+        template: 'minimal',
+        skipInstall: false,
+      });
+
+      expect(mockRunInstall).toHaveBeenCalledWith(
+        expect.objectContaining({ packageManager: undefined }),
+      );
+    });
   });
 
   // -------------------------------------------------------------------------

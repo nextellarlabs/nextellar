@@ -36,6 +36,43 @@ const {
 const { useTransactionHistory } =
   await import("../../src/templates/default/src/hooks/useTransactionHistory.js");
 
+// ── Test fixtures ─────────────────────────────────────────────────────────────
+
+const VALID_PUBLIC_KEY =
+  "GABC1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234";
+const VALID_PUBLIC_KEY_2 =
+  "GDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234";
+const INVALID_KEY_SHORT = "GABC";
+const INVALID_KEY_NO_G =
+  "XABC1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234";
+
+const PAGE_SIZE = 10;
+
+/** Build a mock Horizon operation record. */
+function makeRecord(index: number) {
+  return {
+    id: `op-${index}`,
+    paging_token: `pt-${index}`,
+    type: "payment",
+    type_i: 1,
+    created_at: `2024-01-01T00:${String(index).padStart(2, "0")}:00Z`,
+    transaction_hash: `txhash-${index}`,
+    source_account: VALID_PUBLIC_KEY,
+    amount: `${(10 + index).toFixed(7)}`,
+    asset_type: "native",
+  };
+}
+
+/** Build a page of records. */
+function makePage(start: number, count: number) {
+  return Array.from({ length: count }, (_, i) => makeRecord(start + i));
+}
+
+/** Build a successful Horizon response. */
+function makeResponse(records: ReturnType<typeof makeRecord>[]) {
+  return { records };
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe("useTransactionHistory (Template Hook)", () => {
@@ -209,6 +246,63 @@ describe("useTransactionHistory (Template Hook)", () => {
 
       expect(result.current.hasMore).toBe(false);
       expect(result.current.items).toHaveLength(PAGE_SIZE + 3);
+    });
+
+    // Regression coverage for #845: Horizon's cursor is meant to exclude the
+    // record it points at, but a record at the exact page boundary can still
+    // be re-returned by the next page's request — without de-duplication,
+    // that record would render twice and item count would be inflated.
+    it("does not duplicate the boundary record if it reappears on the next page", async () => {
+      mockHorizonCall.mockResolvedValueOnce(
+        makeResponse(makePage(0, PAGE_SIZE)),
+      );
+
+      const { result } = renderHook(() =>
+        useTransactionHistory(VALID_PUBLIC_KEY, { pageSize: PAGE_SIZE }),
+      );
+      await flush();
+      expect(result.current.items).toHaveLength(PAGE_SIZE);
+      const lastOfPage1 = result.current.items[PAGE_SIZE - 1];
+
+      // Page 2 re-includes the last record of page 1 (op-9) before the new ones.
+      const overlappingPage2 = [lastOfPage1, ...makePage(10, PAGE_SIZE - 1)];
+      mockHorizonCall.mockResolvedValueOnce(makeResponse(overlappingPage2));
+
+      await act(async () => {
+        await result.current.fetchNextPage();
+      });
+
+      const ids = result.current.items.map((item) => item.id);
+      expect(new Set(ids).size).toBe(ids.length); // no duplicate ids
+      expect(ids.filter((id) => id === "op-9")).toHaveLength(1);
+      expect(result.current.items).toHaveLength(PAGE_SIZE * 2 - 1);
+    });
+
+    it("does not duplicate records across three consecutive overlapping pages", async () => {
+      mockHorizonCall.mockResolvedValueOnce(
+        makeResponse(makePage(0, PAGE_SIZE)),
+      );
+      const { result } = renderHook(() =>
+        useTransactionHistory(VALID_PUBLIC_KEY, { pageSize: PAGE_SIZE }),
+      );
+      await flush();
+
+      mockHorizonCall.mockResolvedValueOnce(
+        makeResponse([makeRecord(9), ...makePage(10, PAGE_SIZE - 1)]),
+      );
+      await act(async () => {
+        await result.current.fetchNextPage();
+      });
+
+      mockHorizonCall.mockResolvedValueOnce(
+        makeResponse([makeRecord(18), ...makePage(19, PAGE_SIZE - 1)]),
+      );
+      await act(async () => {
+        await result.current.fetchNextPage();
+      });
+
+      const ids = result.current.items.map((item) => item.id);
+      expect(new Set(ids).size).toBe(ids.length);
     });
   });
 

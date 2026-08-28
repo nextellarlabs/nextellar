@@ -1,15 +1,16 @@
 /**
  * @jest-environment jsdom
  */
+import { renderHook, act } from "@testing-library/react";
 import { jest } from "@jest/globals";
+
 import {
-  act,
-  CONTRACT_ID,
+  useFakeHookTimers,
+  useRealHookTimers,
   flush,
-  makeSdkEvent,
-  renderHook,
-  silenceConsole,
-} from "../helpers";
+  advanceAndFlush,
+  exhaustPendingTimers,
+} from "../helpers/fake-timers.js";
 
 await jest.unstable_mockModule(
   "@stellar/stellar-sdk",
@@ -39,43 +40,61 @@ interface SorobanEvent {
   inSuccessfulContractCall: boolean;
 }
 
+// ── Test fixtures ─────────────────────────────────────────────────────────────
+
+const CONTRACT_ID = "CABC1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12345";
+
+/**
+ * Build a mock SDK EventResponse matching the shape of rpc.Api.EventResponse.
+ * The real SDK returns objects with toXDR() on topic/value and toString() on
+ * contractId – we replicate that interface here.
+ */
+function makeSdkEvent(overrides: Record<string, any> = {}) {
+  const {
+    id = "evt-001",
+    type = "contract",
+    ledger = 100,
+    ledgerClosedAt = "2024-01-01T00:00:00Z",
+    contractId = CONTRACT_ID,
+    topic = ["AAAADgAAAAh0cmFuc2Zlcg=="],
+    value = "AAAAAQAAAA==",
+    txHash = "abc123def456",
+    inSuccessfulContractCall = true,
+  } = overrides;
+
+  return {
+    id,
+    type,
+    ledger,
+    ledgerClosedAt,
+    contractId: { toString: () => contractId },
+    topic: (topic as string[]).map((t: string) => ({ toXDR: () => t })),
+    value: { toXDR: () => value },
+    txHash,
+    inSuccessfulContractCall,
+  };
+}
+
+// Pre-built SDK-shaped mock events
 const sdkEvent1 = makeSdkEvent({ id: "evt-001", ledger: 100 });
 const sdkEvent2 = makeSdkEvent({ id: "evt-002", ledger: 101 });
 const sdkEvent3 = makeSdkEvent({ id: "evt-003", ledger: 102 });
 
+// ── Tests ─────────────────────────────────────────────────────────────────────
+
 describe("useSorobanEvents (Template Hook)", () => {
-  let restoreConsole: () => void;
+  let consoleErrorSpy: jest.SpyInstance;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.useFakeTimers();
-    restoreConsole = silenceConsole();
+    useFakeHookTimers();
+    consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
   });
 
   afterEach(() => {
-    jest.useRealTimers();
-    restoreConsole();
+    useRealHookTimers();
+    consoleErrorSpy.mockRestore();
   });
-
-  /** Advance fake timers by `ms` and flush resulting microtasks. */
-  async function advanceAndFlush(ms: number) {
-    await act(async () => {
-      jest.advanceTimersByTime(ms);
-    });
-    await flush();
-  }
-
-  /**
-   * Fire all pending timers repeatedly to exhaust retry back-offs.
-   * Each iteration fires pending timeouts and flushes resulting microtasks.
-   */
-  async function exhaustRetries() {
-    for (let i = 0; i < 10; i++) {
-      await act(async () => {
-        jest.runOnlyPendingTimers();
-      });
-    }
-  }
 
   // ── Return shape ──────────────────────────────────────────────────────────
 
@@ -242,7 +261,7 @@ describe("useSorobanEvents (Template Hook)", () => {
       mockGetEvents.mockRejectedValue(rpcError);
 
       const { result } = renderHook(() => useSorobanEvents(CONTRACT_ID));
-      await exhaustRetries();
+      await exhaustPendingTimers();
 
       expect(result.current.error).toBeTruthy();
       expect(result.current.error?.message).toBe(
@@ -254,7 +273,7 @@ describe("useSorobanEvents (Template Hook)", () => {
       mockGetEvents.mockRejectedValue(new Error("Transient failure"));
 
       const { result } = renderHook(() => useSorobanEvents(CONTRACT_ID));
-      await exhaustRetries();
+      await exhaustPendingTimers();
 
       expect(result.current.isRecovering).toBe(true);
     });
@@ -264,7 +283,7 @@ describe("useSorobanEvents (Template Hook)", () => {
       mockGetEvents.mockRejectedValue(new Error("Temporary failure"));
 
       const { result } = renderHook(() => useSorobanEvents(CONTRACT_ID));
-      await exhaustRetries();
+      await exhaustPendingTimers();
 
       expect(result.current.error).toBeTruthy();
       expect(result.current.isRecovering).toBe(true);
@@ -277,7 +296,7 @@ describe("useSorobanEvents (Template Hook)", () => {
 
       // Error mode polls at 2× interval (20 s) – advance past it
       await advanceAndFlush(20_000);
-      await exhaustRetries();
+      await exhaustPendingTimers();
 
       expect(result.current.error).toBeNull();
       expect(result.current.isRecovering).toBe(false);
@@ -298,7 +317,7 @@ describe("useSorobanEvents (Template Hook)", () => {
       // Subsequent polls fail
       mockGetEvents.mockRejectedValue(new Error("Network timeout"));
       await advanceAndFlush(10_000);
-      await exhaustRetries();
+      await exhaustPendingTimers();
 
       // Events from the successful fetch should still be present
       expect(result.current.events).toHaveLength(2);

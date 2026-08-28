@@ -21,7 +21,21 @@ export type Trustline = {
   asset_issuer: string;
   limit?: string;
   balance?: string;
+  /**
+   * Full authorization, per Horizon's `is_authorized`. `undefined` if the
+   * balance line didn't carry authorization info at all (shouldn't happen
+   * for a non-native asset, but the field is technically optional on the
+   * SDK's BalanceLine union).
+   */
   authorized?: boolean;
+  /**
+   * Partial authorization — the issuer has revoked full authorization but
+   * still permits the holder to maintain (not increase) their existing
+   * liabilities, per Horizon's `is_authorized_to_maintain_liabilities`.
+   * Distinct from `authorized`: an asset can be `authorized: false` while
+   * `authorizedToMaintainLiabilities: true` under AUTH_REVOCABLE issuers.
+   */
+  authorizedToMaintainLiabilities?: boolean;
 };
 
 /**
@@ -203,7 +217,11 @@ export function useTrustlines(
         asset_issuer: 'asset_issuer' in balance ? balance.asset_issuer : '',
         limit: 'limit' in balance ? balance.limit : undefined,
         balance: balance.balance,
-        authorized: 'is_authorized' in balance ? balance.is_authorized : undefined
+        authorized: 'is_authorized' in balance ? balance.is_authorized : undefined,
+        authorizedToMaintainLiabilities:
+          'is_authorized_to_maintain_liabilities' in balance
+            ? balance.is_authorized_to_maintain_liabilities
+            : undefined
       }));
   }, []);
 
