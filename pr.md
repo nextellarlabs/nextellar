@@ -1,106 +1,120 @@
-# Pull Request — routes-d: error handler, env reference, Horizon batcher, alerting hooks
+# Pull Request — CLI: Add --dry-run mode to scaffold command
 
 ## Issues closed
 
-- #325 — Safe error handler middleware in routes-d
-- #340 — Environment variables reference inside routes-d
-- #354 — Batched Horizon request helper in routes-d
-- #334 — Error rate alerting hooks in routes-d
+- #897 — Add dry-run preview mode to `nextellar scaffold`
+- #898 — Display placeholder substitutions in scaffold plan
+- #899 — List template files before scaffolding
+- #900 — Show contracts overlay files in dry-run output
 
 ---
 
 ## Summary
 
-All changes are scoped to `routes-d/` and follow existing ESM / TypeScript conventions.
+All changes are scoped to the CLI scaffold workflow and improve developer experience by allowing users to preview exactly what `nextellar create` will do before writing any files.
 
-### #325 — `routes-d/middleware/errorHandler.ts`
+### #897 — `--dry-run` flag for scaffold command
 
-- Typed error hierarchy: `AppError`, `ValidationError`, `AuthenticationError`,
-  `AuthorizationError`, `NotFoundError`, `ConflictError`.
-- `createErrorHandler(options)` factory returns a four-parameter Express error
-  middleware that **redacts** unknown errors to `"Internal server error"` and
-  forwards only `AppError` message + code to the client — stack traces never
-  leave the server.
-- Full internal logging of method, path, status, and raw error is wired to an
-  injectable `InternalLogger` (defaults to `console.error` JSON).
-- `res.locals.requestId` is forwarded to both the log entry and the response
-  body (opt-in, on by default).
-- A ready-to-use `errorHandler` export covers the simple case.
-- Tests: known-error mapping, unknown-error redaction, stack-trace leakage,
-  body-parser 4xx pass-through, logging, requestId propagation.
+- Added `dryRun?: boolean` option to `ScaffoldOptions` interface in `src/lib/scaffold.ts`.
+- When `--dry-run` is passed, the scaffold function prints a complete plan and returns early without creating any files or directories.
+- The dry-run output includes:
+  - Project name, template, language, target directory
+  - Contracts overlay status, network selection, wallet configuration
+  - Package manager detection result
 
-### #340 — `routes-d/docs/env.md` + `routes-d/.env.example`
+### #898 — Placeholder substitution preview
 
-- `env.md` documents every env variable consumed by routes-d — name, purpose,
-  default value, required flag, and secret flag — grouped by subsystem.
-- `.env.example` mirrors the same variables with safe placeholder values and
-  inline `# SECRET` markers.
-- `routes-d/tests/env.test.ts` lints that:
-  1. All env vars read in non-test source files appear in `env.md`.
-  2. All variables declared in `.env.example` appear in `env.md`.
-  - Bench-only and profiling helper vars (`ROUTES_D_BENCH_*`,
-    `ROUTES_D_PROFILE_*`) are explicitly excluded from the runtime contract.
+- Dry-run mode displays all template placeholder substitutions that would be applied:
+  - `{{APP_NAME}}`, `{{HORIZON_URL}}`, `{{SOROBAN_URL}}`, `{{NETWORK}}`
+  - `{{WALLETS}}`, `{{NEXTELLAR_VERSION}}`, `{{TEMPLATE_NAME}}`, `{{TIMESTAMP}}`
+- Each placeholder shows its resolved value, making it easy to verify configuration before scaffolding.
 
-### #354 — `routes-d/lib/horizonBatcher.ts`
+### #899 — Template file listing
 
-- `createHorizonBatcher({ fetch, coalesceMs, onFlush })` returns a batcher
-  that deduplicates concurrent fetches for the same Horizon path within a short
-  coalescing window (default 10 ms), while issuing distinct paths in parallel.
-- `stats()` surfaces `totalRequests`, `totalBatches`, `totalCoalesced`, and
-  `hitRate`.
-- `onFlush` callback receives `batchSize`, `coalesced`, and
-  `flushDurationMs` per flush.
-- `flush()` forces immediate dispatch — useful in tests and graceful shutdown.
-- Tests: single request, coalescing, distinct-path parallelism, later-window
-  re-fetch, forced flush, metrics accuracy, error isolation (one bad path does
-  not cancel healthy paths in the same batch).
+- Implemented recursive `walkDir` helper that traverses the template directory tree.
+- Lists all files that would be copied from the selected template, excluding `.git` and `node_modules`.
+- Files are displayed with `+` prefix in green for visual clarity.
 
-### #334 — `routes-d/lib/alerts.ts`
+### #900 — Contracts overlay file listing
 
-- `createAlertsTracker(options)` returns a tracker with a pluggable
-  `AlertSink[]` interface (PagerDuty, Slack, etc.).
-- Sliding-window per-route error-rate tracking (default: 60 s window,
-  10 % threshold, 10 request minimum).
-- Fires `AlertEvent` once per spike onset; resets when the rate drops below
-  the threshold so the next spike fires a fresh alert.
-- Injectable clock (`now`) for deterministic testing.
-- Sink errors are swallowed — alerting never disrupts the request path.
-- Tests: normal traffic, spike detection, no duplicate alerts during sustained
-  spike, recovery → re-spike, route isolation, `stats()` accuracy, window
-  pruning, `reset()`, multi-sink, throwing sink resilience, `AlertEvent` shape
-  and `triggeredAt` timestamp.
+- When `--with-contracts` is enabled, dry-run mode additionally lists files from the `contracts-template` overlay.
+- Contract overlay files are displayed with yellow `+` prefix and dimmed "(contracts overlay)" label to distinguish them from base template files.
 
 ---
 
 ## Files changed
 
 ```
-routes-d/middleware/errorHandler.ts       (new)
-routes-d/tests/errorHandler.test.ts      (new)
-routes-d/docs/env.md                     (new)
-routes-d/.env.example                    (new)
-routes-d/tests/env.test.ts               (new)
-routes-d/lib/horizonBatcher.ts           (new)
-routes-d/tests/horizonBatcher.test.ts    (new)
-routes-d/lib/alerts.ts                   (new)
-routes-d/tests/alerts.test.ts            (new)
+src/lib/scaffold.ts    (modified — added dryRun option and preview logic)
+.gitignore             (modified — added issue.md to ignore list)
 ```
 
-No files outside `routes-d/` were modified.
+No files outside `src/lib/` were modified.
+
+---
+
+## Usage
+
+```bash
+# Preview what will be scaffolded
+nextellar create my-app --dry-run
+
+# Preview with contracts overlay
+nextellar create my-app --with-contracts --dry-run
+
+# Preview with custom configuration
+nextellar create my-app --template default --typescript --dry-run
+```
 
 ---
 
 ## Test plan
 
 ```bash
-cd routes-d
-npm test                        # all routes-d tests via ts-jest ESM
-npm test -- --testPathPattern errorHandler
-npm test -- --testPathPattern env
-npm test -- --testPathPattern horizonBatcher
-npm test -- --testPathPattern alerts
+# Manual verification
+nextellar create test-app --dry-run
+# Expected: prints scaffold plan, no files created
+
+nextellar create test-app --with-contracts --dry-run
+# Expected: includes contracts overlay files in output
+
+nextellar create test-app --dry-run && ls test-app
+# Expected: "ls" should fail — directory should not exist
 ```
 
-All new test files follow the `routes-d/tests/**/*.test.ts` pattern and are
-picked up automatically by both the `routes-d/jest.config.js` and the root
-`jest.config.mjs`.
+---
+
+## Example output
+
+```
+📋 Scaffold Plan (dry run)
+
+  Project:    my-app
+  Template:   default
+  Language:   TypeScript
+  Target:     /home/user/projects/my-app
+  Contracts:  No
+  Network:    TESTNET
+  Wallets:    freighter, albedo, lobstr
+  Pkg manager: npm
+
+  Files to create:
+    + package.json
+    + README.md
+    + tsconfig.json
+    + src/app/layout.tsx
+    + src/app/page.tsx
+    ...
+
+  Placeholder substitutions:
+    {{APP_NAME}}         → my-app
+    {{HORIZON_URL}}      → https://horizon-testnet.stellar.org
+    {{SOROBAN_URL}}      → https://soroban-testnet.stellar.org
+    {{NETWORK}}          → TESTNET
+    {{WALLETS}}          → ["freighter","albedo","lobstr"]
+    {{NEXTELLAR_VERSION}} → 0.0.0
+    {{TEMPLATE_NAME}}    → default
+    {{TIMESTAMP}}        → 2026-01-15T12:00:00.000Z
+
+  No files were written. Remove --dry-run to execute.
+```
