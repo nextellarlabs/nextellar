@@ -2,7 +2,11 @@ import path from "path";
 import fs from "fs-extra";
 import pc from "picocolors";
 import { execa } from "execa";
-import { detectPackageManager, runInstall, type PackageManager } from "./install.js";
+import {
+  detectPackageManager,
+  runInstall,
+  type PackageManager,
+} from "./install.js";
 import { trackScaffoldEvent } from "./telemetry.js";
 import { fileURLToPath } from "url";
 import { confirm } from "@clack/prompts";
@@ -76,6 +80,7 @@ export async function scaffold(options: ScaffoldOptions) {
   const JS_TEMPLATES: Record<string, string> = {
     default: "js-template",
     defi: "js-defi",
+    minimal: "js-minimal",
   };
   if (!useTs && !JS_TEMPLATES[templateName]) {
     throw new Error(
@@ -83,7 +88,9 @@ export async function scaffold(options: ScaffoldOptions) {
     );
   }
 
-  const resolvedTemplateName = useTs ? templateName : JS_TEMPLATES[templateName];
+  const resolvedTemplateName = useTs
+    ? templateName
+    : JS_TEMPLATES[templateName];
 
   // Validate custom URL overrides if provided
   if (horizonUrl) {
@@ -115,11 +122,17 @@ export async function scaffold(options: ScaffoldOptions) {
     console.log(pc.bold("\n📋 Scaffold Plan (dry run)\n"));
     console.log(`  ${pc.cyan("Project:")}    ${appName}`);
     console.log(`  ${pc.cyan("Template:")}   ${resolvedTemplateName}`);
-    console.log(`  ${pc.cyan("Language:")}   ${useTs ? "TypeScript" : "JavaScript"}`);
+    console.log(
+      `  ${pc.cyan("Language:")}   ${useTs ? "TypeScript" : "JavaScript"}`,
+    );
     console.log(`  ${pc.cyan("Target:")}     ${targetDir}`);
     console.log(`  ${pc.cyan("Contracts:")}  ${withContracts ? "Yes" : "No"}`);
-    console.log(`  ${pc.cyan("Network:")}    ${horizonUrl && horizonUrl.includes("public") ? "PUBLIC" : "TESTNET"}`);
-    console.log(`  ${pc.cyan("Wallets:")}    ${(wallets && wallets.length > 0 ? wallets : ["freighter", "albedo", "lobstr"]).join(", ")}`);
+    console.log(
+      `  ${pc.cyan("Network:")}    ${horizonUrl && horizonUrl.includes("public") ? "PUBLIC" : "TESTNET"}`,
+    );
+    console.log(
+      `  ${pc.cyan("Wallets:")}    ${(wallets && wallets.length > 0 ? wallets : ["freighter", "albedo", "lobstr"]).join(", ")}`,
+    );
     console.log(`  ${pc.cyan("Pkg manager:")} ${finalPackageManager}`);
     console.log("");
 
@@ -161,16 +174,26 @@ export async function scaffold(options: ScaffoldOptions) {
     console.log("");
     console.log(pc.bold("  Placeholder substitutions:"));
     console.log(`    {{APP_NAME}}         → ${appName}`);
-    console.log(`    {{HORIZON_URL}}      → ${horizonUrl || "https://horizon-testnet.stellar.org"}`);
-    console.log(`    {{SOROBAN_URL}}      → ${sorobanUrl || "https://soroban-testnet.stellar.org"}`);
-    console.log(`    {{NETWORK}}          → ${horizonUrl && horizonUrl.includes("public") ? "PUBLIC" : "TESTNET"}`);
-    console.log(`    {{WALLETS}}          → ${JSON.stringify(wallets && wallets.length > 0 ? wallets : ["freighter", "albedo", "lobstr"])}`);
+    console.log(
+      `    {{HORIZON_URL}}      → ${horizonUrl || "https://horizon-testnet.stellar.org"}`,
+    );
+    console.log(
+      `    {{SOROBAN_URL}}      → ${sorobanUrl || "https://soroban-testnet.stellar.org"}`,
+    );
+    console.log(
+      `    {{NETWORK}}          → ${horizonUrl && horizonUrl.includes("public") ? "PUBLIC" : "TESTNET"}`,
+    );
+    console.log(
+      `    {{WALLETS}}          → ${JSON.stringify(wallets && wallets.length > 0 ? wallets : ["freighter", "albedo", "lobstr"])}`,
+    );
     console.log(`    {{NEXTELLAR_VERSION}} → ${cliVersion || "0.0.0"}`);
     console.log(`    {{TEMPLATE_NAME}}    → ${templateName}`);
     console.log(`    {{TIMESTAMP}}        → ${new Date().toISOString()}`);
 
     console.log("");
-    console.log(pc.dim("  No files were written. Remove --dry-run to execute."));
+    console.log(
+      pc.dim("  No files were written. Remove --dry-run to execute."),
+    );
     console.log("");
     return;
   }
@@ -314,6 +337,43 @@ export async function scaffold(options: ScaffoldOptions) {
       path.join(targetDir, ".nextellar/config.json"),
     ];
 
+    // Placeholder-bearing source files may use either TypeScript (.ts/.tsx)
+    // or JavaScript (.js/.jsx) variants depending on the resolved template.
+    // The list above only covers the most common ones; walk the scaffolded
+    // tree for any additional source files that still contain a placeholder
+    // so neither language is left with unreplaced tokens (#654).
+    const PLACEHOLDER_RE = /\{\{[A-Z_]+\}\}/;
+    const isTextFile = (p: string): boolean =>
+      /\.(ts|tsx|js|jsx|mjs|json|md|env|example|css|html)$/.test(p);
+    const walkForPlaceholders = async (dir: string): Promise<string[]> => {
+      const out: string[] = [];
+      let entries: fs.Dirent[] = [];
+      try {
+        entries = await fs.readdir(dir, { withFileTypes: true });
+      } catch {
+        return out;
+      }
+      for (const entry of entries) {
+        if (entry.name === ".git" || entry.name === "node_modules") continue;
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          out.push(...(await walkForPlaceholders(full)));
+        } else if (isTextFile(full)) {
+          try {
+            const content = await fs.readFile(full, "utf8");
+            if (PLACEHOLDER_RE.test(content)) out.push(full);
+          } catch {
+            // ignore unreadable files
+          }
+        }
+      }
+      return out;
+    };
+    const placeholderFiles = await walkForPlaceholders(targetDir);
+    for (const f of placeholderFiles) {
+      if (!filesToProcess.includes(f)) filesToProcess.push(f);
+    }
+
     for (const filePath of filesToProcess) {
       if (await fs.pathExists(filePath)) {
         await replaceInFile(filePath, config);
@@ -381,7 +441,9 @@ export async function scaffold(options: ScaffoldOptions) {
     // worth keeping, but an install-only failure leaves real, valuable
     // work that the user was just told how to finish setting up.
     if (!filesScaffolded && (await fs.pathExists(targetDir))) {
-      console.log(pc.yellow(`Cleaning up incomplete project directory "${appName}"...`));
+      console.log(
+        pc.yellow(`Cleaning up incomplete project directory "${appName}"...`),
+      );
       await fs.remove(targetDir);
     }
     void trackScaffoldEvent(

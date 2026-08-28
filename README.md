@@ -78,6 +78,29 @@ Options:
 
 ---
 
+## 🎛️ Templates
+
+Choose a starter template with `--template <name>`. Both TypeScript and
+JavaScript projects are supported for every template:
+
+```bash
+nextellar my-app --template minimal                 # TypeScript
+nextellar my-app --template minimal --javascript    # JavaScript
+```
+
+| Template  | Description                                              | `--javascript` |
+| --------- | -------------------------------------------------------- | -------------- |
+| `default` | Full starter with network switching, i18n, and payments  | ✅ Supported   |
+| `minimal` | Lean starter: wallet connect + balances, no extras       | ✅ Supported   |
+| `defi`    | DeFi-focused: pools, swaps, offers, Soroban contracts    | ✅ Supported   |
+
+> **Note:** JavaScript variants (`--javascript`) are generated from the
+> `js-template`, `js-minimal`, and `js-defi` template sources and ship with a
+> `jsconfig.json` instead of a `tsconfig.json`. All wallet hooks and components
+> are ported to plain `.js`/`.jsx`, with no TypeScript source files.
+
+---
+
 ## 📁 Project Structure
 
 ```bash
