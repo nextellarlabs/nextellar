@@ -2,12 +2,17 @@ import path from "path";
 import fs from "fs-extra";
 import pc from "picocolors";
 import { execa } from "execa";
-import { detectPackageManager, runInstall, type PackageManager } from "./install.js";
+import {
+  detectPackageManager,
+  runInstall,
+  type PackageManager,
+} from "./install.js";
 import { trackScaffoldEvent } from "./telemetry.js";
 import { fileURLToPath } from "url";
 import { confirm } from "@clack/prompts";
 import { validateHorizonUrl, validateSorobanUrl } from "./validate.js";
 import { runPreflight } from "./preflight.js";
+import { resolveTemplateDir } from "./templates.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -73,17 +78,11 @@ export async function scaffold(options: ScaffoldOptions) {
     wallets && wallets.length > 0 ? wallets : ["freighter", "albedo", "lobstr"];
 
   const templateName = template || "default";
-  const JS_TEMPLATES: Record<string, string> = {
-    default: "js-template",
-    defi: "js-defi",
-  };
-  if (!useTs && !JS_TEMPLATES[templateName]) {
-    throw new Error(
-      `Template "${templateName}" is not available for JavaScript yet. Please use the default or defi template with --javascript.`,
-    );
-  }
 
-  const resolvedTemplateName = useTs ? templateName : JS_TEMPLATES[templateName];
+  // Resolves the starter directory for this template + language pair, and
+  // throws with the list of valid options when the name is unknown or has
+  // no variant for the requested language. See src/lib/templates.ts.
+  const resolvedTemplateName = resolveTemplateDir(templateName, useTs);
 
   // Validate custom URL overrides if provided
   if (horizonUrl) {
@@ -115,11 +114,17 @@ export async function scaffold(options: ScaffoldOptions) {
     console.log(pc.bold("\n📋 Scaffold Plan (dry run)\n"));
     console.log(`  ${pc.cyan("Project:")}    ${appName}`);
     console.log(`  ${pc.cyan("Template:")}   ${resolvedTemplateName}`);
-    console.log(`  ${pc.cyan("Language:")}   ${useTs ? "TypeScript" : "JavaScript"}`);
+    console.log(
+      `  ${pc.cyan("Language:")}   ${useTs ? "TypeScript" : "JavaScript"}`,
+    );
     console.log(`  ${pc.cyan("Target:")}     ${targetDir}`);
     console.log(`  ${pc.cyan("Contracts:")}  ${withContracts ? "Yes" : "No"}`);
-    console.log(`  ${pc.cyan("Network:")}    ${horizonUrl && horizonUrl.includes("public") ? "PUBLIC" : "TESTNET"}`);
-    console.log(`  ${pc.cyan("Wallets:")}    ${(wallets && wallets.length > 0 ? wallets : ["freighter", "albedo", "lobstr"]).join(", ")}`);
+    console.log(
+      `  ${pc.cyan("Network:")}    ${horizonUrl && horizonUrl.includes("public") ? "PUBLIC" : "TESTNET"}`,
+    );
+    console.log(
+      `  ${pc.cyan("Wallets:")}    ${(wallets && wallets.length > 0 ? wallets : ["freighter", "albedo", "lobstr"]).join(", ")}`,
+    );
     console.log(`  ${pc.cyan("Pkg manager:")} ${finalPackageManager}`);
     console.log("");
 
@@ -161,16 +166,26 @@ export async function scaffold(options: ScaffoldOptions) {
     console.log("");
     console.log(pc.bold("  Placeholder substitutions:"));
     console.log(`    {{APP_NAME}}         → ${appName}`);
-    console.log(`    {{HORIZON_URL}}      → ${horizonUrl || "https://horizon-testnet.stellar.org"}`);
-    console.log(`    {{SOROBAN_URL}}      → ${sorobanUrl || "https://soroban-testnet.stellar.org"}`);
-    console.log(`    {{NETWORK}}          → ${horizonUrl && horizonUrl.includes("public") ? "PUBLIC" : "TESTNET"}`);
-    console.log(`    {{WALLETS}}          → ${JSON.stringify(wallets && wallets.length > 0 ? wallets : ["freighter", "albedo", "lobstr"])}`);
+    console.log(
+      `    {{HORIZON_URL}}      → ${horizonUrl || "https://horizon-testnet.stellar.org"}`,
+    );
+    console.log(
+      `    {{SOROBAN_URL}}      → ${sorobanUrl || "https://soroban-testnet.stellar.org"}`,
+    );
+    console.log(
+      `    {{NETWORK}}          → ${horizonUrl && horizonUrl.includes("public") ? "PUBLIC" : "TESTNET"}`,
+    );
+    console.log(
+      `    {{WALLETS}}          → ${JSON.stringify(wallets && wallets.length > 0 ? wallets : ["freighter", "albedo", "lobstr"])}`,
+    );
     console.log(`    {{NEXTELLAR_VERSION}} → ${cliVersion || "0.0.0"}`);
     console.log(`    {{TEMPLATE_NAME}}    → ${templateName}`);
     console.log(`    {{TIMESTAMP}}        → ${new Date().toISOString()}`);
 
     console.log("");
-    console.log(pc.dim("  No files were written. Remove --dry-run to execute."));
+    console.log(
+      pc.dim("  No files were written. Remove --dry-run to execute."),
+    );
     console.log("");
     return;
   }
@@ -381,7 +396,9 @@ export async function scaffold(options: ScaffoldOptions) {
     // worth keeping, but an install-only failure leaves real, valuable
     // work that the user was just told how to finish setting up.
     if (!filesScaffolded && (await fs.pathExists(targetDir))) {
-      console.log(pc.yellow(`Cleaning up incomplete project directory "${appName}"...`));
+      console.log(
+        pc.yellow(`Cleaning up incomplete project directory "${appName}"...`),
+      );
       await fs.remove(targetDir);
     }
     void trackScaffoldEvent(
