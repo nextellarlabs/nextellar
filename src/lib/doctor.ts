@@ -4,6 +4,7 @@ import os from "os";
 import path from "path";
 import fs from "fs-extra";
 import pc from "picocolors";
+import { confirm, isCancel } from "@clack/prompts";
 
 const exec = util.promisify(execCb) as (
   cmd: string,
@@ -17,6 +18,7 @@ export type CheckResult = {
   ok: boolean;
   detail?: string;
   fix?: string;
+  fixCommand?: string;
   link?: string;
 };
 
@@ -168,6 +170,7 @@ async function checkYarn(): Promise<CheckResult> {
     ok,
     detail: ok ? `v${res.out}` : "Not installed",
     fix: "Install: npm install -g yarn",
+    fixCommand: "npm install -g yarn",
   };
 }
 
@@ -181,6 +184,7 @@ async function checkPnpm(): Promise<CheckResult> {
     ok,
     detail: ok ? `v${res.out}` : "Not installed",
     fix: "Install: npm install -g pnpm",
+    fixCommand: "npm install -g pnpm",
   };
 }
 
@@ -235,6 +239,7 @@ async function checkWasmTarget(): Promise<CheckResult> {
     ok,
     detail: ok ? "wasm32-unknown-unknown installed" : "Not installed",
     fix: "Install: rustup target add wasm32-unknown-unknown",
+    fixCommand: "rustup target add wasm32-unknown-unknown",
   };
 }
 
@@ -329,15 +334,47 @@ export const DOCTOR_JSON_SCHEMA_VERSION = 2;
 
 export type DoctorOptions = {
   json?: boolean;
+  fix?: boolean;
   horizonUrl?: string;
   sorobanUrl?: string;
 };
 
+/**
+ * Apply a fix command for a failed check.
+ * Returns true if the fix was applied successfully, false otherwise.
+ */
+async function applyFix(check: CheckResult): Promise<boolean> {
+  if (!check.fixCommand) {
+    return false;
+  }
+
+  console.log(`\n${pc.dim(`Running fix for ${check.name}:`)} ${pc.cyan(check.fixCommand)}`);
+  
+  try {
+    const { stdout, stderr } = await exec(check.fixCommand, { timeout: 120000 });
+    if (stdout) console.log(stdout);
+    if (stderr) console.error(stderr);
+    return true;
+  } catch (err: any) {
+    console.error(pc.red(`Fix failed: ${err?.message || err}`));
+    return false;
+  }
+}
+
+/**
+ * Check if a fix is safe to auto-apply.
+ * Safe fixes are optional checks with a known fix command.
+ */
+function isSafeFix(check: CheckResult): boolean {
+  return !check.required && !!check.fixCommand;
+}
+
 export async function runDoctor(opts?: DoctorOptions) {
   const json = !!opts?.json;
+  const fix = !!opts?.fix;
   const { horizonUrl, sorobanUrl } = resolveUrls(opts?.horizonUrl, opts?.sorobanUrl);
 
-  const checks = await Promise.all([
+  let checks = await Promise.all([
     checkNode(),
     checkNpm(),
     checkYarn(),
@@ -350,6 +387,53 @@ export async function runDoctor(opts?: DoctorOptions) {
     checkSoroban(sorobanUrl),
     checkDisk(),
   ]);
+
+  // If --fix is enabled and not in JSON mode, offer to fix safe failures
+  if (fix && !json) {
+    const safeFixes = checks.filter((c) => !c.ok && isSafeFix(c));
+    
+    if (safeFixes.length > 0) {
+      console.log(pc.bold("\nSafe auto-fixes available:"));
+      for (const check of safeFixes) {
+        console.log(`  ${pc.yellow("⚠")} ${pc.bold(check.name)}: ${pc.dim(check.fix || "")}`);
+      }
+      
+      const shouldFix = await confirm({
+        message: `Apply ${safeFixes.length} safe fix${safeFixes.length > 1 ? "es" : ""}?`,
+        initialValue: true,
+      });
+
+      if (isCancel(shouldFix)) {
+        console.log(pc.dim("\nFix cancelled."));
+      } else if (shouldFix) {
+        let fixedCount = 0;
+        for (const check of safeFixes) {
+          const success = await applyFix(check);
+          if (success) {
+            fixedCount++;
+          }
+        }
+        
+        if (fixedCount > 0) {
+          console.log(pc.green(`\n${fixedCount} fix${fixedCount > 1 ? "es" : ""} applied. Re-running checks...\n`));
+          // Re-run all checks to verify fixes
+          checks = await Promise.all([
+            checkNode(),
+            checkNpm(),
+            checkYarn(),
+            checkPnpm(),
+            checkGit(),
+            checkRustc(),
+            checkStellarCli(),
+            checkWasmTarget(),
+            checkHorizon(horizonUrl),
+            checkSoroban(sorobanUrl),
+            checkDisk(),
+          ]);
+        }
+      }
+    }
+  }
 
   const requiredFailures = checks.filter((c) => c.required && !c.ok).length;
   const passed = checks.filter((c) => c.ok).length;

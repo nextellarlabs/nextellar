@@ -55,13 +55,15 @@ program
   .command("doctor")
   .description("Run environment diagnostics")
   .option("--json", "output results as JSON for CI integration")
+  .option("--fix", "offer to auto-fix safe/optional check failures")
   .option("--horizon-url <url>", "Horizon endpoint to check (default: from .nextellar/config.json or testnet)")
   .option("--soroban-url <url>", "Soroban RPC endpoint to check (default: from .nextellar/config.json or testnet)")
-  .action(async (cmdOpts: { json?: boolean; horizonUrl?: string; sorobanUrl?: string }) => {
+  .action(async (cmdOpts: { json?: boolean; fix?: boolean; horizonUrl?: string; sorobanUrl?: string }) => {
     try {
       const { runDoctor } = await import("../src/lib/doctor.js");
       const exitCode = await runDoctor({
         json: !!cmdOpts.json,
+        fix: !!cmdOpts.fix,
         horizonUrl: cmdOpts.horizonUrl,
         sorobanUrl: cmdOpts.sorobanUrl,
       });
