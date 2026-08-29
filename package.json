@@ -12,8 +12,8 @@
     "test:coverage": "cross-env NODE_OPTIONS=\"--experimental-vm-modules --no-warnings\" jest --coverage --json --testLocationInResults --outputFile=coverage/report.json",
     "test:e2e": "cross-env NEXTELLAR_E2E=1 NODE_OPTIONS=\"--experimental-vm-modules --no-warnings\" jest tests/e2e",
     "lint": "eslint bin src/lib tests",
-    "format:check": "prettier --check \"bin/**/*.ts\" \"src/lib/**/*.ts\" \"tests/**/*.{ts,tsx}\" \"*.{json,mjs}\" \"eslint.config.mjs\" \".github/**/*.yml\"",
-    "format": "prettier --write \"bin/**/*.ts\" \"src/lib/**/*.ts\" \"tests/**/*.{ts,tsx}\" \"*.{json,mjs}\" \"eslint.config.mjs\" \".github/**/*.yml\"",
+    "format:check": "prettier --check \"bin/**/*.ts\" \"src/**/*.ts\" \"tests/**/*.{ts,tsx}\" \"*.{json,mjs}\" \"eslint.config.mjs\" \".github/**/*.yml\"",
+    "format": "prettier --write \"bin/**/*.ts\" \"src/**/*.ts\" \"tests/**/*.{ts,tsx}\" \"*.{json,mjs}\" \"eslint.config.mjs\" \".github/**/*.yml\"",
     "audit": "npm audit --audit-level=moderate",
     "audit:fix": "npm audit fix",
     "audit:strict": "npm audit --audit-level=low --json > audit-report.json",
@@ -118,7 +118,7 @@
       "eslint --fix",
       "prettier --write"
     ],
-    "src/lib/**/*.ts": [
+    "src/**/*.ts": [
       "eslint --fix",
       "prettier --write"
     ],
