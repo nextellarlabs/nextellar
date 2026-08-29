@@ -27,6 +27,9 @@ const mockConfig = {
   horizonUrl: "https://horizon-testnet.stellar.org",
 };
 
+const RECEIVE_ADDRESS =
+  "GAKAESXZZO3PJPEI5FNXGFOIANZJU7NAMNU753SGVSY7GF2KK55DALUQ";
+
 jest.unstable_mockModule("../src/mocks/wallet-contexts-mock", () => ({
   useWallet: jest.fn(() => mockWallet),
   useWalletConfig: jest.fn(() => mockConfig),
@@ -37,10 +40,12 @@ jest.unstable_mockModule("../src/mocks/wallet-contexts-mock", () => ({
 
 const [
   { default: ErrorBoundary },
+  { default: ReceiveForm },
   { default: WalletConnectButton },
   { useWallet },
 ] = await Promise.all([
   import("../src/templates/minimal/src/components/ErrorBoundary"),
+  import("../src/templates/minimal/src/components/ReceiveForm"),
   import("../src/templates/minimal/src/components/WalletConnectButton"),
   import("../src/mocks/wallet-contexts-mock"),
 ]);
@@ -77,6 +82,29 @@ describe("minimal template components smoke tests (#893)", () => {
     expect(container).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /Disconnect Freighter/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("renders ReceiveForm's connect prompt when disconnected", () => {
+    const { container } = render(<ReceiveForm />);
+    expect(container).toBeInTheDocument();
+    expect(
+      screen.getByText(/Connect a wallet to receive payments/i),
+    ).toBeInTheDocument();
+  });
+
+  it("renders ReceiveForm with the address and copy button when connected", () => {
+    (useWallet as jest.Mock).mockReturnValueOnce({
+      ...mockWallet,
+      connected: true,
+      publicKey: RECEIVE_ADDRESS,
+    });
+
+    const { container } = render(<ReceiveForm />);
+    expect(container).toBeInTheDocument();
+    expect(screen.getByText(RECEIVE_ADDRESS)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Copy address/i }),
     ).toBeInTheDocument();
   });
 });

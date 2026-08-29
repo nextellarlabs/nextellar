@@ -264,6 +264,8 @@ export function WalletProvider({
         disconnect,
         refreshBalances,
         sendPayment: connected ? sendPayment : undefined,
+        switchNetwork,
+        activeNetworkKey,
     };
 
     const configValue = {

@@ -299,15 +299,26 @@ export function useTransactionHistory(
       const result = await fetchTransactionHistory(publicKey, nextCursorRef.current);
       
       setItems(prevItems => {
-        const newItems = [...prevItems, ...result.records];
-        
+        // De-duplicate by paging_token (falling back to id): Horizon's cursor
+        // is meant to be exclusive of the record it points at, but a record
+        // at the exact page boundary can still come back on both the page
+        // that produced the cursor and the page fetched with it — without
+        // this filter that boundary record would render twice.
+        const seenTokens = new Set(
+          prevItems.map(item => item.paging_token ?? item.id)
+        );
+        const newRecords = result.records.filter(
+          record => !seenTokens.has(record.paging_token ?? record.id)
+        );
+        const newItems = [...prevItems, ...newRecords];
+
         // Memory management: limit total items in memory
         if (newItems.length > MAX_ITEMS_IN_MEMORY) {
           const trimmedItems = newItems.slice(-MAX_ITEMS_IN_MEMORY);
           console.warn(`Transaction history trimmed to ${MAX_ITEMS_IN_MEMORY} items to prevent excessive memory usage`);
           return trimmedItems;
         }
-        
+
         return newItems;
       });
       
