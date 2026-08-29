@@ -5,7 +5,7 @@ import {
   setFreeMemoryProviderForTest,
   type CommandRunner,
 } from '../src/lib/doctor.js';
-import { confirm, isCancel } from '@clack/prompts';
+import { confirm } from '@clack/prompts';
 
 // Every check runDoctor() runs concurrently, keyed by the exact command
 // string each check invokes (see src/lib/doctor.ts). Defaults simulate a

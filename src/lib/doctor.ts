@@ -444,7 +444,9 @@ export async function runDoctor(opts?: DoctorOptions) {
       schemaVersion: DOCTOR_JSON_SCHEMA_VERSION,
       horizonUrl,
       sorobanUrl,
-      checks,
+      // fixCommand is an internal detail used to drive `--fix`'s prompt/exec
+      // flow; it's not part of the public --json schema, so strip it here.
+      checks: checks.map(({ fixCommand: _fixCommand, ...publicCheck }) => publicCheck),
       passed,
       failed,
       requiredFailures,
