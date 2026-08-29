@@ -12,24 +12,22 @@
  * - Rendering (type label, amount/asset, address truncation, relative time)
  * - Error handling
  */
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import "@testing-library/jest-dom";
 import { jest, describe, it, expect, beforeEach } from "@jest/globals";
 import React from "react";
-import {
-  render,
-  screen,
-  fireEvent,
-  waitFor,
-  connectedWallet,
-  createTransactionHistoryState,
-  disconnectedWallet,
-  makeNonPaymentRecord,
-  makePaymentRecord,
-  COUNTERPARTY_PUBLIC_KEY as OTHER_ADDRESS,
-  type HorizonOperationRecord,
-} from "../helpers";
+
+// ── Mock useWallet from contexts ──────────────────────────────────────────────
+jest.unstable_mockModule("../../src/mocks/wallet-contexts-mock", () => ({
+  useWallet: jest.fn(),
+  useWalletConfig: jest.fn(() => undefined),
+  WalletProvider: jest.fn(
+    ({ children }: { children: React.ReactNode }) => children,
+  ),
+}));
 
 // ── Mock useTransactionHistory hook ───────────────────────────────────────────
-await jest.unstable_mockModule(
+jest.unstable_mockModule(
   "../../src/templates/default/src/hooks/useTransactionHistory",
   () => ({
     useTransactionHistory: jest.fn(),
@@ -37,16 +35,83 @@ await jest.unstable_mockModule(
 );
 
 // ── Dynamic imports (must be after unstable_mockModule) ───────────────────────
-const [{ default: TransactionList }, { useTransactionHistory }] =
+const [{ default: TransactionList }, { useTransactionHistory }, { useWallet }] =
   await Promise.all([
     import("../../src/templates/default/src/components/TransactionList"),
     import("../../src/templates/default/src/hooks/useTransactionHistory"),
+    import("../../src/mocks/wallet-contexts-mock"),
   ]);
 
-type TransactionListProps = {
-  limit?: number;
-  type?: "payments" | "operations";
+// ── Type helpers ──────────────────────────────────────────────────────────────
+
+type MockTransaction = {
+  id: string;
+  type: string;
+  type_i: number;
+  created_at: string;
+  transaction_hash: string;
+  source_account: string;
+  paging_token: string;
+  amount?: string;
+  asset_type?: string;
+  asset_code?: string;
+  asset_issuer?: string;
+  from?: string;
+  to?: string;
+  transaction_successful?: boolean;
 };
+
+// ── Test data factories ───────────────────────────────────────────────────────
+
+const WALLET_ADDRESS =
+  "GABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234";
+const OTHER_ADDRESS =
+  "GXYZ7890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCD";
+
+function makePaymentRecord(
+  overrides: Partial<MockTransaction & { isReceived?: boolean }> = {},
+): MockTransaction {
+  const isReceived = overrides.isReceived ?? true;
+  const index = overrides.id
+    ? parseInt(overrides.id.replace("op-", ""), 10) || 0
+    : 0;
+  return {
+    id: `op-${index}`,
+    type: "payment",
+    type_i: 1,
+    created_at: new Date(Date.now() - index * 60_000).toISOString(),
+    transaction_hash: `txhash-${index}`,
+    source_account: isReceived ? OTHER_ADDRESS : WALLET_ADDRESS,
+    paging_token: `pt-${index}`,
+    amount: `${(100 + index).toFixed(7)}`,
+    asset_type: "native",
+    from: isReceived ? OTHER_ADDRESS : WALLET_ADDRESS,
+    to: isReceived ? WALLET_ADDRESS : OTHER_ADDRESS,
+    transaction_successful: true,
+    ...overrides,
+  };
+}
+
+function makeNonPaymentRecord(
+  overrides: Partial<MockTransaction> = {},
+): MockTransaction {
+  const index = overrides.id
+    ? parseInt(overrides.id.replace("op-", ""), 10) || 0
+    : 0;
+  return {
+    id: `op-${index}`,
+    type: "create_account",
+    type_i: 0,
+    created_at: new Date(Date.now() - index * 60_000).toISOString(),
+    transaction_hash: `txhash-${index}`,
+    source_account: OTHER_ADDRESS,
+    paging_token: `pt-${index}`,
+    transaction_successful: true,
+    ...overrides,
+  };
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function mockHookReturn(
   partial: Partial<{
@@ -87,7 +152,7 @@ describe("TransactionList Component", () => {
       const receivedTx = makePaymentRecord({ isReceived: true });
       mockHookReturn({ items: [receivedTx as any] });
 
-      renderList();
+      render(React.createElement(TransactionList));
       expect(screen.getByLabelText("Received")).toBeInTheDocument();
     });
 
@@ -95,7 +160,7 @@ describe("TransactionList Component", () => {
       const sentTx = makePaymentRecord({ isReceived: false });
       mockHookReturn({ items: [sentTx as any] });
 
-      renderList();
+      render(React.createElement(TransactionList));
       expect(screen.getByLabelText("Sent")).toBeInTheDocument();
     });
   });
@@ -170,6 +235,10 @@ describe("TransactionList Component", () => {
     });
 
     it("renders a connect-wallet message when wallet is not connected", () => {
+      (useWallet as jest.Mock).mockReturnValue({
+        connected: false,
+        publicKey: undefined,
+      });
       mockHookReturn({ items: [], loading: false, hasMore: false });
 
       renderList({}, disconnectedWallet());
@@ -228,7 +297,7 @@ describe("TransactionList Component", () => {
     it('passes type="payments" to useTransactionHistory', () => {
       mockHookReturn({ items: [], loading: false });
 
-      renderList({ type: "payments" });
+      render(React.createElement(TransactionList, { type: "payments" }));
 
       expect(useTransactionHistory).toHaveBeenCalledWith(
         expect.any(String),
@@ -239,7 +308,7 @@ describe("TransactionList Component", () => {
     it('passes type="operations" to useTransactionHistory', () => {
       mockHookReturn({ items: [], loading: false });
 
-      renderList({ type: "operations" });
+      render(React.createElement(TransactionList, { type: "operations" }));
 
       expect(useTransactionHistory).toHaveBeenCalledWith(
         expect.any(String),
@@ -406,6 +475,138 @@ describe("TransactionList Component", () => {
 
       // Error banner should be visible along with items
       expect(screen.getByText(/failed to load more/i)).toBeInTheDocument();
+    });
+
+    it("keeps rendering the loaded rows alongside the error banner", () => {
+      const items = [
+        makePaymentRecord({ id: "op-0", isReceived: true }),
+        makePaymentRecord({ id: "op-1", isReceived: false }),
+      ];
+      mockHookReturn({
+        items: items as any[],
+        loading: false,
+        error: new Error("Failed to load more"),
+        hasMore: true,
+      });
+
+      render(React.createElement(TransactionList));
+
+      // The banner path must not replace the already-loaded page of results.
+      expect(screen.getAllByRole("listitem")).toHaveLength(2);
+    });
+
+    it("calls refresh when the error banner retry button is clicked", () => {
+      const refresh = jest.fn().mockResolvedValue(undefined);
+      const items = [makePaymentRecord({ id: "op-0", isReceived: true })];
+      mockHookReturn({
+        items: items as any[],
+        loading: false,
+        error: new Error("Failed to load more"),
+        hasMore: true,
+        refresh,
+      });
+
+      render(React.createElement(TransactionList));
+
+      fireEvent.click(screen.getByRole("button", { name: /retry/i }));
+
+      expect(refresh).toHaveBeenCalledTimes(1);
+    });
+
+    it("falls back to a generic message when the error carries no message", () => {
+      mockHookReturn({
+        items: [],
+        loading: false,
+        error: new Error(""),
+        hasMore: false,
+      });
+
+      render(React.createElement(TransactionList));
+
+      expect(
+        screen.getByText(/an unexpected error occurred/i),
+      ).toBeInTheDocument();
+    });
+
+    it("falls back to a generic banner message when the error carries no message", () => {
+      const items = [makePaymentRecord({ id: "op-0", isReceived: true })];
+      mockHookReturn({
+        items: items as any[],
+        loading: false,
+        error: new Error(""),
+        hasMore: true,
+      });
+
+      render(React.createElement(TransactionList));
+
+      expect(
+        screen.getByText(/failed to load more transactions/i),
+      ).toBeInTheDocument();
+    });
+
+    it('exposes the error state to assistive technology via role="alert"', () => {
+      mockHookReturn({
+        items: [],
+        loading: false,
+        error: new Error("Network error"),
+        hasMore: false,
+      });
+
+      render(React.createElement(TransactionList));
+
+      expect(screen.getByRole("alert")).toBeInTheDocument();
+    });
+  });
+
+  // ── 7. Load-more guard ──────────────────────────────────────────────────
+
+  describe("load-more guard", () => {
+    it("does not call fetchNextPage while a fetch is already in flight", () => {
+      const fetchNextPage = jest.fn().mockResolvedValue(undefined);
+      const items = [makePaymentRecord({ id: "op-0", isReceived: true })];
+      mockHookReturn({
+        items: items as any[],
+        hasMore: true,
+        loading: true,
+        fetchNextPage,
+      });
+
+      render(React.createElement(TransactionList));
+
+      // The button is disabled, but the handler also guards on `loading` so a
+      // programmatic click must stay a no-op.
+      fireEvent.click(screen.getByRole("button", { name: /loading more/i }));
+
+      expect(fetchNextPage).not.toHaveBeenCalled();
+    });
+
+    it("renders every accumulated page of results", () => {
+      const items = Array.from({ length: 20 }, (_, i) =>
+        makePaymentRecord({ id: `op-${i}`, isReceived: i % 2 === 0 }),
+      );
+      mockHookReturn({
+        items: items as any[],
+        hasMore: false,
+        loading: false,
+      });
+
+      render(React.createElement(TransactionList));
+
+      expect(screen.getAllByRole("listitem")).toHaveLength(20);
+      expect(
+        screen.queryByRole("button", { name: /load more/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("labels the transaction list for assistive technology", () => {
+      const items = [makePaymentRecord({ id: "op-0", isReceived: true })];
+      mockHookReturn({ items: items as any[], hasMore: false, loading: false });
+
+      render(React.createElement(TransactionList));
+
+      expect(
+        screen.getByRole("list", { name: /transaction history/i }),
+      ).toBeInTheDocument();
     });
   });
 });

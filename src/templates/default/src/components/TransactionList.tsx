@@ -26,6 +26,25 @@ export interface TransactionListProps {
   type?: 'payments' | 'operations';
 }
 
+/**
+ * Presentational list. Kept separate from the data-fetching container
+ * (`TransactionList`) so Storybook can render every state — loading, empty,
+ * error, paginated — with injected mock data instead of a live Horizon call.
+ */
+export interface TransactionListContentProps {
+  items: OperationItem[];
+  /** True while any fetch is in flight (initial load or "load more"). */
+  loading: boolean;
+  error: Error | null;
+  hasMore: boolean;
+  /** Wallet address used to determine sent/received direction. */
+  walletAddress: string;
+  /** Whether a wallet is currently connected (drives the empty-state copy). */
+  connected?: boolean;
+  onLoadMore?: () => void;
+  onRetry?: () => void;
+}
+
 // ── Operation type display ────────────────────────────────────────────────────
 
 const OPERATION_TYPE_LABELS: Record<string, string> = {
@@ -180,22 +199,23 @@ function TransactionRow({ item, walletAddress }: TransactionRowProps) {
   const status = getStatus(item);
   const op = item as unknown as Record<string, unknown>;
   const hasAmount = typeof op.amount === 'string' && op.amount !== '';
+  const typeLabel = formatOperationType(item.type);
+  const timeLabel = relativeTime(item.created_at);
 
   return (
-    <div className="flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
-      {/* Direction indicator */}
+    <>
       <div
         className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
           isReceived
             ? 'bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400'
             : 'bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400'
         }`}
-        aria-label={isReceived ? 'Received' : 'Sent'}
+        aria-hidden="true"
       >
         {isReceived ? (
-          <ArrowDownLeft className="w-5 h-5" aria-hidden="true" />
+          <ArrowDownLeft className="w-5 h-5" />
         ) : (
-          <ArrowUpRight className="w-5 h-5" aria-hidden="true" />
+          <ArrowUpRight className="w-5 h-5" />
         )}
       </div>
 
@@ -203,7 +223,7 @@ function TransactionRow({ item, walletAddress }: TransactionRowProps) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <p className="font-medium text-gray-900 dark:text-gray-100 text-sm truncate">
-            {formatOperationType(item.type)}
+            {typeLabel}
           </p>
           {!status.successful && (
             <span className="flex-shrink-0 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
@@ -236,7 +256,7 @@ function TransactionRow({ item, walletAddress }: TransactionRowProps) {
           </p>
         ) : (
           <p className="text-xs text-gray-600 dark:text-gray-300">
-            {formatOperationType(item.type)}
+            {typeLabel}
           </p>
         )}
         <div className="flex items-center gap-1 justify-end mt-0.5">
@@ -245,52 +265,32 @@ function TransactionRow({ item, walletAddress }: TransactionRowProps) {
             dateTime={item.created_at}
             className="text-xs text-gray-600 dark:text-gray-300 tabular-nums"
           >
-            {relativeTime(item.created_at)}
+            {timeLabel}
           </time>
         </div>
       </div>
-    </div>
+
+      {/* Status conveyed non-visually for every row, not only failures. */}
+      <span className="sr-only">{status.label}</span>
+    </>
   );
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
+// ── Presentational list ───────────────────────────────────────────────────────
 
-export default function TransactionList({
-  limit = 10,
-  type,
-}: TransactionListProps) {
-  const [mounted, setMounted] = useState(false);
-  const { connected, publicKey } = useWallet();
-
-  const {
-    items,
-    loading,
-    error,
-    fetchNextPage,
-    refresh,
-    hasMore,
-  } = useTransactionHistory(publicKey, {
-    pageSize: limit,
-    type,
-  });
-
-  // Prevent hydration mismatch in Next.js
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const handleRetry = useCallback(() => {
-    refresh();
-  }, [refresh]);
-
+export function TransactionListContent({
+  items,
+  loading,
+  error,
+  hasMore,
+  walletAddress,
+  connected = false,
+  onLoadMore,
+  onRetry,
+}: TransactionListContentProps) {
   const handleLoadMore = useCallback(() => {
-    if (!loading && hasMore) {
-      fetchNextPage();
-    }
-  }, [loading, hasMore, fetchNextPage]);
-
-  // Guard: not mounted (SSR safety)
-  if (!mounted) return null;
+    if (!loading && hasMore) onLoadMore?.();
+  }, [loading, hasMore, onLoadMore]);
 
   // ── Initial loading state ────────────────────────────────────
   if (loading && items.length === 0) {
@@ -311,7 +311,7 @@ export default function TransactionList({
           {error.message || 'An unexpected error occurred.'}
         </p>
         <button
-          onClick={handleRetry}
+          onClick={() => onRetry?.()}
           className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-full border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
         >
           <RefreshCw className="w-4 h-4" aria-hidden="true" />
@@ -350,7 +350,7 @@ export default function TransactionList({
             {error.message || 'Failed to load more transactions.'}
           </p>
           <button
-            onClick={handleRetry}
+            onClick={() => onRetry?.()}
             className="text-xs font-medium text-red-600 dark:text-red-400 hover:underline flex-shrink-0"
           >
             Retry
@@ -359,20 +359,40 @@ export default function TransactionList({
       )}
 
       {/* Transaction rows */}
-      <div
+      <ul
         className="divide-y divide-gray-100 dark:divide-gray-800"
-        role="list"
         aria-label="Transaction history"
       >
-        {items.map((item) => (
-          <div key={item.id} role="listitem">
-            <TransactionRow
-              item={item}
-              walletAddress={publicKey || ''}
-            />
-          </div>
-        ))}
-      </div>
+        {items.map((item) => {
+  const { address: counterparty, isReceived } = getCounterparty(item, walletAddress);
+  const status = getStatus(item);
+  const op = item as unknown as Record<string, unknown>;
+  const hasAmount = typeof op.amount === 'string' && op.amount !== '';
+  const typeLabel = formatOperationType(item.type);
+  const timeLabel = relativeTime(item.created_at);
+  const amountLabel = hasAmount
+    ? ` of ${isReceived ? '+' : '-'}${formatAmount(op.amount as string)} ${getAssetLabel(item)}`
+    : '';
+  const counterpartyLabel = counterparty
+    ? ` with ${truncateAddress(counterparty)}`
+    : '';
+
+  // Full, non-visual description so screen-reader users get the same
+  // information as sighted users — including status, which for successful
+  // rows is otherwise only shown as a small colour badge.
+  const rowLabel =
+    `${isReceived ? 'Received' : 'Sent'} ${typeLabel}${amountLabel}` +
+    `${counterpartyLabel} ${timeLabel} — status ${status.label}`;
+
+  return (
+            <li key={item.id} aria-label={rowLabel}>
+              <div className="flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+                <TransactionRow item={item} walletAddress={walletAddress} />
+              </div>
+            </li>
+          );
+        })}
+      </ul>
 
       {/* Pagination */}
       {hasMore && (
@@ -398,5 +418,58 @@ export default function TransactionList({
         </div>
       )}
     </div>
+  );
+}
+
+// ── Data-fetching container ───────────────────────────────────────────────────
+
+export default function TransactionList({
+  limit = 10,
+  type,
+}: TransactionListProps) {
+  const [mounted, setMounted] = useState(false);
+  const { connected, publicKey } = useWallet();
+
+  const {
+    items,
+    loading,
+    error,
+    fetchNextPage,
+    refresh,
+    hasMore,
+  } = useTransactionHistory(publicKey, {
+    pageSize: limit,
+    type,
+  });
+
+  // Prevent hydration mismatch in Next.js
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const handleRetry = useCallback(() => {
+    refresh();
+  }, [refresh]);
+
+  const handleLoadMore = useCallback(() => {
+    if (!loading && hasMore) {
+      fetchNextPage();
+    }
+  }, [loading, hasMore, fetchNextPage]);
+
+  // Guard: not mounted (SSR safety)
+  if (!mounted) return null;
+
+  return (
+    <TransactionListContent
+      items={items}
+      loading={loading}
+      error={error}
+      hasMore={hasMore}
+      walletAddress={publicKey || ''}
+      connected={connected}
+      onLoadMore={handleLoadMore}
+      onRetry={handleRetry}
+    />
   );
 }

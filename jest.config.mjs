@@ -3,6 +3,22 @@ export default {
   extensionsToTreatAsEsm: [".ts", ".tsx", ".jsx"],
   setupFilesAfterEnv: ["<rootDir>/jest.setup.jest-dom.ts"],
   transform: {
+    // The js-* templates ship their own package.json with no "type" field, so
+    // Jest classifies their plain .js modules (src/config, src/lib) as CJS,
+    // while the ESM transform below emits `export` statements — importing one
+    // throws "Unexpected export statement in CJS module". Their .jsx files
+    // escape this only because extensionsToTreatAsEsm covers .jsx. Compile
+    // just these .js modules to CJS so they load under the classification
+    // Jest already gives them.
+    "templates[\\\\/]js-[^\\\\/]+[\\\\/]src[\\\\/].+\\.js$": [
+      "babel-jest",
+      {
+        presets: [
+          ["@babel/preset-env", { targets: { node: "current" } }],
+          ["@babel/preset-react", { runtime: "automatic" }],
+        ],
+      },
+    ],
     "^.+\\.[tj]sx?$": [
       "babel-jest",
       {

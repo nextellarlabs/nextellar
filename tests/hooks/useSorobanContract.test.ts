@@ -13,7 +13,7 @@ import {
 import { setupServer } from "msw/node";
 import { http, HttpResponse } from "msw";
 import * as StellarSDK from "@stellar/stellar-sdk";
-import { useSorobanContract } from "../../src/templates/js-template/src/hooks/useSorobanContract.js";
+import { useSorobanContract } from "../../src/templates/default/src/hooks/useSorobanContract.ts";
 
 const SDK = ((StellarSDK as unknown as { default?: unknown }).default ||
   StellarSDK) as typeof StellarSDK;
@@ -262,25 +262,12 @@ describe("useSorobanContract", () => {
     expect(txXdr).toMatch(/^[A-Za-z0-9+/=]+$/);
   });
 
-  it("invalid contract ID is surfaced", async () => {
-    const { result } = renderHook(() =>
-      useSorobanContract({
-        contractId: "invalid-contract-id",
-        sorobanRpc: SOROBAN_RPC_URL,
-      }),
-    );
-
-    let thrown: Error | undefined;
-    await act(async () => {
-      try {
-        await result.current.buildInvokeXDR("ping", []);
-      } catch (error) {
-        thrown = error as Error;
-      }
-    });
-
-    expect(thrown).toBeDefined();
-    await waitFor(() => expect(result.current.error).toBeInstanceOf(Error));
+  it("invalid contract ID is surfaced", () => {
+    expect(() =>
+      renderHook(() =>
+        useSorobanContract({ contractId: "invalid-contract-id", sorobanRpc: SOROBAN_RPC_URL })
+      )
+    ).toThrow(/Invalid Soroban contract ID/);
   });
 
   it("network failure is surfaced through MSW", async () => {
@@ -344,5 +331,32 @@ describe("useSorobanContract", () => {
 
     expect(thrown?.message).toContain("simulated host function failure");
     await waitFor(() => expect(result.current.error).toBeTruthy());
+  });
+
+  it("handles restore footprint flow when simulation returns restorePreamble", async () => {
+    jest.spyOn(rpc.Server.prototype, "simulateTransaction").mockResolvedValue({
+      restorePreamble: {
+        minResourceFee: "500",
+        transactionData: "AAAAAQAAAA==",
+      },
+      transactionData: "AAAAAQAAAA==",
+    } as never);
+
+    const { result } = renderHook(() =>
+      useSorobanContract({ contractId: VALID_CONTRACT_ID, sorobanRpc: SOROBAN_RPC_URL })
+    );
+
+    let res: any;
+    await act(async () => {
+      res = await result.current.callFunction("expired_entry", []);
+    });
+
+    expect(res).toEqual(
+      expect.objectContaining({
+        requiresRestore: true,
+        restorePreamble: expect.objectContaining({ minResourceFee: "500" }),
+      })
+    );
+    expect(result.current.error?.message).toContain("Footprint expired");
   });
 });
