@@ -38,14 +38,32 @@ jest.unstable_mockModule("../src/mocks/wallet-contexts-mock", () => ({
   ),
 }));
 
+jest.unstable_mockModule(
+  "../src/templates/minimal/src/hooks/useTransactionHistory",
+  () => ({
+    useTransactionHistory: jest.fn(() => ({
+      items: [],
+      loading: false,
+      error: null,
+      hasMore: false,
+      fetchNextPage: jest.fn(),
+      refresh: jest.fn(),
+    })),
+  }),
+);
+
 const [
   { default: ErrorBoundary },
   { default: ReceiveForm },
+  { default: TransactionList },
+  { default: TransactionStatusBadge },
   { default: WalletConnectButton },
   { useWallet },
 ] = await Promise.all([
   import("../src/templates/minimal/src/components/ErrorBoundary"),
   import("../src/templates/minimal/src/components/ReceiveForm"),
+  import("../src/templates/minimal/src/components/TransactionList"),
+  import("../src/templates/minimal/src/components/TransactionStatusBadge"),
   import("../src/templates/minimal/src/components/WalletConnectButton"),
   import("../src/mocks/wallet-contexts-mock"),
 ]);
@@ -107,4 +125,23 @@ describe("minimal template components smoke tests (#893)", () => {
       screen.getByRole("button", { name: /Copy address/i }),
     ).toBeInTheDocument();
   });
+
+  it("renders TransactionList cleanly when disconnected", () => {
+    const { container } = render(
+      <TransactionList limit={5} type="operations" />,
+    );
+    expect(container).toBeInTheDocument();
+    expect(
+      screen.getByText(/Connect wallet to view transactions/i),
+    ).toBeInTheDocument();
+  });
+
+  it.each(["pending", "success", "failed"] as const)(
+    "renders TransactionStatusBadge cleanly for status: %s",
+    (status) => {
+      const { container } = render(<TransactionStatusBadge status={status} />);
+      expect(container.firstChild).toBeInTheDocument();
+      expect(screen.getByRole("status")).toBeInTheDocument();
+    },
+  );
 });
