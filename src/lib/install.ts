@@ -3,6 +3,7 @@ import path from "path";
 import fs from "fs-extra";
 import pc from "picocolors";
 import ora from "ora";
+import { printWarning } from "./feedback.js";
 
 export type PackageManager = "npm" | "yarn" | "pnpm" | "bun";
 
@@ -226,7 +227,7 @@ async function saveInstallLog(
     await fs.writeFile(logPath, logContent, "utf8");
     return logPath;
   } catch (logError) {
-    console.warn("⚠️  Could not save error log:", logError);
+    printWarning(`Could not save error log: ${logError?.message || logError}`);
     return undefined;
   }
 }

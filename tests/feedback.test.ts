@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { displaySuccess} from '../src/lib/feedback.js';
+import { displaySuccess, printError, printWarning } from '../src/lib/feedback.js';
 
 describe('feedback', () => {
   let output: string[] = [];
@@ -63,6 +63,41 @@ describe('feedback', () => {
       expect(text).toMatch(/Nextellar scaffold complete!/);
       expect(text).toMatch(/cd test-app/);
       expect(text).toMatch(/npm run dev/);
+    });
+  });
+
+  describe('error/warning formatters (#consistent-errors)', () => {
+    let stderr: string[];
+    let originalError: any;
+
+    beforeEach(() => {
+      stderr = [];
+      originalError = console.error;
+      console.error = jest.fn((data: string) => {
+        stderr.push(data);
+      }) as any;
+    });
+
+    afterEach(() => {
+      console.error = originalError;
+    });
+
+    it('printError emits a red ❌ prefix on stderr', () => {
+      printError('something broke');
+      const text = stripAnsi(stderr.join(''));
+      expect(text).toBe('❌ something broke');
+    });
+
+    it('printWarning emits a ⚠ prefix on stderr', () => {
+      printWarning('careful now');
+      const text = stripAnsi(stderr.join(''));
+      expect(text).toBe('⚠ careful now');
+    });
+
+    it('prints every error prefix consistently', () => {
+      printError('a');
+      printError('b');
+      expect(stderr.map((s) => stripAnsi(s))).toEqual(['❌ a', '❌ b']);
     });
   });
 });
