@@ -310,6 +310,8 @@ export async function scaffold(options: ScaffoldOptions) {
       path.join(targetDir, "src/lib/stellar-wallet-kit.js"),
       path.join(targetDir, "src/hooks/useSorobanContract.ts"),
       path.join(targetDir, "src/hooks/useSorobanContract.js"),
+      path.join(targetDir, "src/hooks/useSorobanEvents.ts"),
+      path.join(targetDir, "src/hooks/useSorobanEvents.js"),
       path.join(targetDir, ".env.example"),
       path.join(targetDir, ".nextellar/config.json"),
     ];
