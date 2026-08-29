@@ -1,79 +1,41 @@
 /**
- * Test stand-in for template `../contexts` (WalletProvider).
+ * Mock for template contexts module (WalletProvider).
+ * Mapped via jest.config moduleNameMapper for '../contexts' and
+ * '../contexts/WalletProvider' imports.
  *
- * Mapped via jest.config `moduleNameMapper` so template components/hooks that
- * import `../contexts` get this module instead of the real provider (which
- * pulls in `@stellar/stellar-sdk` and the wallet kit).
+ * Hooks under test (useStellarBalances, useTrustlines, …) only need
+ * `useWalletConfig` to return undefined so they fall back to their defaults.
  *
- * Unlike the previous throw-on-use stub, this is a real React context so
- * `renderWithProviders` in `tests/test-utils` can drive `useWallet()` /
- * `useWalletConfig()` with fixture state. `useWalletConfig()` still returns
- * `undefined` when no config value is provided, matching the hooks' standalone
- * fallback path.
+ * Component tests, however, render against a real context — they import
+ * `WalletContext` and wrap the component in `WalletContext.Provider` with a
+ * hand-built wallet state. So this mock exposes a genuine context rather than
+ * a throwing stub, and `useWallet` reads from it.
  */
 import { createContext, useContext } from 'react';
 
-export type MockWalletAccount = {
+export interface WalletAccount {
   address: string;
-  displayName?: string;
-};
-
-export type MockBalance = {
-  balance: string;
-  asset_type: string;
-  asset_code?: string;
-  asset_issuer?: string;
-};
-
-export type MockWalletState = {
-  connected: boolean;
-  publicKey?: string;
-  walletName?: string;
-  balances: MockBalance[];
-  accounts: MockWalletAccount[];
-  currentAccountIndex: number;
-  connect: () => Promise<void>;
-  disconnect: () => void;
-  refreshBalances: () => Promise<void>;
-  switchAccount: (address: string) => Promise<void>;
-  sendPayment?: (...args: unknown[]) => Promise<unknown>;
-};
-
-export type MockWalletConfig = {
-  activeNetworkKey: string;
-  horizonUrl: string;
-  sorobanUrl: string;
-  network: string;
-  switchNetwork: (networkKey: string) => void;
-};
-
-const noopAsync = async () => {};
-const noop = () => {};
-
-function defaultWalletState(): MockWalletState {
-  return {
-    connected: false,
-    balances: [],
-    accounts: [],
-    currentAccountIndex: 0,
-    connect: noopAsync,
-    disconnect: noop,
-    refreshBalances: noopAsync,
-    switchAccount: noopAsync,
-  };
+  name?: string;
+  index?: number;
 }
 
-export const WalletContext = createContext<MockWalletState | undefined>(
-  undefined,
-);
-export const WalletConfigContext = createContext<
-  MockWalletConfig | undefined
->(undefined);
+// Intentionally loose: each template's WalletContextState differs slightly, and
+// component tests supply whichever subset of fields the component reads.
+export type WalletContextState = Record<string, unknown>;
 
-export function useWalletConfig(): MockWalletConfig | undefined {
-  return useContext(WalletConfigContext);
+export const WalletContext = createContext<WalletContextState | undefined>(undefined);
+export const WalletConfigContext = createContext<unknown>(undefined);
+
+export function useWalletConfig() {
+  return undefined;
 }
 
+export function useWallet(): WalletContextState {
+  const context = useContext(WalletContext);
+  if (context === undefined) {
+    throw new Error('useWallet must be used within a WalletProvider');
+  }
+  return context;
 /**
  * Real React Context (not just a mocked function) so component tests can
  * inject wallet state via `<WalletContext.Provider value={...}>`, matching
