@@ -130,8 +130,8 @@ export default function CounterDemo() {
 
         {/* Counter Display */}
         <div className="mb-8">
-          <div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg p-8 text-center">
-            <p className="text-white/80 text-sm mb-2" id="counter-demo-label">Current Count</p>
+          <div className="bg-gradient-to-r from-blue-700 to-indigo-800 rounded-lg p-8 text-center">
+            <p className="text-white text-sm mb-2" id="counter-demo-label">Current Count</p>
             <p
               className="text-5xl font-bold text-white"
               role="status"
@@ -150,7 +150,7 @@ export default function CounterDemo() {
             disabled={loading || count === null}
             aria-label="Decrement count"
             aria-busy={loading}
-            className="px-4 py-3 bg-red-500 hover:bg-red-600 disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white font-medium rounded-lg transition-colors disabled:cursor-not-allowed"
+            className="px-4 py-3 bg-red-700 hover:bg-red-800 disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white font-medium rounded-lg transition-colors disabled:cursor-not-allowed"
           >
             {loading ? '...' : '−'}
           </button>
@@ -159,7 +159,7 @@ export default function CounterDemo() {
             disabled={loading || count === null}
             aria-label="Increment count"
             aria-busy={loading}
-            className="px-4 py-3 bg-green-500 hover:bg-green-600 disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white font-medium rounded-lg transition-colors disabled:cursor-not-allowed"
+            className="px-4 py-3 bg-green-700 hover:bg-green-800 disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white font-medium rounded-lg transition-colors disabled:cursor-not-allowed"
           >
             {loading ? '...' : '+'}
           </button>
@@ -171,7 +171,7 @@ export default function CounterDemo() {
             disabled={loading || count === null}
             aria-label="Add 10 to count"
             aria-busy={loading}
-            className="px-4 py-3 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white font-medium rounded-lg transition-colors disabled:cursor-not-allowed text-sm"
+            className="px-4 py-3 bg-blue-700 hover:bg-blue-800 disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white font-medium rounded-lg transition-colors disabled:cursor-not-allowed text-sm"
           >
             {loading ? '...' : '+10'}
           </button>
@@ -179,7 +179,7 @@ export default function CounterDemo() {
             onClick={handleReset}
             disabled={loading || count === null}
             aria-busy={loading}
-            className="px-4 py-3 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white font-medium rounded-lg transition-colors disabled:cursor-not-allowed"
+            className="px-4 py-3 bg-orange-700 hover:bg-orange-800 disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white font-medium rounded-lg transition-colors disabled:cursor-not-allowed"
           >
             {loading ? '...' : 'Reset'}
           </button>
@@ -189,7 +189,7 @@ export default function CounterDemo() {
           onClick={fetchCount}
           disabled={loading || count === null}
           aria-busy={loading}
-          className="w-full px-4 py-3 bg-indigo-500 hover:bg-indigo-600 disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white font-medium rounded-lg transition-colors disabled:cursor-not-allowed"
+          className="w-full px-4 py-3 bg-indigo-700 hover:bg-indigo-800 disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white font-medium rounded-lg transition-colors disabled:cursor-not-allowed"
         >
           {loading ? 'Loading...' : 'Refresh Count'}
         </button>

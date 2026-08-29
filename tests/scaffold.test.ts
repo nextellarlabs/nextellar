@@ -14,6 +14,18 @@ jest.unstable_mockModule('../src/lib/install.js', () => ({
   runInstall: mockRunInstall,
 }));
 
+const mockExeca = jest.fn();
+jest.unstable_mockModule('execa', () => ({ execa: mockExeca }));
+// Disable the preflight toolchain gate in tests (#908): the sandboxed test
+// environment cannot spawn npm, and scaffold behavior is what we verify here.
+jest.unstable_mockModule('../src/lib/preflight.js', () => ({
+  runPreflight: async () => ({ ok: true, failures: [] }),
+  setPreflightDisabledForTest: () => {},
+  setNpmRunnerForTest: () => {},
+  checkNodeVersion: () => ({ ok: true, detail: 'test', fix: '' }),
+  checkNpmAvailable: async () => ({ ok: true, detail: 'test npm OK', fix: '' }),
+}));
+
 const { scaffold } = await import('../src/lib/scaffold');
 
 const __filename = fileURLToPath(import.meta.url);
@@ -66,6 +78,8 @@ describe('scaffold integration', () => {
         ? { success: true, packageManager: 'skipped' }
         : { success: true, packageManager: 'npm' }
     );
+    mockExeca.mockReset();
+    mockExeca.mockResolvedValue(undefined);
   });
 
   afterEach(async () => {
@@ -273,6 +287,113 @@ describe('scaffold integration', () => {
   });
 
   // -------------------------------------------------------------------------
+  // #896 — control whether a git repo is initialized in the new project.
+  // -------------------------------------------------------------------------
+  describe('git init behavior (#896)', () => {
+    test('runs `git init` in the new project by default', async () => {
+      origCwd = process.cwd();
+      const parent = await makeTempParent();
+      process.chdir(parent);
+
+      const appName = 'git-default-app';
+      await scaffold({
+        appName,
+        useTs: true,
+        template: 'minimal',
+        skipInstall: true,
+      });
+
+      const target = path.join(parent, appName);
+      expect(mockExeca).toHaveBeenCalledWith('git', ['init'], {
+        cwd: target,
+        stdio: 'ignore',
+      });
+    });
+
+    test('skips `git init` when git: false is passed', async () => {
+      origCwd = process.cwd();
+      const parent = await makeTempParent();
+      process.chdir(parent);
+
+      const appName = 'git-disabled-app';
+      await scaffold({
+        appName,
+        useTs: true,
+        template: 'minimal',
+        skipInstall: true,
+        git: false,
+      });
+
+      expect(mockExeca).not.toHaveBeenCalled();
+    });
+
+    test('continues scaffolding even when `git init` fails', async () => {
+      mockExeca.mockRejectedValueOnce(new Error('git not found'));
+      origCwd = process.cwd();
+      const parent = await makeTempParent();
+      process.chdir(parent);
+
+      const appName = 'git-fails-app';
+      await scaffold({
+        appName,
+        useTs: true,
+        template: 'minimal',
+        skipInstall: true,
+      });
+
+      const target = path.join(parent, appName);
+      expect(await fs.pathExists(path.join(target, 'package.json'))).toBe(true);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // #895 — pass the selected package manager through to install.
+  // -------------------------------------------------------------------------
+  describe('package manager flag (#895)', () => {
+    test('passes the selected package manager to runInstall', async () => {
+      mockRunInstall.mockResolvedValueOnce({
+        success: true,
+        packageManager: 'bun',
+      });
+
+      origCwd = process.cwd();
+      const parent = await makeTempParent();
+      process.chdir(parent);
+
+      const appName = 'pm-flag-app';
+      await scaffold({
+        appName,
+        useTs: true,
+        template: 'minimal',
+        skipInstall: false,
+        packageManager: 'bun',
+      });
+
+      expect(mockRunInstall).toHaveBeenCalledWith(
+        expect.objectContaining({ cwd: path.join(parent, appName), packageManager: 'bun' }),
+      );
+    });
+
+    test('defaults to npm detection when no package manager is passed', async () => {
+      origCwd = process.cwd();
+      const parent = await makeTempParent();
+      process.chdir(parent);
+
+      const appName = 'pm-default-app';
+      await scaffold({
+        appName,
+        useTs: true,
+        template: 'minimal',
+        skipInstall: false,
+      });
+
+      expect(mockRunInstall).toHaveBeenCalledWith(
+        expect.objectContaining({ packageManager: undefined }),
+      );
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // #680 — regression: no unresolved {{PLACEHOLDER}} tokens in scaffolded
   // output, and no dead (unused) placeholders in the scaffold config map.
   // -------------------------------------------------------------------------
@@ -284,6 +405,18 @@ describe('scaffold integration', () => {
     // All template variants that scaffold() supports (useTs + template name
     // combinations that map to a real template directory).
     const TEMPLATE_VARIANTS: Array<{ useTs: boolean; template: string }> = [
+      { useTs: true,  template: 'default'  },
+      { useTs: true,  template: 'defi'     },
+      { useTs: true,  template: 'minimal'  },
+      { useTs: false, template: 'default'  }, // → js-template
+      { useTs: false, template: 'defi'     }, // → js-defi
+    ];
+
+    // The --with-contracts overlay is copied over the chosen template and then
+    // rewrites package.json and .env.example, so it needs its own variants: a
+    // token left unresolved on that path never shows up in the plain variants
+    // above (#827).
+    const CONTRACTS_VARIANTS: Array<{ useTs: boolean; template: string }> = [
       { useTs: true,  template: 'default'  },
       { useTs: true,  template: 'defi'     },
       { useTs: true,  template: 'minimal'  },
@@ -371,6 +504,167 @@ describe('scaffold integration', () => {
         }
       },
     );
+
+    /** Scan a scaffolded app and return every unresolved {{TOKEN}} found. */
+    async function findUnresolvedTokens(
+      targetDir: string,
+    ): Promise<Array<{ file: string; token: string }>> {
+      const files = await collectFiles(targetDir);
+      const violations: Array<{ file: string; token: string }> = [];
+
+      for (const file of files) {
+        const ext = path.extname(file).toLowerCase();
+        const binaryExts = new Set([
+          '.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico',
+          '.woff', '.woff2', '.ttf', '.eot', '.otf',
+          '.zip', '.tar', '.gz',
+        ]);
+        if (binaryExts.has(ext)) continue;
+
+        let content: string;
+        try {
+          content = await fs.readFile(file, 'utf8');
+        } catch {
+          continue;
+        }
+
+        const matches = content.match(TOKEN_REGEX);
+        if (matches) {
+          const relPath = path.relative(targetDir, file);
+          for (const token of [...new Set(matches)]) {
+            violations.push({ file: relPath, token });
+          }
+        }
+      }
+
+      return violations;
+    }
+
+    test.each(CONTRACTS_VARIANTS)(
+      'no unresolved {{…}} tokens with --with-contracts: useTs=$useTs template=$template',
+      async ({ useTs, template }) => {
+        origCwd = process.cwd();
+        const parent = await makeTempParent('nextellar-contracts-ph-');
+        process.chdir(parent);
+
+        const appName = `contracts-ph-${template}-${useTs ? 'ts' : 'js'}`;
+
+        await scaffold({
+          appName,
+          useTs,
+          template,
+          withContracts: true,
+          skipInstall: true,
+        });
+
+        const targetDir = path.join(parent, appName);
+        const violations = await findUnresolvedTokens(targetDir);
+
+        if (violations.length > 0) {
+          const detail = violations
+            .map(({ file, token }) => `  ${token}  in  ${file}`)
+            .join('\n');
+          throw new Error(
+            `Unresolved placeholder tokens found after scaffolding ` +
+            `"${template}" with --with-contracts (useTs=${useTs}):\n${detail}`,
+          );
+        }
+      },
+    );
+
+    test.each(CONTRACTS_VARIANTS)(
+      'contracts overlay files are present and consistent: useTs=$useTs template=$template',
+      async ({ useTs, template }) => {
+        origCwd = process.cwd();
+        const parent = await makeTempParent('nextellar-contracts-files-');
+        process.chdir(parent);
+
+        const appName = `contracts-files-${template}-${useTs ? 'ts' : 'js'}`;
+
+        await scaffold({
+          appName,
+          useTs,
+          template,
+          withContracts: true,
+          skipInstall: true,
+        });
+
+        const targetDir = path.join(parent, appName);
+
+        // The Rust workspace and both sample contracts come across.
+        for (const rel of [
+          'contracts/Cargo.toml',
+          'contracts/hello_world/Cargo.toml',
+          'contracts/hello_world/src/lib.rs',
+          'contracts/counter/Cargo.toml',
+          'contracts/counter/src/lib.rs',
+          'SOROBAN_SETUP.md',
+        ]) {
+          expect(await fs.pathExists(path.join(targetDir, rel))).toBe(true);
+        }
+
+        // …along with the TS client bindings the app imports.
+        for (const rel of [
+          'src/lib/contracts/index.ts',
+          'src/lib/bindings/HelloWorld.ts',
+          'src/lib/bindings/Counter.ts',
+        ]) {
+          expect(await fs.pathExists(path.join(targetDir, rel))).toBe(true);
+        }
+
+        // The overlay adds the contract scripts alongside the template's own
+        // rather than replacing them, so the app is still buildable.
+        const pkgJson = await fs.readJson(path.join(targetDir, 'package.json'));
+        expect(pkgJson.name).toBe(appName);
+        expect(pkgJson.scripts).toMatchObject({
+          'contracts:build': 'cd contracts && stellar contract build',
+          'contracts:test': 'cd contracts && cargo test',
+        });
+        expect(pkgJson.scripts.build).toBe('next build');
+
+        // The contract ID env var is documented, and the placeholder it points
+        // at is the one src/lib/contracts validates against.
+        const envExample = await fs.readFile(
+          path.join(targetDir, '.env.example'),
+          'utf8',
+        );
+        expect(envExample).toContain(
+          'NEXT_PUBLIC_HELLO_WORLD_CONTRACT_ID=C_REPLACE_WITH_YOUR_CONTRACT_ID',
+        );
+
+        const contractsIndex = await fs.readFile(
+          path.join(targetDir, 'src/lib/contracts/index.ts'),
+          'utf8',
+        );
+        expect(contractsIndex).toContain('NEXT_PUBLIC_HELLO_WORLD_CONTRACT_ID');
+      },
+    );
+
+    test('scaffolding without --with-contracts leaves no contracts overlay behind', async () => {
+      origCwd = process.cwd();
+      const parent = await makeTempParent('nextellar-no-contracts-');
+      process.chdir(parent);
+
+      const appName = 'no-contracts-app';
+
+      await scaffold({
+        appName,
+        useTs: true,
+        template: 'defi',
+        skipInstall: true,
+      });
+
+      const targetDir = path.join(parent, appName);
+
+      expect(await fs.pathExists(path.join(targetDir, 'contracts'))).toBe(false);
+      expect(
+        await fs.pathExists(path.join(targetDir, 'SOROBAN_SETUP.md')),
+      ).toBe(false);
+
+      const pkgJson = await fs.readJson(path.join(targetDir, 'package.json'));
+      expect(pkgJson.scripts['contracts:build']).toBeUndefined();
+      expect(pkgJson.scripts['contracts:test']).toBeUndefined();
+    });
 
     test('every token in scaffold.ts config map appears in at least one template source file', async () => {
       // Read scaffold.ts source and extract all {{TOKEN}} keys from the

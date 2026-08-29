@@ -53,6 +53,7 @@ jobs:
         run: |
           npm install
           npm run build
+          if grep -q '"build-storybook"' package.json; then npm run build-storybook; fi
 
   nightly-full:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -92,3 +93,4 @@ jobs:
         run: |
           npm install
           npm run build
+          if grep -q '"build-storybook"' package.json; then npm run build-storybook; fi

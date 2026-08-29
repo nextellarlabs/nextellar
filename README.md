@@ -65,6 +65,7 @@ Usage: nextellar <project-name> [options]
 Options:
   -t, --typescript         Generate a TypeScript project (default)
   -j, --javascript         Generate a JavaScript project
+  --template <name>        Starter to scaffold (default, minimal, defi)
   --horizon-url <url>      Override default Horizon endpoint
   --soroban-url <url>      Override default Soroban RPC endpoint
   -w, --wallets <list>     Comma-separated list of wallet adapters
@@ -75,6 +76,45 @@ Options:
   -v, --version            Show CLI version
   -h, --help               Show help text
 ```
+
+---
+
+## 🧩 Templates
+
+`--template <name>` selects which starter to scaffold. It defaults to
+`default` when omitted.
+
+| Template  | Description                                                                    | TypeScript | JavaScript |
+| --------- | ------------------------------------------------------------------------------ | :--------: | :--------: |
+| `default` | Full starter: wallet provider, network switcher, balances, transaction history  |     ✅     |     ✅     |
+| `minimal` | Bare starter: wallet connection only, no extra UI                               |     ✅     |     ❌     |
+| `defi`    | DeFi starter: swap, liquidity pool and price-feed components                    |     ✅     |     ✅     |
+
+```bash
+npx nextellar my-app                        # default template, TypeScript
+npx nextellar my-app --template minimal     # minimal starter
+npx nextellar my-app --template defi        # DeFi starter
+npx nextellar my-app --template defi -j     # DeFi starter, JavaScript
+```
+
+An unrecognised name fails before anything is written, and the error lists
+every valid option:
+
+```bash
+$ npx nextellar my-app --template nope
+Unknown template "nope". Available templates: default, minimal, defi.
+```
+
+`minimal` has no JavaScript variant yet. Asking for one reports which
+templates do:
+
+```bash
+$ npx nextellar my-app --template minimal --javascript
+Template "minimal" is not available for JavaScript yet. Templates with a JavaScript variant: default, defi.
+```
+
+> Soroban smart contracts are added with `--with-contracts`, not with
+> `--template`. The two flags compose: `--template defi --with-contracts`.
 
 ---
 
@@ -104,6 +144,9 @@ Full API reference, guides, and examples live at:
 
 Telemetry and privacy details:  
 🔗 [docs/telemetry.md](docs/telemetry.md)
+
+Per-template bundle analysis and size budgets:  
+🔗 [docs/bundle-budgets.md](docs/bundle-budgets.md)
 
 ---
 

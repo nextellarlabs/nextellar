@@ -46,6 +46,8 @@ export default function Home() {
         {theme === 'light' ? (<Image src="/ligt-mode-bg.svg" alt="" fill className="object-cover" priority onError={() => console.error('Light mode background failed to load')}/>) : (<Image src="/dark-mode-bg.svg" alt="" fill className="object-cover" priority onError={() => console.error('Dark mode background failed to load')}/>)}
       </div>
 
+      <div className="absolute inset-0 bg-white/75 dark:bg-black/75" aria-hidden="true" />
+
       {/* Content */}
       <div className="relative z-10 min-h-screen flex flex-col">
         {/* Header */}

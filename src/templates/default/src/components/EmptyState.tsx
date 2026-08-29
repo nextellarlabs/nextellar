@@ -34,11 +34,11 @@ export default function EmptyState({
   return (
     <div className="w-full p-10 text-center" role="status">
       <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 mb-4">
-        {icon ?? <Inbox className="w-6 h-6 text-gray-400 dark:text-gray-500" aria-hidden="true" />}
+        {icon ?? <Inbox className="w-6 h-6 text-gray-600 dark:text-gray-300" aria-hidden="true" />}
       </div>
       <p className="text-gray-600 dark:text-gray-400 text-sm font-medium">{title}</p>
       {description && (
-        <p className="text-gray-400 dark:text-gray-500 text-xs mt-1 max-w-xs mx-auto">
+        <p className="text-gray-600 dark:text-gray-300 text-xs mt-1 max-w-xs mx-auto">
           {description}
         </p>
       )}
@@ -58,5 +58,5 @@ export default function EmptyState({
  * ```
  */
 export function NoWalletIcon() {
-  return <Wallet className="w-6 h-6 text-gray-400 dark:text-gray-500" aria-hidden="true" />;
+  return <Wallet className="w-6 h-6 text-gray-600 dark:text-gray-300" aria-hidden="true" />;
 }

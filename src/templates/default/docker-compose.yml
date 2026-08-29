@@ -1,0 +1,26 @@
+# Run the scaffolded app in a container (#937).
+#
+# Usage:
+#   cp .env.example .env   # fill in real values — Compose's ${VAR}
+#                           # substitution below only reads a file
+#                           # literally named ".env" in this directory,
+#                           # not .env.local
+#   docker compose up --build
+#
+# NEXT_PUBLIC_* variables must be available at *build* time (Next.js bakes
+# them into the client bundle), so they're passed as build args here — a
+# value only set under a container's runtime environment would never reach
+# the already-built browser bundle.
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_HORIZON_URL: ${NEXT_PUBLIC_HORIZON_URL}
+        NEXT_PUBLIC_SOROBAN_URL: ${NEXT_PUBLIC_SOROBAN_URL}
+        NEXT_PUBLIC_NETWORK: ${NEXT_PUBLIC_NETWORK}
+        NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME}
+    ports:
+      - "3000:3000"
+    restart: unless-stopped

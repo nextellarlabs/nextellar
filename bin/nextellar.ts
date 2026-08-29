@@ -14,6 +14,12 @@ import { detectPackageManager } from "../src/lib/install.js";
 import { runInteractivePrompts } from "../src/lib/prompts.js";
 import { validateProjectName } from "../src/lib/validate.js";
 import {
+  TEMPLATE_LIST,
+  isValidTemplate,
+  getTemplate,
+  JS_TEMPLATE_LIST,
+} from "../src/lib/templates.js";
+import {
   flushTelemetry,
   getTelemetryStatus,
   isTelemetryDisabledByEnv,
@@ -73,6 +79,34 @@ program
       await exitWithTelemetry(1);
     }
   });
+  .option(
+    "--horizon-url <url>",
+    "Horizon endpoint to check (default: from .nextellar/config.json or testnet)",
+  )
+  .option(
+    "--soroban-url <url>",
+    "Soroban RPC endpoint to check (default: from .nextellar/config.json or testnet)",
+  )
+  .action(
+    async (cmdOpts: {
+      json?: boolean;
+      horizonUrl?: string;
+      sorobanUrl?: string;
+    }) => {
+      try {
+        const { runDoctor } = await import("../src/lib/doctor.js");
+        const exitCode = await runDoctor({
+          json: !!cmdOpts.json,
+          horizonUrl: cmdOpts.horizonUrl,
+          sorobanUrl: cmdOpts.sorobanUrl,
+        });
+        await exitWithTelemetry(exitCode);
+      } catch (err: any) {
+        console.error("Failed to run doctor:", err?.message || err);
+        await exitWithTelemetry(1);
+      }
+    },
+  );
 
 // Add subcommand: nextellar add <feature> | nextellar add --list
 program
@@ -82,49 +116,65 @@ program
   .option("--force", "overwrite existing files")
   .option("--skip-install", "skip installing npm dependencies")
   .option("--package-manager <manager>", "npm, yarn, or pnpm")
-  .action(async (feature: string | undefined, cmdOpts: { list?: boolean; force?: boolean; skipInstall?: boolean; packageManager?: string }) => {
-    try {
-      const { runAdd } = await import("../src/lib/add.js");
-      const { listFeatures } = await import("../src/lib/features.js");
-      if (cmdOpts.list) {
-        const list = listFeatures();
-        const width = Math.max(...list.map((f) => f.id.length)) + 2;
-        const groups: { title: string; kind: string }[] = [
-          { title: "Hooks & providers:", kind: "hook" },
-          { title: "UI components:", kind: "component" },
-        ];
-        console.log(pc.bold("Available features:\n"));
-        groups.forEach(({ title, kind }) => {
-          const items = list.filter((f) => f.kind === kind);
-          if (items.length === 0) return;
-          console.log(pc.bold(title));
-          items.forEach(({ id, description }) => {
-            console.log(`  ${pc.cyan(id.padEnd(width))} ${pc.dim(description)}`);
+  .action(
+    async (
+      feature: string | undefined,
+      cmdOpts: {
+        list?: boolean;
+        force?: boolean;
+        skipInstall?: boolean;
+        packageManager?: string;
+      },
+    ) => {
+      try {
+        const { runAdd } = await import("../src/lib/add.js");
+        const { listFeatures } = await import("../src/lib/features.js");
+        if (cmdOpts.list) {
+          const list = listFeatures();
+          const width = Math.max(...list.map((f) => f.id.length)) + 2;
+          const groups: { title: string; kind: string }[] = [
+            { title: "Hooks & providers:", kind: "hook" },
+            { title: "UI components:", kind: "component" },
+          ];
+          console.log(pc.bold("Available features:\n"));
+          groups.forEach(({ title, kind }) => {
+            const items = list.filter((f) => f.kind === kind);
+            if (items.length === 0) return;
+            console.log(pc.bold(title));
+            items.forEach(({ id, description }) => {
+              console.log(
+                `  ${pc.cyan(id.padEnd(width))} ${pc.dim(description)}`,
+              );
+            });
+            console.log("");
           });
-          console.log("");
+          return;
+        }
+        if (!feature || feature.trim() === "") {
+          console.error(
+            "Please specify a feature. Use " +
+              pc.cyan("nextellar add --list") +
+              " to see options.",
+          );
+          return await exitWithTelemetry(1);
+        }
+        const result = await runAdd(feature, {
+          force: cmdOpts.force,
+          skipInstall: cmdOpts.skipInstall,
+          packageManager: cmdOpts.packageManager,
         });
-        return;
-      }
-      if (!feature || feature.trim() === "") {
-        console.error("Please specify a feature. Use " + pc.cyan("nextellar add --list") + " to see options.");
-        return await exitWithTelemetry(1);
-      }
-      const result = await runAdd(feature, {
-        force: cmdOpts.force,
-        skipInstall: cmdOpts.skipInstall,
-        packageManager: cmdOpts.packageManager,
-      });
-      if (!result.success) {
-        console.error(result.message ?? "Add failed.");
+        if (!result.success) {
+          console.error(result.message ?? "Add failed.");
+          await exitWithTelemetry(1);
+        }
+      } catch (err: any) {
+        console.error("Add failed:", err?.message || err);
         await exitWithTelemetry(1);
+      } finally {
+        await flushTelemetry();
       }
-    } catch (err: any) {
-      console.error("Add failed:", err?.message || err);
-      await exitWithTelemetry(1);
-    } finally {
-      await flushTelemetry();
-    }
-  });
+    },
+  );
 
 program
   .command("telemetry <action>")
@@ -139,7 +189,7 @@ program
         console.log(`Config: ${telemetryConfigPath}`);
         if (isTelemetryDisabledByEnv()) {
           console.log(
-            "NEXTELLAR_TELEMETRY_DISABLED is set, so telemetry is forced off for this environment."
+            "NEXTELLAR_TELEMETRY_DISABLED is set, so telemetry is forced off for this environment.",
           );
         }
         return;
@@ -160,7 +210,7 @@ program
       }
 
       console.error(
-        `Unknown telemetry action \"${action}\". Use: status, enable, disable.`
+        `Unknown telemetry action "${action}". Use: status, enable, disable.`,
       );
       await exitWithTelemetry(1);
     } finally {
@@ -170,12 +220,19 @@ program
 
 program
   .command("upgrade")
-  .description("Upgrade an existing Nextellar project to the latest template files")
+  .description(
+    "Upgrade an existing Nextellar project to the latest template files",
+  )
   .option("--dry-run", "Show what would change without applying it", false)
+  .option("--check", "Dry preview with changelog display", false)
   .option("--yes", "Apply changes without prompting", false)
   .action(async (options) => {
     try {
-      await upgrade({ dryRun: options.dryRun, yes: options.yes });
+      await upgrade({
+        dryRun: options.dryRun,
+        yes: options.yes,
+        check: options.check,
+      });
     } catch (err: any) {
       console.error(`\n❌ Error: ${err.message}`);
       await exitWithTelemetry(1);
@@ -187,12 +244,24 @@ program
 program
   .command("deploy")
   .description("Validate and prepare a deployment bundle for Nextellar Cloud")
-  .option("--dry-run", "validate and show what would be deployed without bundling")
-  .action(async (cmdOpts: { dryRun?: boolean }) => {
+  .option(
+    "--dry-run",
+    "validate and show what would be deployed without bundling",
+  )
+  .option(
+    "--size-threshold <bytes>",
+    "bundle size threshold in bytes (default: 50MB)",
+    "52428800",
+  )
+  .action(async (cmdOpts: { dryRun?: boolean; sizeThreshold?: string }) => {
     try {
+      const sizeThreshold = cmdOpts.sizeThreshold
+        ? parseInt(cmdOpts.sizeThreshold, 10)
+        : undefined;
       await runDeploy({
         cwd: process.cwd(),
         dryRun: !!cmdOpts.dryRun,
+        sizeThreshold,
       });
     } catch (err: any) {
       console.error(`\n❌ Error: ${err?.message || err}`);
@@ -223,10 +292,7 @@ program
   .argument("<project-name>", "name of the new Nextellar project")
   .option("-t, --typescript", "generate a TypeScript project (default)", true)
   .option("-j, --javascript", "generate a JavaScript project")
-  .option(
-    "--template <name>",
-    "project template to use (default, minimal, defi)",
-  )
+  .option("--template <name>", `project template to use (${TEMPLATE_LIST})`)
   .option("--horizon-url <url>", "custom Horizon endpoint")
   .option("--soroban-url <url>", "custom Soroban RPC endpoint")
   .option(
@@ -236,22 +302,32 @@ program
   )
   .option("-d, --defaults", "skip prompts and use defaults", false)
   .option(
+    "-y, --yes",
+    "alias for --defaults: skip prompts and use defaults",
+    false,
+  )
+  .option(
     "--skip-install",
     "skip dependency installation after scaffolding",
     false,
   )
   .option(
     "--package-manager <manager>",
-    "choose package manager (npm, yarn, pnpm)",
+    "choose package manager (npm, yarn, pnpm, bun)",
   )
   .option(
     "-c, --with-contracts",
     "scaffold Soroban smart contracts alongside the frontend",
     false,
   )
+  .option("--force", "overwrite existing directory", false)
   .option(
-    "--force",
-    "overwrite existing directory",
+    "--no-git",
+    "skip initializing a git repository in the new project (defaults to on)",
+  )
+  .option(
+    "--git-init",
+    "explicitly initialize a git repository in the new project",
     false,
   )
   .option(
@@ -262,13 +338,18 @@ program
   .option("--no-telemetry", "disable telemetry for this invocation");
 
 program.action(async (projectName, options) => {
+  // --yes is an alias for --defaults; normalize once so every downstream
+  // check only has to look at options.defaults.
+  options.defaults = options.defaults || options.yes;
+
   const template = options.template || "default";
-  const validTemplates = ["default", "minimal", "defi"];
   const useTs = options.typescript && !options.javascript;
 
   const hasArg = (longFlag: string, shortFlag?: string) => {
     const argv = process.argv;
-    return argv.includes(longFlag) || (shortFlag ? argv.includes(shortFlag) : false);
+    return (
+      argv.includes(longFlag) || (shortFlag ? argv.includes(shortFlag) : false)
+    );
   };
 
   const splitWallets = (value: unknown): string[] => {
@@ -279,18 +360,23 @@ program.action(async (projectName, options) => {
       .filter(Boolean);
   };
 
-  if (!validTemplates.includes(template)) {
+  if (!isValidTemplate(template)) {
     console.error(
-      `Unknown template "${template}". Available: default, minimal, defi`,
+      pc.red(
+        `Unknown template "${template}". Available templates: ${TEMPLATE_LIST}.`,
+      ),
     );
     return await exitWithTelemetry(1);
   }
 
-  if (!useTs && template !== "default") {
+  // A known template can still lack a JavaScript variant. Report that
+  // separately from an unknown name so the message names the templates
+  // that do have one.
+  if (!useTs && !getTemplate(template)?.jsDir) {
     console.error(
       pc.red(
-        `--javascript (or --no-typescript) currently only supports the default template. ` +
-          `Use --template default or omit --javascript/--no-typescript.`,
+        `Template "${template}" is not available for JavaScript yet. ` +
+          `Templates with a JavaScript variant: ${JS_TEMPLATE_LIST}.`,
       ),
     );
     return await exitWithTelemetry(1);
@@ -305,9 +391,13 @@ program.action(async (projectName, options) => {
     );
     console.log(`  ${pc.dim("Modern Next.js + Stellar toolkit")}\n`);
     console.log(`  ${pc.magenta("◆")} Project: ${pc.cyan(projectName)}`);
-    console.log(`  ${pc.magenta("◆")} Type:    ${pc.cyan(useTs ? "TypeScript" : "JavaScript")}`);
+    console.log(
+      `  ${pc.magenta("◆")} Type:    ${pc.cyan(useTs ? "TypeScript" : "JavaScript")}`,
+    );
     console.log(`  ${pc.magenta("◆")} Template: ${pc.cyan(template)}`);
-    console.log(`  ${pc.magenta("◆")} Contracts: ${pc.cyan(options.withContracts ? "Yes" : "No")}\n`);
+    console.log(
+      `  ${pc.magenta("◆")} Contracts: ${pc.cyan(options.withContracts ? "Yes" : "No")}\n`,
+    );
   }
 
   const shouldPrompt =
@@ -340,8 +430,8 @@ program.action(async (projectName, options) => {
   let finalWallets: string[] = walletsFlagProvided
     ? splitWallets(options.wallets)
     : [];
-  let finalPackageManager: "npm" | "yarn" | "pnpm" | undefined = options
-    .packageManager;
+  let finalPackageManager: "npm" | "yarn" | "pnpm" | "bun" | undefined =
+    options.packageManager;
   let finalSkipInstall: boolean = options.skipInstall;
 
   if (shouldPrompt) {
@@ -395,7 +485,9 @@ program.action(async (projectName, options) => {
   }
 
   try {
-    await maybeShowTelemetryNotice({ noTelemetryFlag: options.telemetry === false });
+    await maybeShowTelemetryNotice({
+      noTelemetryFlag: options.telemetry === false,
+    });
 
     await scaffold({
       appName: finalProjectName,
@@ -412,6 +504,7 @@ program.action(async (projectName, options) => {
       telemetryEnabled: options.telemetry,
       cliVersion: pkg.version,
       force: options.force,
+      git: options.git !== false,
     });
 
     const pkgManager = detectPackageManager(

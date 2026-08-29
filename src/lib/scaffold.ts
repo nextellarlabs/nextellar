@@ -1,11 +1,18 @@
 import path from "path";
 import fs from "fs-extra";
 import pc from "picocolors";
-import { detectPackageManager, runInstall } from "./install.js";
+import { execa } from "execa";
+import {
+  detectPackageManager,
+  runInstall,
+  type PackageManager,
+} from "./install.js";
 import { trackScaffoldEvent } from "./telemetry.js";
 import { fileURLToPath } from "url";
 import { confirm } from "@clack/prompts";
 import { validateHorizonUrl, validateSorobanUrl } from "./validate.js";
+import { runPreflight } from "./preflight.js";
+import { resolveTemplateDir } from "./templates.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,11 +27,13 @@ export interface ScaffoldOptions {
   wallets?: string[];
   defaults?: boolean;
   skipInstall?: boolean;
-  packageManager?: "npm" | "yarn" | "pnpm";
+  packageManager?: PackageManager;
   installTimeout?: number;
   telemetryEnabled?: boolean;
   cliVersion?: string;
   force?: boolean;
+  dryRun?: boolean;
+  git?: boolean;
 }
 
 export async function scaffold(options: ScaffoldOptions) {
@@ -43,7 +52,23 @@ export async function scaffold(options: ScaffoldOptions) {
     cliVersion,
     force,
     defaults,
+    dryRun,
+    git,
   } = options;
+
+  // Preflight toolchain check (#908): fail fast with guidance when the local
+  // Node.js toolchain is too old, instead of crashing mid-install. npm is only
+  // required when we will actually install, so skip that check for
+  // --skip-install / offline scaffolding.
+  const preflight = await runPreflight(undefined, 20, !!skipInstall);
+  if (!preflight.ok) {
+    for (const failure of preflight.failures) {
+      console.error(pc.red(`✖ ${failure}`));
+    }
+    throw new Error(
+      "Toolchain check failed. Fix the issues above and re-run scaffold.",
+    );
+  }
 
   const telemetryTemplate = template || "default";
   const telemetryLanguage = useTs ? "typescript" : "javascript";
@@ -53,17 +78,11 @@ export async function scaffold(options: ScaffoldOptions) {
     wallets && wallets.length > 0 ? wallets : ["freighter", "albedo", "lobstr"];
 
   const templateName = template || "default";
-  const JS_TEMPLATES: Record<string, string> = {
-    default: "js-template",
-    defi: "js-defi",
-  };
-  if (!useTs && !JS_TEMPLATES[templateName]) {
-    throw new Error(
-      `Template "${templateName}" is not available for JavaScript yet. Please use the default or defi template with --javascript.`,
-    );
-  }
 
-  const resolvedTemplateName = useTs ? templateName : JS_TEMPLATES[templateName];
+  // Resolves the starter directory for this template + language pair, and
+  // throws with the list of valid options when the name is unknown or has
+  // no variant for the requested language. See src/lib/templates.ts.
+  const resolvedTemplateName = resolveTemplateDir(templateName, useTs);
 
   // Validate custom URL overrides if provided
   if (horizonUrl) {
@@ -89,6 +108,87 @@ export async function scaffold(options: ScaffoldOptions) {
 
   const targetDir = path.resolve(process.cwd(), appName);
   const finalPackageManager = detectPackageManager(targetDir, packageManager);
+
+  // Dry-run mode: print plan without writing
+  if (dryRun) {
+    console.log(pc.bold("\n📋 Scaffold Plan (dry run)\n"));
+    console.log(`  ${pc.cyan("Project:")}    ${appName}`);
+    console.log(`  ${pc.cyan("Template:")}   ${resolvedTemplateName}`);
+    console.log(
+      `  ${pc.cyan("Language:")}   ${useTs ? "TypeScript" : "JavaScript"}`,
+    );
+    console.log(`  ${pc.cyan("Target:")}     ${targetDir}`);
+    console.log(`  ${pc.cyan("Contracts:")}  ${withContracts ? "Yes" : "No"}`);
+    console.log(
+      `  ${pc.cyan("Network:")}    ${horizonUrl && horizonUrl.includes("public") ? "PUBLIC" : "TESTNET"}`,
+    );
+    console.log(
+      `  ${pc.cyan("Wallets:")}    ${(wallets && wallets.length > 0 ? wallets : ["freighter", "albedo", "lobstr"]).join(", ")}`,
+    );
+    console.log(`  ${pc.cyan("Pkg manager:")} ${finalPackageManager}`);
+    console.log("");
+
+    // List files that would be copied
+    console.log(pc.bold("  Files to create:"));
+    const walkDir = async (dir: string, prefix: string): Promise<string[]> => {
+      const entries = await fs.readdir(dir, { withFileTypes: true });
+      const files: string[] = [];
+      for (const entry of entries) {
+        if (entry.name === ".git" || entry.name === "node_modules") continue;
+        const fullPath = path.join(dir, entry.name);
+        const relPath = prefix ? `${prefix}/${entry.name}` : entry.name;
+        if (entry.isDirectory()) {
+          files.push(...(await walkDir(fullPath, relPath)));
+        } else {
+          files.push(relPath);
+        }
+      }
+      return files;
+    };
+
+    const templateFiles = await walkDir(templateDir, "");
+    for (const f of templateFiles) {
+      console.log(`    ${pc.green("+")} ${f}`);
+    }
+
+    if (withContracts) {
+      const contractsDir = path.join(templateRoot, "contracts-template");
+      if (await fs.pathExists(contractsDir)) {
+        console.log(`    ${pc.yellow("+")} ${pc.dim("(contracts overlay)")}`);
+        const contractFiles = await walkDir(contractsDir, "");
+        for (const f of contractFiles) {
+          console.log(`    ${pc.yellow("+")} ${f}`);
+        }
+      }
+    }
+
+    // Show placeholder substitutions
+    console.log("");
+    console.log(pc.bold("  Placeholder substitutions:"));
+    console.log(`    {{APP_NAME}}         → ${appName}`);
+    console.log(
+      `    {{HORIZON_URL}}      → ${horizonUrl || "https://horizon-testnet.stellar.org"}`,
+    );
+    console.log(
+      `    {{SOROBAN_URL}}      → ${sorobanUrl || "https://soroban-testnet.stellar.org"}`,
+    );
+    console.log(
+      `    {{NETWORK}}          → ${horizonUrl && horizonUrl.includes("public") ? "PUBLIC" : "TESTNET"}`,
+    );
+    console.log(
+      `    {{WALLETS}}          → ${JSON.stringify(wallets && wallets.length > 0 ? wallets : ["freighter", "albedo", "lobstr"])}`,
+    );
+    console.log(`    {{NEXTELLAR_VERSION}} → ${cliVersion || "0.0.0"}`);
+    console.log(`    {{TEMPLATE_NAME}}    → ${templateName}`);
+    console.log(`    {{TIMESTAMP}}        → ${new Date().toISOString()}`);
+
+    console.log("");
+    console.log(
+      pc.dim("  No files were written. Remove --dry-run to execute."),
+    );
+    console.log("");
+    return;
+  }
 
   if (await fs.pathExists(targetDir)) {
     if (!force) {
@@ -225,6 +325,8 @@ export async function scaffold(options: ScaffoldOptions) {
       path.join(targetDir, "src/lib/stellar-wallet-kit.js"),
       path.join(targetDir, "src/hooks/useSorobanContract.ts"),
       path.join(targetDir, "src/hooks/useSorobanContract.js"),
+      path.join(targetDir, "src/hooks/useSorobanEvents.ts"),
+      path.join(targetDir, "src/hooks/useSorobanEvents.js"),
       path.join(targetDir, ".env.example"),
       path.join(targetDir, ".nextellar/config.json"),
     ];
@@ -258,6 +360,22 @@ export async function scaffold(options: ScaffoldOptions) {
       );
     }
 
+    // Initialize a git repository in the newly scaffolded project unless the
+    // user opted out with --no-git (or --git false). Defaults to on, matching
+    // the behavior most users expect from a scaffolding tool.
+    if (git !== false) {
+      try {
+        await execa("git", ["init"], { cwd: targetDir, stdio: "ignore" });
+      } catch (error: any) {
+        console.warn(
+          pc.yellow(
+            `⚠️  Could not initialize git repository (${error?.message || "unknown error"}). ` +
+              `You can run \`git init\` yourself later.`,
+          ),
+        );
+      }
+    }
+
     void trackScaffoldEvent(
       {
         template: telemetryTemplate,
@@ -280,7 +398,9 @@ export async function scaffold(options: ScaffoldOptions) {
     // worth keeping, but an install-only failure leaves real, valuable
     // work that the user was just told how to finish setting up.
     if (!filesScaffolded && (await fs.pathExists(targetDir))) {
-      console.log(pc.yellow(`Cleaning up incomplete project directory "${appName}"...`));
+      console.log(
+        pc.yellow(`Cleaning up incomplete project directory "${appName}"...`),
+      );
       await fs.remove(targetDir);
     }
     void trackScaffoldEvent(
