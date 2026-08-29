@@ -148,6 +148,15 @@ Telemetry and privacy details:
 Per-template bundle analysis and size budgets:  
 🔗 [docs/bundle-budgets.md](docs/bundle-budgets.md)
 
+Deployment bundle guide (`nextellar deploy`):  
+🔗 [docs/deploy-guide.md](docs/deploy-guide.md)
+
+Network and environment configuration (Horizon/Soroban, testnet/mainnet, NetworkSwitcher):  
+🔗 [docs/network-environment-guide.md](docs/network-environment-guide.md)
+
+Soroban contracts overlay guide (`--with-contracts`):  
+🔗 [docs/soroban-contracts-overlay-guide.md](docs/soroban-contracts-overlay-guide.md)
+
 ---
 
 ## 🤝 Contributing
