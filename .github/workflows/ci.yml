@@ -88,6 +88,27 @@ jobs:
         run: NEXTELLAR_E2E=1 NODE_OPTIONS="--experimental-vm-modules --no-warnings" npx jest tests/e2e/scaffold-default.e2e.test.ts
         timeout-minutes: 15
 
+  e2e-minimal:
+    name: E2E — minimal scaffold + next build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+
+      # Issue #859 tracks a focused guard for the minimal template. Reuse the
+      # template E2E matrix test, but scope Jest to the minimal row so this job
+      # proves scaffold -> install -> next build without paying for every
+      # scaffold variant in the main CI workflow.
+      - name: Run E2E test (minimal template scaffold -> install -> next build)
+        run: RUN_E2E=1 NODE_OPTIONS="--experimental-vm-modules --no-warnings" npx jest tests/e2e/scaffold-templates.e2e.test.ts --testNamePattern="minimal:"
+        timeout-minutes: 15
+
   pack-guard:
     name: npm pack size guard
     runs-on: ubuntu-latest

@@ -130,8 +130,11 @@ export function useSorobanEvents(contractId, opts = {}) {
                 if (!isMountedRef.current)
                     return false;
                 if (attempt < MAX_RETRIES) {
-                    // Exponential backoff: 1s, 3s, 9s
-                    const delay = BACKOFF_BASE_MS * Math.pow(3, attempt - 1);
+                    // Exponential backoff: 1s, 3s, 9s (capped at MAX_BACKOFF_MS)
+                    const delay = Math.min(
+                        BACKOFF_BASE_MS * Math.pow(3, attempt - 1),
+                        MAX_BACKOFF_MS
+                    );
                     await new Promise((resolve) => {
                         retryTimerRef.current = setTimeout(resolve, delay);
                     });

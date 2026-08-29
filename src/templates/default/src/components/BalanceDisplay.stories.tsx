@@ -35,6 +35,8 @@ const withMockWallet =
  * the populated states depend on the account actually being funded. The
  * disconnected story is deterministic — it short-circuits before any fetch.
  */
+import BalanceDisplay from './BalanceDisplay';
+
 const meta = {
   title: 'Components/BalanceDisplay',
   component: BalanceDisplay,
@@ -103,3 +105,9 @@ export const Polling: Story = {
 export const ExplicitAccount: Story = {
   args: { publicKey: ISSUER },
 };
+/**
+ * Default state. In Storybook (no real WalletProvider context), this
+ * renders the "connect a wallet" empty state — the same as a real app
+ * before the user connects.
+ */
+export const Default: Story = {};

@@ -8,6 +8,7 @@ export default function NetworkSwitcher() {
   const [mounted, setMounted] = useState(false);
   const config = useWalletConfig();
   const wallet = useWallet();
+  const labelId = "stellar-network-switcher-label";
 
   useEffect(() => {
     setMounted(true);
@@ -53,7 +54,10 @@ export default function NetworkSwitcher() {
               }`}
             />
           </div>
-          <span className="text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 hidden sm:inline">
+          <span
+            id={labelId}
+            className="sr-only text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 sm:not-sr-only"
+          >
             Network
           </span>
         </div>
@@ -63,7 +67,7 @@ export default function NetworkSwitcher() {
         <select
           value={activeNetworkKey}
           onChange={handleNetworkChange}
-          aria-label="Network"
+          aria-labelledby={labelId}
           className="bg-transparent border-none text-sm font-semibold focus:ring-0 cursor-pointer text-gray-900 dark:text-gray-100 outline-none pr-2 appearance-none"
         >
           <option value="testnet" className="bg-white dark:bg-gray-900">{NETWORKS.testnet.name}</option>
