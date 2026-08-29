@@ -79,34 +79,6 @@ program
       await exitWithTelemetry(1);
     }
   });
-  .option(
-    "--horizon-url <url>",
-    "Horizon endpoint to check (default: from .nextellar/config.json or testnet)",
-  )
-  .option(
-    "--soroban-url <url>",
-    "Soroban RPC endpoint to check (default: from .nextellar/config.json or testnet)",
-  )
-  .action(
-    async (cmdOpts: {
-      json?: boolean;
-      horizonUrl?: string;
-      sorobanUrl?: string;
-    }) => {
-      try {
-        const { runDoctor } = await import("../src/lib/doctor.js");
-        const exitCode = await runDoctor({
-          json: !!cmdOpts.json,
-          horizonUrl: cmdOpts.horizonUrl,
-          sorobanUrl: cmdOpts.sorobanUrl,
-        });
-        await exitWithTelemetry(exitCode);
-      } catch (err: any) {
-        console.error("Failed to run doctor:", err?.message || err);
-        await exitWithTelemetry(1);
-      }
-    },
-  );
 
 // Add subcommand: nextellar add <feature> | nextellar add --list
 program
