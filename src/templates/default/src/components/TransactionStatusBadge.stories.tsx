@@ -46,3 +46,31 @@ export const AllStates: Story = {
     </div>
   ),
 };
+
+/**
+ * All three states rendered on a dark surface to verify the dark-mode
+ * palette (each status ships a dark counterpart) stays legible against
+ * a near-black background.
+ */
+export const OnDarkBackground: Story = {
+  parameters: { backgrounds: { default: 'dark' } },
+  render: () => (
+    <div className="dark flex items-center gap-2 rounded-lg bg-neutral-900 p-4">
+      <TransactionStatusBadge status="pending" />
+      <TransactionStatusBadge status="success" />
+      <TransactionStatusBadge status="failed" />
+      <TransactionStatusBadge status="pending" showSpinner={false} />
+      <TransactionStatusBadge status="pending" label="Awaiting signature" />
+    </div>
+  ),
+};
+
+/** Custom label (override) rendered on a dark surface. */
+export const CustomLabelOnDark: Story = {
+  parameters: { backgrounds: { default: 'dark' } },
+  render: () => (
+    <div className="dark rounded-lg bg-neutral-900 p-4">
+      <TransactionStatusBadge status="success" label="Confirmed" />
+    </div>
+  ),
+};
