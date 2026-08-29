@@ -1,0 +1,79 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`TransactionStatusBadge (minimal template) renders the failed state consistently (snapshot) 1`] = `
+<span
+  class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset transition-colors bg-red-50 text-red-800 ring-red-600/20 dark:bg-red-500/10 dark:text-red-300 dark:ring-red-400/30"
+  data-status="failed"
+  role="status"
+>
+  <svg
+    aria-hidden="true"
+    class="w-3.5 h-3.5"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      d="M6 18L18 6M6 6l12 12"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      stroke-width="2"
+    />
+  </svg>
+  Failed
+</span>
+`;
+
+exports[`TransactionStatusBadge (minimal template) renders the pending state consistently (snapshot) 1`] = `
+<span
+  class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset transition-colors bg-amber-50 text-amber-800 ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-400/30"
+  data-status="pending"
+  role="status"
+>
+  <svg
+    aria-hidden="true"
+    class="w-3.5 h-3.5 animate-spin"
+    fill="none"
+    viewBox="0 0 24 24"
+  >
+    <circle
+      class="opacity-25"
+      cx="12"
+      cy="12"
+      r="10"
+      stroke="currentColor"
+      stroke-width="4"
+    />
+    <path
+      class="opacity-75"
+      d="m4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+      fill="currentColor"
+    />
+  </svg>
+  Pending
+</span>
+`;
+
+exports[`TransactionStatusBadge (minimal template) renders the success state consistently (snapshot) 1`] = `
+<span
+  class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset transition-colors bg-green-50 text-green-800 ring-green-600/20 dark:bg-green-500/10 dark:text-green-300 dark:ring-green-400/30"
+  data-status="success"
+  role="status"
+>
+  <svg
+    aria-hidden="true"
+    class="w-3.5 h-3.5"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      d="M5 13l4 4L19 7"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      stroke-width="2"
+    />
+  </svg>
+  Success
+</span>
+`;
