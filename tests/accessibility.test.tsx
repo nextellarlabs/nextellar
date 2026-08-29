@@ -29,19 +29,29 @@ jest.unstable_mockModule('../src/mocks/wallet-contexts-mock', () => ({
   WalletProvider: jest.fn(({ children }: { children: React.ReactNode }) => children),
 }));
 
+jest.unstable_mockModule('../src/templates/default/src/hooks/useStellarBalances', () => ({
+  useStellarBalances: jest.fn(),
+}));
+
 // Dynamic imports (must come after unstable_mockModule).
 const [
-  { useWallet },
+  { useWallet, useWalletConfig },
+  { useStellarBalances },
   { default: ErrorBoundary },
   { default: ErrorBoundaryJs },
   { default: WalletConnectButton },
   { default: AccountSwitcher },
+  { default: BalanceDisplay },
+  { default: NetworkSwitcher },
 ] = await Promise.all([
   import('../src/mocks/wallet-contexts-mock'),
+  import('../src/templates/default/src/hooks/useStellarBalances'),
   import('../src/templates/default/src/components/ErrorBoundary'),
   import('../src/templates/js-template/src/components/ErrorBoundary.jsx'),
   import('../src/templates/default/src/components/WalletConnectButton'),
   import('../src/templates/default/src/components/AccountSwitcher'),
+  import('../src/templates/default/src/components/BalanceDisplay'),
+  import('../src/templates/default/src/components/NetworkSwitcher'),
 ]);
 
 function Boom(): never {
@@ -134,6 +144,85 @@ describe('accessibility (#946)', () => {
 
       const { container } = render(React.createElement(WalletConnectButton));
       expect(container.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+    });
+
+    it('has an action-specific accessible name and visible focus ring classes', () => {
+      mockUseWallet.mockReturnValue({
+        connected: false,
+        connect: jest.fn(),
+        disconnect: jest.fn(),
+        walletName: undefined,
+        accounts: [],
+      });
+
+      render(React.createElement(WalletConnectButton));
+      const button = screen.getByRole('button', { name: 'Connect Stellar wallet' });
+      expect(button).toHaveAttribute('type', 'button');
+      expect(button.className).toContain('focus-visible:ring-2');
+    });
+  });
+
+  describe('NetworkSwitcher', () => {
+    const mockUseWallet = useWallet as jest.Mock;
+    const mockUseWalletConfig = useWalletConfig as jest.Mock;
+
+    beforeEach(() => {
+      mockUseWallet.mockReturnValue({ connected: false });
+      mockUseWalletConfig.mockReturnValue({
+        activeNetworkKey: 'testnet',
+        switchNetwork: jest.fn(),
+        horizonUrl: 'https://horizon-testnet.stellar.org',
+      });
+    });
+
+    afterEach(() => {
+      mockUseWallet.mockReset();
+      mockUseWalletConfig.mockReset();
+    });
+
+    it('labels the native listbox control for screen readers and keyboard users', () => {
+      render(React.createElement(NetworkSwitcher));
+      const select = screen.getByRole('combobox', { name: 'Network' });
+      expect(select).toHaveAttribute('aria-labelledby');
+      expect(document.getElementById(select.getAttribute('aria-labelledby')!)).toHaveTextContent('Network');
+    });
+  });
+
+  describe('BalanceDisplay', () => {
+    const mockUseWallet = useWallet as jest.Mock;
+    const mockUseStellarBalances = useStellarBalances as jest.Mock;
+
+    afterEach(() => {
+      mockUseWallet.mockReset();
+      mockUseStellarBalances.mockReset();
+    });
+
+    it('announces the balance loading skeleton', () => {
+      mockUseWallet.mockReturnValue({ connected: true, publicKey: 'GABC' });
+      mockUseStellarBalances.mockReturnValue({
+        balances: [],
+        loading: true,
+        error: null,
+        refresh: jest.fn(),
+      });
+
+      render(React.createElement(BalanceDisplay));
+      expect(screen.getByRole('status', { name: 'Loading account balances' })).toBeInTheDocument();
+    });
+
+    it('renders account balances as a labelled list', () => {
+      mockUseWallet.mockReturnValue({ connected: true, publicKey: 'GABC' });
+      mockUseStellarBalances.mockReturnValue({
+        balances: [{ asset_type: 'native', balance: '42.0000000' }],
+        loading: false,
+        error: null,
+        refresh: jest.fn(),
+      });
+
+      render(React.createElement(BalanceDisplay));
+      expect(screen.getByRole('heading', { name: 'Balances' })).toBeInTheDocument();
+      expect(screen.getByRole('list', { name: 'Account balances' })).toBeInTheDocument();
+      expect(screen.getByText('42.0000000')).toBeInTheDocument();
     });
   });
 
