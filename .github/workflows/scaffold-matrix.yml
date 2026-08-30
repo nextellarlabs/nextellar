@@ -38,6 +38,10 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
+
+      - name: Check template junk
+        run: node scripts/check-template-junk.mjs
+
       - run: npm run build
       - name: Scaffold app
         shell: bash
@@ -49,6 +53,7 @@ jobs:
         run: |
           npm install
           npm run build
+          if grep -q '"build-storybook"' package.json; then npm run build-storybook; fi
 
   nightly-full:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -72,6 +77,11 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
+
+
+      - name: Check template junk
+        run: node scripts/check-template-junk.mjs
+
       - run: npm run build
       - name: Scaffold app
         shell: bash
@@ -83,3 +93,4 @@ jobs:
         run: |
           npm install
           npm run build
+          if grep -q '"build-storybook"' package.json; then npm run build-storybook; fi

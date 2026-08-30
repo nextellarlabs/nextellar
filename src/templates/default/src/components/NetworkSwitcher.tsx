@@ -8,6 +8,7 @@ export default function NetworkSwitcher() {
   const [mounted, setMounted] = useState(false);
   const config = useWalletConfig();
   const wallet = useWallet();
+  const labelId = "stellar-network-switcher-label";
 
   useEffect(() => {
     setMounted(true);
@@ -44,16 +45,19 @@ export default function NetworkSwitcher() {
           <div className="relative">
             <div
               className={`w-2.5 h-2.5 rounded-full ${
-                isTestnet ? "bg-green-500" : "bg-orange-500"
+                isTestnet ? "bg-green-700" : "bg-orange-700"
               }`}
             />
             <div
               className={`absolute inset-0 w-2.5 h-2.5 rounded-full animate-ping opacity-75 ${
-                isTestnet ? "bg-green-400" : "bg-orange-400"
+                isTestnet ? "bg-green-600" : "bg-orange-600"
               }`}
             />
           </div>
-          <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 hidden sm:inline">
+          <span
+            id={labelId}
+            className="sr-only text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 sm:not-sr-only"
+          >
             Network
           </span>
         </div>
@@ -63,17 +67,19 @@ export default function NetworkSwitcher() {
         <select
           value={activeNetworkKey}
           onChange={handleNetworkChange}
+          aria-labelledby={labelId}
           className="bg-transparent border-none text-sm font-semibold focus:ring-0 cursor-pointer text-gray-900 dark:text-gray-100 outline-none pr-2 appearance-none"
         >
           <option value="testnet" className="bg-white dark:bg-gray-900">{NETWORKS.testnet.name}</option>
           <option value="mainnet" className="bg-white dark:bg-gray-900">{NETWORKS.mainnet.name}</option>
         </select>
-        
-        <svg 
-          className="w-4 h-4 text-gray-400 dark:text-gray-500 pointer-events-none -ml-1" 
-          fill="none" 
-          stroke="currentColor" 
+
+        <svg
+          className="w-4 h-4 text-gray-600 dark:text-gray-300 pointer-events-none -ml-1"
+          fill="none"
+          stroke="currentColor"
           viewBox="0 0 24 24"
+          aria-hidden="true"
         >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>

@@ -20,7 +20,7 @@ export interface ScaffoldTelemetryProperties {
   language: "typescript" | "javascript";
   network: "testnet" | "public";
   wallets: string[];
-  packageManager: "npm" | "yarn" | "pnpm";
+  packageManager: "npm" | "yarn" | "pnpm" | "bun";
   withContracts: boolean;
   skipInstall: boolean;
   success: boolean;

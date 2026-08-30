@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { displaySuccess} from '../src/lib/feedback.js';
 
 describe('feedback', () => {

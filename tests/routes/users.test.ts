@@ -1,14 +1,20 @@
+import { jest } from "@jest/globals";
 import express, { Request, Response, NextFunction } from "express";
 import request from "supertest";
 
 // Mock the auth middleware before importing the router so the module
 // loader never reaches backend/auth/token.ts (which requires jsonwebtoken).
-jest.mock("../../backend/middleware/auth.js", () => ({
+// This repo runs Jest under real ESM (--experimental-vm-modules), so the
+// classic jest.mock() factory (which relies on babel's hoist-to-require
+// transform) can't intercept a subsequent static import — the mock has to
+// be registered via jest.unstable_mockModule and the router imported
+// dynamically afterwards so it resolves against the mocked module.
+await jest.unstable_mockModule("../../backend/middleware/auth.js", () => ({
   authenticate: (_req: Request, _res: Response, next: NextFunction) => next(),
   requireRole: () => (_req: Request, _res: Response, next: NextFunction) => next(),
 }));
 
-import usersRouter, { deps } from "../../backend/routes/users.js";
+const { default: usersRouter, deps } = await import("../../backend/routes/users.js");
 
 const VALID_UUID = "123e4567-e89b-12d3-a456-426614174000";
 

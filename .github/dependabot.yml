@@ -1,0 +1,60 @@
+version: 2
+
+updates:
+  # NPM dependencies
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "03:00"
+    open-pull-requests-limit: 10
+    pull-request-branch-name:
+      separator: "/"
+    reviewers:
+      - "nextellar-maintainers"
+    labels:
+      - "dependencies"
+      - "automated"
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+    versioning-strategy: "increase"
+    rebase-strategy: "auto"
+    commit-message:
+      prefix: "chore(deps):"
+      prefix-development: "chore(deps-dev):"
+      include: "scope"
+    
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "04:00"
+    pull-request-branch-name:
+      separator: "/"
+    reviewers:
+      - "nextellar-maintainers"
+    labels:
+      - "ci/cd"
+      - "automated"
+    commit-message:
+      prefix: "ci:"
+      include: "scope"
+
+groups:
+  # Group development dependencies
+  development-dependencies:
+    dependency-type: "development"
+    update-types:
+      - "minor"
+      - "patch"
+  
+  # Group all dependencies into weekly updates
+  all-dependencies:
+    dependency-type: "all"
+    update-types:
+      - "patch"
+      - "minor"
