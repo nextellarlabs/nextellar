@@ -159,6 +159,19 @@ Soroban contracts overlay guide (`--with-contracts`):
 
 ---
 
+## 🚀 Backend & Stellar Wave Routes
+
+The Nextellar backend API and Stellar Wave contributor routes have been moved to a separate repository for clearer project governance and independent maintenance:
+
+🔗 **[nextellarlabs/nextellar-backend](https://github.com/nextellarlabs/nextellar-backend)**
+
+This repo contains:
+- Express API server with authentication, payments, orders, and middleware
+- ~150 route files from the Stellar Wave contributor program
+- Full test suites and documentation
+
+---
+
 ## 🤝 Contributing
 
 We welcome your help! Please read [CONTRIBUTING.md](./CONTRIBUTING.md) for:
