@@ -12,6 +12,7 @@ import { fileURLToPath } from "url";
 import { confirm } from "@clack/prompts";
 import { validateHorizonUrl, validateSorobanUrl } from "./validate.js";
 import { runPreflight } from "./preflight.js";
+import { resolveTemplateDir } from "./templates.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -77,20 +78,11 @@ export async function scaffold(options: ScaffoldOptions) {
     wallets && wallets.length > 0 ? wallets : ["freighter", "albedo", "lobstr"];
 
   const templateName = template || "default";
-  const JS_TEMPLATES: Record<string, string> = {
-    default: "js-template",
-    defi: "js-defi",
-    minimal: "js-minimal",
-  };
-  if (!useTs && !JS_TEMPLATES[templateName]) {
-    throw new Error(
-      `Template "${templateName}" is not available for JavaScript yet. Please use the default or defi template with --javascript.`,
-    );
-  }
 
-  const resolvedTemplateName = useTs
-    ? templateName
-    : JS_TEMPLATES[templateName];
+  // Resolves the starter directory for this template + language pair, and
+  // throws with the list of valid options when the name is unknown or has
+  // no variant for the requested language. See src/lib/templates.ts.
+  const resolvedTemplateName = resolveTemplateDir(templateName, useTs);
 
   // Validate custom URL overrides if provided
   if (horizonUrl) {
@@ -333,46 +325,11 @@ export async function scaffold(options: ScaffoldOptions) {
       path.join(targetDir, "src/lib/stellar-wallet-kit.js"),
       path.join(targetDir, "src/hooks/useSorobanContract.ts"),
       path.join(targetDir, "src/hooks/useSorobanContract.js"),
+      path.join(targetDir, "src/hooks/useSorobanEvents.ts"),
+      path.join(targetDir, "src/hooks/useSorobanEvents.js"),
       path.join(targetDir, ".env.example"),
       path.join(targetDir, ".nextellar/config.json"),
     ];
-
-    // Placeholder-bearing source files may use either TypeScript (.ts/.tsx)
-    // or JavaScript (.js/.jsx) variants depending on the resolved template.
-    // The list above only covers the most common ones; walk the scaffolded
-    // tree for any additional source files that still contain a placeholder
-    // so neither language is left with unreplaced tokens (#654).
-    const PLACEHOLDER_RE = /\{\{[A-Z_]+\}\}/;
-    const isTextFile = (p: string): boolean =>
-      /\.(ts|tsx|js|jsx|mjs|json|md|env|example|css|html)$/.test(p);
-    const walkForPlaceholders = async (dir: string): Promise<string[]> => {
-      const out: string[] = [];
-      let entries: fs.Dirent[] = [];
-      try {
-        entries = await fs.readdir(dir, { withFileTypes: true });
-      } catch {
-        return out;
-      }
-      for (const entry of entries) {
-        if (entry.name === ".git" || entry.name === "node_modules") continue;
-        const full = path.join(dir, entry.name);
-        if (entry.isDirectory()) {
-          out.push(...(await walkForPlaceholders(full)));
-        } else if (isTextFile(full)) {
-          try {
-            const content = await fs.readFile(full, "utf8");
-            if (PLACEHOLDER_RE.test(content)) out.push(full);
-          } catch {
-            // ignore unreadable files
-          }
-        }
-      }
-      return out;
-    };
-    const placeholderFiles = await walkForPlaceholders(targetDir);
-    for (const f of placeholderFiles) {
-      if (!filesToProcess.includes(f)) filesToProcess.push(f);
-    }
 
     for (const filePath of filesToProcess) {
       if (await fs.pathExists(filePath)) {

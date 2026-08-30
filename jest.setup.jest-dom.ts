@@ -1,18 +1,38 @@
 // jest.setup.jest-dom.ts
-//
-// Minimal setupFilesAfterEnv entry that wires up `@testing-library/jest-dom`
-// matchers (toBeInTheDocument, toHaveTextContent, toHaveClass, etc.) used by
-// component tests under jsdom (`@jest-environment jsdom`).
-//
-// Deliberately does NOT start the MSW server or apply the other global
-// polyfills in jest.setup.ts — those affect every test in the repo,
-// including the ~190 files that drive a real local Express app via
-// `supertest`, and MSW's global network interception causes unrelated
-// `console.warn` assertions in some of those to fail (e.g.
-// tests/middleware/errorHandler.test.ts, routes-d/tests/defi.yields.get.test.ts)
-// since it intercepts and warns on requests it has no handler for. Until
-// that's addressed repo-wide, keep this setup file scoped to jest-dom only.
+import { TextEncoder, TextDecoder } from 'util';
+Object.assign(global, { TextEncoder, TextDecoder });
+
 import { jest } from '@jest/globals';
 Object.assign(global, { jest });
 
 import '@testing-library/jest-dom';
+
+class BroadcastChannel {
+  name: string;
+  onmessage: ((event: { data: any }) => void) | null = null;
+  constructor(name: string) {
+    this.name = name;
+  }
+  postMessage(message: any) {
+    // no-op
+  }
+  close() {
+    // no-op
+  }
+}
+Object.assign(global, { BroadcastChannel });
+
+import {
+  ReadableStream,
+  WritableStream,
+  TransformStream,
+} from 'web-streams-polyfill';
+Object.assign(global, { ReadableStream, WritableStream, TransformStream });
+
+const undici = await import('undici');
+Object.assign(globalThis, {
+  Headers: undici.Headers,
+  Request: undici.Request,
+  Response: undici.Response,
+  fetch: undici.fetch,
+});

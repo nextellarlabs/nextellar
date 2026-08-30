@@ -27,6 +27,9 @@ const mockConfig = {
   horizonUrl: "https://horizon-testnet.stellar.org",
 };
 
+const RECEIVE_ADDRESS =
+  "GAKAESXZZO3PJPEI5FNXGFOIANZJU7NAMNU753SGVSY7GF2KK55DALUQ";
+
 jest.unstable_mockModule("../src/mocks/wallet-contexts-mock", () => ({
   useWallet: jest.fn(() => mockWallet),
   useWalletConfig: jest.fn(() => mockConfig),
@@ -47,6 +50,20 @@ jest.unstable_mockModule("@/hooks/useSorobanContract", () => ({
   useSorobanContract: jest.fn(() => mockContract),
   isValidContractId: jest.fn(() => true),
 }));
+
+jest.unstable_mockModule(
+  "../src/templates/defi/src/hooks/useTransactionHistory",
+  () => ({
+    useTransactionHistory: jest.fn(() => ({
+      items: [],
+      loading: false,
+      error: null,
+      hasMore: false,
+      fetchNextPage: jest.fn(),
+      refresh: jest.fn(),
+    })),
+  }),
+);
 
 class MockCounterClient {
   initialize = jest.fn().mockResolvedValue(undefined);
@@ -69,12 +86,18 @@ const [
   { default: CounterDemo },
   { default: ErrorBoundary },
   { default: NetworkSwitcher },
+  { default: ReceiveForm },
+  { default: TransactionList },
+  { default: TransactionStatusBadge },
   { default: WalletConnectButton },
   { useWallet },
 ] = await Promise.all([
   import("../src/templates/defi/src/components/CounterDemo"),
   import("../src/templates/defi/src/components/ErrorBoundary"),
   import("../src/templates/defi/src/components/NetworkSwitcher"),
+  import("../src/templates/defi/src/components/ReceiveForm"),
+  import("../src/templates/defi/src/components/TransactionList"),
+  import("../src/templates/defi/src/components/TransactionStatusBadge"),
   import("../src/templates/defi/src/components/WalletConnectButton"),
   import("../src/mocks/wallet-contexts-mock"),
 ]);
@@ -149,4 +172,46 @@ describe("defi template components smoke tests (#892)", () => {
       screen.getByRole("button", { name: /Disconnect Freighter/i }),
     ).toBeInTheDocument();
   });
+
+  it("renders ReceiveForm's connect prompt when disconnected", () => {
+    const { container } = render(<ReceiveForm />);
+    expect(container).toBeInTheDocument();
+    expect(
+      screen.getByText(/Connect a wallet to receive payments/i),
+    ).toBeInTheDocument();
+  });
+
+  it("renders ReceiveForm with the address and copy button when connected", () => {
+    (useWallet as jest.Mock).mockReturnValueOnce({
+      ...mockWallet,
+      connected: true,
+      publicKey: RECEIVE_ADDRESS,
+    });
+
+    const { container } = render(<ReceiveForm />);
+    expect(container).toBeInTheDocument();
+    expect(screen.getByText(RECEIVE_ADDRESS)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Copy address/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("renders TransactionList cleanly when disconnected", () => {
+    const { container } = render(
+      <TransactionList limit={5} type="operations" />,
+    );
+    expect(container).toBeInTheDocument();
+    expect(
+      screen.getByText(/Connect wallet to view transactions/i),
+    ).toBeInTheDocument();
+  });
+
+  it.each(["pending", "success", "failed"] as const)(
+    "renders TransactionStatusBadge cleanly for status: %s",
+    (status) => {
+      const { container } = render(<TransactionStatusBadge status={status} />);
+      expect(container.firstChild).toBeInTheDocument();
+      expect(screen.getByRole("status")).toBeInTheDocument();
+    },
+  );
 });

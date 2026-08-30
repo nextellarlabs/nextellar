@@ -14,6 +14,12 @@ import { detectPackageManager } from "../src/lib/install.js";
 import { runInteractivePrompts } from "../src/lib/prompts.js";
 import { validateProjectName } from "../src/lib/validate.js";
 import {
+  TEMPLATE_LIST,
+  isValidTemplate,
+  getTemplate,
+  JS_TEMPLATE_LIST,
+} from "../src/lib/templates.js";
+import {
   flushTelemetry,
   getTelemetryStatus,
   isTelemetryDisabledByEnv,
@@ -268,10 +274,7 @@ program
   .argument("<project-name>", "name of the new Nextellar project")
   .option("-t, --typescript", "generate a TypeScript project (default)", true)
   .option("-j, --javascript", "generate a JavaScript project")
-  .option(
-    "--template <name>",
-    "project template to use (default, minimal, defi)",
-  )
+  .option("--template <name>", `project template to use (${TEMPLATE_LIST})`)
   .option("--horizon-url <url>", "custom Horizon endpoint")
   .option("--soroban-url <url>", "custom Soroban RPC endpoint")
   .option(
@@ -322,7 +325,6 @@ program.action(async (projectName, options) => {
   options.defaults = options.defaults || options.yes;
 
   const template = options.template || "default";
-  const validTemplates = ["default", "minimal", "defi"];
   const useTs = options.typescript && !options.javascript;
 
   const hasArg = (longFlag: string, shortFlag?: string) => {
@@ -340,23 +342,23 @@ program.action(async (projectName, options) => {
       .filter(Boolean);
   };
 
-  if (!validTemplates.includes(template)) {
+  if (!isValidTemplate(template)) {
     console.error(
-      `Unknown template "${template}". Available: default, minimal, defi`,
+      pc.red(
+        `Unknown template "${template}". Available templates: ${TEMPLATE_LIST}.`,
+      ),
     );
     return await exitWithTelemetry(1);
   }
 
-  if (
-    !useTs &&
-    template !== "default" &&
-    template !== "minimal" &&
-    template !== "defi"
-  ) {
+  // A known template can still lack a JavaScript variant. Report that
+  // separately from an unknown name so the message names the templates
+  // that do have one.
+  if (!useTs && !getTemplate(template)?.jsDir) {
     console.error(
       pc.red(
-        `--javascript (or --no-typescript) currently only supports the default, minimal, and defi templates. ` +
-          `Use one of those templates or omit --javascript/--no-typescript.`,
+        `Template "${template}" is not available for JavaScript yet. ` +
+          `Templates with a JavaScript variant: ${JS_TEMPLATE_LIST}.`,
       ),
     );
     return await exitWithTelemetry(1);
