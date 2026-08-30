@@ -52,6 +52,29 @@ Three GitHub Actions workflows handle security:
 - Security updates merged automatically
 - Manual review required for feature updates
 
+#### 4. **Secret Scanning** (`.github/workflows/secret-scanning.yml`)
+
+**When it runs:** every push to `main` and every pull request.
+
+**What it does:** runs [TruffleHog](https://github.com/trufflesecurity/trufflehog) with `--only-verified` (so it only flags secrets it has actively confirmed are live, keeping false positives low) and `--fail` (blocks the check on any verified finding). On a PR it scans only the PR's own commits, not the repo's full history. See [SECURITY.md](../SECURITY.md#secret-scanning) for the full remediation steps if it fails.
+
+## Scaffolded App Security Headers
+
+Every generated app template (`default`, `defi`, `minimal`, `js-template`, `js-defi`) ships a `next.config` with a `headers()` function setting a Content-Security-Policy and related security headers by default, so a project scaffolded with `nextellar` doesn't start with no security headers at all.
+
+**Headers set:** `Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` (camera/microphone/geolocation denied).
+
+**Documented trade-offs** (also inline as comments above `CSP_DIRECTIVES` in each template's config):
+
+| Directive | Choice | Why | Cost |
+|-----------|--------|-----|------|
+| `script-src` | `'self' 'unsafe-inline'` | Next.js injects small inline hydration/bootstrap scripts that aren't compatible with a strict nonce-less CSP out of the box | Weakens XSS protection somewhat — a nonce-based CSP (Next.js docs: middleware + `nonce`) is strictly better but requires per-project wiring, so it's left as a documented upgrade path rather than the default |
+| `connect-src` | Explicit Horizon/Soroban mainnet + testnet URLs, plus `wss:` | The app needs to reach Stellar RPC endpoints and wallet-connect-style relay sockets; an unlisted origin is silently blocked by the browser | If you point at a custom/self-hosted RPC provider, you must add its origin yourself — this is not auto-detected |
+| `img-src` | `'self' data: blob: https:` | Wallet icons come from many different wallet providers' own CDNs, and `@creit.tech/stellar-wallets-kit` renders some icons as data URIs | Broader than a tight allowlist — acceptable since images can't execute script, unlike `script-src` |
+| `frame-ancestors` | `'none'` | Blocks the app from being iframed elsewhere (clickjacking protection) | Breaks intentionally-embedded use cases; change to a specific allowlist if you need to embed the app |
+
+These are conservative production-safe defaults, not a hardened maximum-security policy — projects with stricter requirements (e.g. no inline scripts at all) should adopt a nonce-based CSP after scaffolding.
+
 ## Running Audits Locally
 
 ### Quick Audit

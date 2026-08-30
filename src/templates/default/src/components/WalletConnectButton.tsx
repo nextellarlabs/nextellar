@@ -6,13 +6,13 @@ import AccountSwitcher from './AccountSwitcher';
 
 // Simple inline SVG icons
 const WalletIcon = () => (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
   </svg>
 );
 
 const LoaderIcon = () => (
-  <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+  <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
     <path className="opacity-75" fill="currentColor" d="m4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
   </svg>
@@ -33,6 +33,9 @@ interface WalletConnectButtonProps {
 export default function WalletConnectButton({ theme = 'light' }: WalletConnectButtonProps) {
   const { connected, connect, disconnect, walletName, accounts } = useWallet();
   const [isLoading, setIsLoading] = useState(false);
+  const actionLabel = connected
+    ? `Disconnect ${walletName ?? 'wallet'}`
+    : 'Connect Stellar wallet';
 
   const handleClick = async () => {
     setIsLoading(true);
@@ -63,12 +66,15 @@ export default function WalletConnectButton({ theme = 'light' }: WalletConnectBu
   return (
     <div className="flex items-center gap-3">
       <button 
+        type="button"
         onClick={handleClick}
         disabled={isLoading}
-        className={`px-8 py-3 font-medium rounded-full transition-colors ${
+        aria-label={isLoading ? `${actionLabel} in progress` : actionLabel}
+        aria-busy={isLoading}
+        className={`px-8 py-3 font-medium rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
           theme === 'light' 
-            ? 'bg-black text-white hover:bg-gray-800' 
-            : 'bg-white text-black hover:bg-gray-200'
+            ? 'bg-black text-white hover:bg-gray-800 focus-visible:ring-gray-900 focus-visible:ring-offset-white' 
+            : 'bg-white text-black hover:bg-gray-200 focus-visible:ring-white focus-visible:ring-offset-gray-950'
         } ${isLoading ? 'opacity-75 cursor-not-allowed' : ''}`}
       >
         <span className="flex items-center gap-2">

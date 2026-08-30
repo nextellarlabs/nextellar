@@ -143,7 +143,8 @@ export function useTrustlines(publicKey, options = {}) {
             asset_issuer: 'asset_issuer' in balance ? balance.asset_issuer : '',
             limit: 'limit' in balance ? balance.limit : undefined,
             balance: balance.balance,
-            authorized: 'is_authorized' in balance ? balance.is_authorized : undefined
+            authorized: 'is_authorized' in balance ? balance.is_authorized : undefined,
+            authorizedToMaintainLiabilities: 'is_authorized_to_maintain_liabilities' in balance ? balance.is_authorized_to_maintain_liabilities : undefined
         }));
     }, []);
     /**

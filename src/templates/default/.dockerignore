@@ -1,0 +1,15 @@
+node_modules
+.next
+out
+coverage
+storybook-static
+.git
+.gitignore
+.env
+.env.local
+.env.development
+.env.production
+*.tsbuildinfo
+npm-debug.log*
+.DS_Store
+README.md

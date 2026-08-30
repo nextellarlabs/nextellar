@@ -1,88 +1,146 @@
-import { execa } from 'execa';
-import fs from 'fs-extra';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
+import { execa } from "execa";
+import fs from "fs-extra";
+import path from "path";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const cli = path.resolve(__dirname, '../dist/bin/nextellar.js');
-const tmpDir = path.join(__dirname, 'tmp-test-app');
+const cli = path.resolve(__dirname, "../dist/bin/nextellar.js");
+const tmpDir = path.join(__dirname, "tmp-test-app");
 
-describe('nextellar CLI', () => {
+describe("nextellar CLI", () => {
   beforeEach(async () => {
     await fs.remove(tmpDir);
   }, 10000);
 
-  it('should scaffold a new project and exit cleanly', async () => {
-    const { exitCode, stdout } = await execa('node', [
+  it("should scaffold a new project and exit cleanly", async () => {
+    const { exitCode, stdout } = await execa("node", [
       cli,
       tmpDir,
-      '--typescript',
-      '--defaults',
-      '--skip-install'
+      "--typescript",
+      "--defaults",
+      "--skip-install",
     ]);
     expect(exitCode).toBe(0);
-    expect(stdout).toContain('✔ Nextellar scaffold complete!');
+    expect(stdout).toContain("✔ Nextellar scaffold complete!");
     expect(await fs.pathExists(tmpDir)).toBe(true);
   }, 30000);
 
-  it('should fail fast on --javascript --template minimal before banner and prompts', async () => {
-    const { exitCode, stderr, stdout } = await execa('node', [
-      cli,
-      tmpDir,
-      '--javascript',
-      '--template',
-      'minimal',
-      '--defaults'
-    ], { reject: false });
-    expect(exitCode).toBe(1);
-    expect(stderr).toContain('--javascript');
-    expect(stderr).toContain('default template');
-    // Should fail before banner clears console
-    expect(stdout).not.toContain('Nextellar CLI');
-    expect(stdout).not.toContain('Nextellar scaffold complete');
-    expect(await fs.pathExists(tmpDir)).toBe(false);
+  describe("--yes / --defaults non-interactive flag (#948)", () => {
+    it("--yes scaffolds without prompting, same as --defaults", async () => {
+      const { exitCode, stdout } = await execa("node", [
+        cli,
+        tmpDir,
+        "--typescript",
+        "--yes",
+        "--skip-install",
+      ]);
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain("✔ Nextellar scaffold complete!");
+      expect(await fs.pathExists(tmpDir)).toBe(true);
+    }, 30000);
+
+    it("-y short flag works the same as --yes", async () => {
+      const { exitCode, stdout } = await execa("node", [
+        cli,
+        tmpDir,
+        "--typescript",
+        "-y",
+        "--skip-install",
+      ]);
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain("✔ Nextellar scaffold complete!");
+      expect(await fs.pathExists(tmpDir)).toBe(true);
+    }, 30000);
+
+    it("errors clearly when the required project-name argument is missing, even with --defaults", async () => {
+      const { exitCode, stderr } = await execa("node", [cli, "--defaults"], {
+        reject: false,
+      });
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain("missing required argument 'project-name'");
+    }, 15000);
+
+    it("errors clearly when the required project-name argument is missing, even with --yes", async () => {
+      const { exitCode, stderr } = await execa("node", [cli, "--yes"], {
+        reject: false,
+      });
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain("missing required argument 'project-name'");
+    }, 15000);
+  });
+
+  it("should scaffold --javascript --template minimal without failing fast", async () => {
+    const { exitCode, stdout } = await execa(
+      "node",
+      [
+        cli,
+        tmpDir,
+        "--javascript",
+        "--template",
+        "minimal",
+        "--defaults",
+        "--skip-install",
+      ],
+      { reject: false },
+    );
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("Nextellar scaffold complete");
+    expect(await fs.pathExists(tmpDir)).toBe(true);
+    // JS variant ships jsconfig.json, not tsconfig.json
+    expect(await fs.pathExists(path.join(tmpDir, "jsconfig.json"))).toBe(true);
+    expect(await fs.pathExists(path.join(tmpDir, "tsconfig.json"))).toBe(false);
   }, 30000);
 
-  it('should fail fast on --javascript --template defi before banner and prompts', async () => {
-    const { exitCode, stderr, stdout } = await execa('node', [
-      cli,
-      tmpDir,
-      '--javascript',
-      '--template',
-      'defi',
-      '--defaults'
-    ], { reject: false });
-    expect(exitCode).toBe(1);
-    expect(stderr).toContain('--javascript');
-    expect(stderr).toContain('default template');
-    // Should fail before banner clears console
-    expect(stdout).not.toContain('Nextellar CLI');
-    expect(stdout).not.toContain('Nextellar scaffold complete');
-    expect(await fs.pathExists(tmpDir)).toBe(false);
+  it("should scaffold --javascript --template defi without failing fast", async () => {
+    const { exitCode, stdout } = await execa(
+      "node",
+      [
+        cli,
+        tmpDir,
+        "--javascript",
+        "--template",
+        "defi",
+        "--defaults",
+        "--skip-install",
+      ],
+      { reject: false },
+    );
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("Nextellar scaffold complete");
+    expect(await fs.pathExists(tmpDir)).toBe(true);
+    expect(await fs.pathExists(path.join(tmpDir, "jsconfig.json"))).toBe(true);
+    expect(await fs.pathExists(path.join(tmpDir, "tsconfig.json"))).toBe(false);
   }, 30000);
 
-  describe('clean (#904)', () => {
-    it('removes .nextellar/build and exits cleanly', async () => {
-      const buildDir = path.join(tmpDir, '.nextellar', 'build');
-      await fs.outputFile(path.join(buildDir, 'artifact.txt'), 'stale build output');
+  describe("clean (#904)", () => {
+    it("removes .nextellar/build and exits cleanly", async () => {
+      const buildDir = path.join(tmpDir, ".nextellar", "build");
+      await fs.outputFile(
+        path.join(buildDir, "artifact.txt"),
+        "stale build output",
+      );
 
-      const { exitCode, stdout } = await execa('node', [cli, 'clean'], { cwd: tmpDir });
+      const { exitCode, stdout } = await execa("node", [cli, "clean"], {
+        cwd: tmpDir,
+      });
 
       expect(exitCode).toBe(0);
-      expect(stdout).toContain('Removed .nextellar/build');
+      expect(stdout).toContain("Removed .nextellar/build");
       expect(await fs.pathExists(buildDir)).toBe(false);
     }, 15000);
 
-    it('exits cleanly (no error) when .nextellar/build does not exist', async () => {
+    it("exits cleanly (no error) when .nextellar/build does not exist", async () => {
       await fs.ensureDir(tmpDir);
 
-      const { exitCode, stdout } = await execa('node', [cli, 'clean'], { cwd: tmpDir });
+      const { exitCode, stdout } = await execa("node", [cli, "clean"], {
+        cwd: tmpDir,
+      });
 
       expect(exitCode).toBe(0);
-      expect(stdout).toContain('Nothing to clean');
+      expect(stdout).toContain("Nothing to clean");
     }, 15000);
   });
 });

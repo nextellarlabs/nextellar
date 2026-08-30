@@ -3,6 +3,10 @@
  */
 import { jest } from "@jest/globals";
 import { renderHook, act, waitFor } from "@testing-library/react";
+import { setupServer } from "msw/node";
+import { http, HttpResponse } from "msw";
+import * as StellarSDK from "@stellar/stellar-sdk";
+import { useSorobanContract } from "../../src/templates/default/src/hooks/useSorobanContract.ts";
 
 // ── Module mocking (must be top-level awaited before any dynamic imports) ─────
 //
@@ -324,6 +328,12 @@ describe("useSorobanContract", () => {
     expect(preview!.result).toBeNull();
     expect(preview!.minResourceFee).toBe("200");
     expect(preview!.latestLedger).toBe(1234);
+  it("invalid contract ID is surfaced", () => {
+    expect(() =>
+      renderHook(() =>
+        useSorobanContract({ contractId: "invalid-contract-id", sorobanRpc: SOROBAN_RPC_URL })
+      )
+    ).toThrow(/Invalid Soroban contract ID/);
   });
 
   it("simulateContractCall surfaces simulation error and sets error state", async () => {
@@ -388,5 +398,32 @@ describe("useSorobanContract", () => {
     );
 
     expect(typeof result.current.simulateContractCall).toBe("function");
+  });
+
+  it("handles restore footprint flow when simulation returns restorePreamble", async () => {
+    jest.spyOn(rpc.Server.prototype, "simulateTransaction").mockResolvedValue({
+      restorePreamble: {
+        minResourceFee: "500",
+        transactionData: "AAAAAQAAAA==",
+      },
+      transactionData: "AAAAAQAAAA==",
+    } as never);
+
+    const { result } = renderHook(() =>
+      useSorobanContract({ contractId: VALID_CONTRACT_ID, sorobanRpc: SOROBAN_RPC_URL })
+    );
+
+    let res: any;
+    await act(async () => {
+      res = await result.current.callFunction("expired_entry", []);
+    });
+
+    expect(res).toEqual(
+      expect.objectContaining({
+        requiresRestore: true,
+        restorePreamble: expect.objectContaining({ minResourceFee: "500" }),
+      })
+    );
+    expect(result.current.error?.message).toContain("Footprint expired");
   });
 });

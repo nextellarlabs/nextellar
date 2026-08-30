@@ -170,10 +170,27 @@ export function useSorobanContract(opts) {
             const transaction = txBuilder.build();
             // Simulate the transaction
             const simulation = await rpcServer.simulateTransaction(transaction);
+
             if ("error" in simulation && simulation.error) {
-                throw new Error(`Simulation failed: ${simulation.error}`);
+                const errMessage = typeof simulation.error === "string" 
+                    ? simulation.error 
+                    : JSON.stringify(simulation.error);
+                const simErr = new Error(`Simulation error: ${errMessage}`);
+                setError(simErr);
+                throw simErr;
             }
-            // Extract and convert the result
+
+            if ("restorePreamble" in simulation && simulation.restorePreamble) {
+                const preamble = simulation.restorePreamble;
+                const restoreErr = new Error(`Footprint expired; restore transaction required. Min resource fee: ${preamble?.minResourceFee ?? "100"}`);
+                setError(restoreErr);
+                return {
+                    requiresRestore: true,
+                    restorePreamble: preamble,
+                    transactionData: simulation.transactionData,
+                };
+            }
+
             if ("result" in simulation && simulation.result?.retval) {
                 setError(null);
                 return fromXdrValue(simulation.result.retval);

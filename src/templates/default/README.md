@@ -123,6 +123,45 @@ If you don't need component previews and want to reduce the `node_modules` size,
 - Implement proper external wallet signing
 - Add error handling for wallet connection failures
 
+## Optional: i18n
+
+This template ships with i18n scaffolding (`src/contexts/I18nProvider.tsx`) and one example locale (`src/locales/en.ts`), but it's **not wired in by default** — opt in only if your app needs it.
+
+To enable it, wrap your app layout:
+
+```tsx
+// src/app/layout.tsx
+import { I18nProvider } from "@/contexts";
+
+<I18nProvider>
+  <YourApp />
+</I18nProvider>
+```
+
+Then read messages with the `useTranslation` hook:
+
+```tsx
+import { useTranslation } from "@/contexts";
+
+function Greeting() {
+  const { t, locale, setLocale } = useTranslation();
+  return <h1>{t('home.title')}</h1>;
+}
+```
+
+`t()` resolves a dot-path into the active locale's messages and substitutes any `{token}` placeholders you pass as the second argument (e.g. `t('wallet.connected', { address })`).
+
+**Adding a locale:** copy `src/locales/en.ts`, translate every value, keep every key, then register it in `I18nProvider.tsx`'s `locales` map:
+
+```ts
+// src/contexts/I18nProvider.tsx
+import { fr } from '../locales/fr';
+
+export const locales = { en, fr } as const;
+```
+
+The chosen locale persists across sessions the same way the theme choice does.
+
 ## Getting Started
 
 First, run the development server:
@@ -152,8 +191,53 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-## Deploy on Vercel
+## Deploying
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Every path below needs the same environment variables — copy `.env.example` to your platform's env var settings (or `.env.local` for Docker), filling in real values for `NEXT_PUBLIC_HORIZON_URL`, `NEXT_PUBLIC_SOROBAN_URL`, `NEXT_PUBLIC_NETWORK`, and `NEXT_PUBLIC_APP_NAME`. All four are `NEXT_PUBLIC_*`, so they're baked into the client bundle **at build time** — setting them only at runtime (after the build already ran) has no effect.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Vercel
+
+This template ships a `vercel.json` with the framework preset and build/install commands already configured.
+
+1. Push your repo to GitHub/GitLab/Bitbucket.
+2. Import it at [vercel.com/new](https://vercel.com/new).
+3. Add the `NEXT_PUBLIC_*` environment variables in the project's Settings → Environment Variables (before the first deploy, so they're present at build time).
+4. Deploy.
+
+See the [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for platform-agnostic background.
+
+### Netlify
+
+This template ships a `netlify.toml` with `@netlify/plugin-nextjs`, required for App Router support (server components, route handlers, image optimization) — without it, only fully static routes work.
+
+1. Push your repo to GitHub/GitLab/Bitbucket.
+2. [Import the site](https://app.netlify.com/start) — Netlify auto-detects `netlify.toml`.
+3. Add the `NEXT_PUBLIC_*` environment variables in Site configuration → Environment variables.
+4. Deploy.
+
+### Docker
+
+This template ships a multi-stage `Dockerfile` built around `next.config.ts`'s `output: "standalone"` — the final image contains only the app's compiled output and the subset of `node_modules` actually reachable at runtime, not a full `npm install` or the source tree.
+
+```bash
+# Build (pass your real NEXT_PUBLIC_* values as build args — they're
+# compiled into the client bundle, so they must be present at build time)
+docker build \
+  --build-arg NEXT_PUBLIC_HORIZON_URL=https://horizon-testnet.stellar.org \
+  --build-arg NEXT_PUBLIC_SOROBAN_URL=https://soroban-testnet.stellar.org \
+  --build-arg NEXT_PUBLIC_NETWORK="Test SDF Network ; September 2015" \
+  --build-arg NEXT_PUBLIC_APP_NAME=my-app \
+  -t my-nextellar-app .
+
+# Run
+docker run -p 3000:3000 my-nextellar-app
+```
+
+Or with Compose, which reads the same build args from a `.env` file (Compose's `${VAR}` substitution only looks for a file literally named `.env` in this directory — not `.env.local`):
+
+```bash
+cp .env.example .env   # fill in real values first
+docker compose up --build
+```
+
+The app is served on port 3000 either way.
