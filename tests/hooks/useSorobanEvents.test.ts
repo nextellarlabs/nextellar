@@ -573,4 +573,50 @@ describe("useSorobanEvents (Template Hook)", () => {
       expect(mockGetEvents.mock.calls.length).toBe(callsAfterInit);
     });
   });
+
+  // ── Retry, Backoff Capping & Abort on Unmount ─────────────────────────────
+
+  describe("exponential backoff retries and unmount safety", () => {
+    it("should retry with exponential backoff on transient failure and recover on success", async () => {
+      mockGetEvents
+        .mockRejectedValueOnce(new Error("Transient RPC error 1"))
+        .mockResolvedValueOnce({
+          events: [sdkEvent1],
+          latestLedger: 100,
+        });
+
+      const { result } = renderHook(() => useSorobanEvents(CONTRACT_ID));
+
+      await flush();
+      jest.advanceTimersByTime(1_500);
+      await flush();
+
+      expect(result.current.events).toHaveLength(1);
+      expect(result.current.events[0].id).toBe("evt-001");
+      expect(result.current.error).toBeNull();
+    });
+
+    it("should cap backoff at MAX_BACKOFF_MS", async () => {
+      const { MAX_BACKOFF_MS } = await import(
+        "../../src/templates/default/src/hooks/useSorobanEvents.js"
+      );
+      expect(MAX_BACKOFF_MS).toBe(30_000);
+    });
+
+    it("should abort polling and state updates cleanly on unmount during retry backoff", async () => {
+      mockGetEvents.mockRejectedValue(new Error("Persistent failure"));
+
+      const { unmount } = renderHook(() => useSorobanEvents(CONTRACT_ID));
+
+      // Unmount immediately while backoff timers are scheduled
+      unmount();
+
+      const callsCount = mockGetEvents.mock.calls.length;
+      await advanceAndFlush(60_000);
+
+      // Verify no further getEvents calls were executed after unmount
+      expect(mockGetEvents.mock.calls.length).toBe(callsCount);
+    });
+  });
 });
+

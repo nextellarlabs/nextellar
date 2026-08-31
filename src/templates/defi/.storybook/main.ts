@@ -31,6 +31,12 @@ const config: StorybookConfig = {
             dirname,
             "./mocks/useSorobanContract.ts"
           ),
+          // Storybook-only mock so BalanceDisplay stories render balances
+          // without performing a live Horizon RPC call.
+          "../hooks/useStellarBalances": path.resolve(
+            dirname,
+            "./mocks/useStellarBalances.ts"
+          ),
           "@": path.resolve(dirname, "../src"),
         },
       },
