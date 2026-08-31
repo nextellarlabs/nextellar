@@ -1,0 +1,9 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[[plugins]]
+  # Required for Next.js App Router support (server components, route
+  # handlers, image optimization) on Netlify — without it, only fully
+  # static routes work.
+  package = "@netlify/plugin-nextjs"

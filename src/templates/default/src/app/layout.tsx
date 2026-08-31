@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { WalletProvider } from "@/contexts";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { WalletProvider, ThemeProvider } from "@/contexts";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -25,14 +25,29 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        {/*
+          Applies the persisted theme before first paint, so there is no
+          flash of the wrong theme while ThemeProvider's effects run.
+          Runs synchronously and only touches `<html>`'s class list, which
+          React doesn't manage — safe alongside `suppressHydrationWarning`.
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('nextellar_theme');var d=t==='dark'||(t!=='light'&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d);}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ErrorBoundary>
-          <WalletProvider>
-            {children}
-          </WalletProvider>
+          <ThemeProvider>
+            <WalletProvider>
+              {children}
+            </WalletProvider>
+          </ThemeProvider>
         </ErrorBoundary>
       </body>
     </html>

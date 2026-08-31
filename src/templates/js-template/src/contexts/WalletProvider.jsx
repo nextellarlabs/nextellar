@@ -3,29 +3,14 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import { Horizon, TransactionBuilder, Operation, Networks, Asset, Memo, BASE_FEE } from '@stellar/stellar-sdk';
 import { WalletNetwork } from '@creit.tech/stellar-wallets-kit';
 import { kit } from '../lib/stellar-wallet-kit';
+import { storage } from '../lib/storage.js';
 import { NETWORKS } from '../config/networks';
 
 const Server = Horizon.Server;
 
-// Storage helper — mirrors src/lib/storage.ts
-const storage = {
-    get: (key) => {
-        if (typeof window === 'undefined') return null;
-        return window.localStorage.getItem(key);
-    },
-    set: (key, value) => {
-        if (typeof window === 'undefined') return;
-        window.localStorage.setItem(key, value);
-    },
-    remove: (key) => {
-        if (typeof window === 'undefined') return;
-        window.localStorage.removeItem(key);
-    },
-};
-
 // Create contexts
-const WalletContext = createContext(undefined);
-const WalletConfigContext = createContext(undefined);
+export const WalletContext = createContext(undefined);
+export const WalletConfigContext = createContext(undefined);
 
 /**
  * Wallet Provider Component
@@ -279,6 +264,8 @@ export function WalletProvider({
         disconnect,
         refreshBalances,
         sendPayment: connected ? sendPayment : undefined,
+        switchNetwork,
+        activeNetworkKey,
     };
 
     const configValue = {

@@ -17,7 +17,7 @@ export interface PromptResult {
   horizonUrl?: string;
   sorobanUrl?: string;
   wallets?: string[];
-  packageManager?: "npm" | "yarn" | "pnpm";
+  packageManager?: "npm" | "yarn" | "pnpm" | "bun";
   skipInstall?: boolean;
 }
 
@@ -25,7 +25,7 @@ export interface PromptContext {
   initialProjectName: string;
   cwd: string;
   defaultWallets: string[];
-  packageManagerFromFlag?: "npm" | "yarn" | "pnpm";
+  packageManagerFromFlag?: "npm" | "yarn" | "pnpm" | "bun";
   networkFlagProvided: boolean;
   walletsFlagProvided: boolean;
   packageManagerFlagProvided: boolean;
@@ -143,7 +143,7 @@ export async function runInteractivePrompts(
         : ctx.defaultWallets;
   }
 
-  let packageManager: "npm" | "yarn" | "pnpm" | undefined;
+  let packageManager: "npm" | "yarn" | "pnpm" | "bun" | undefined;
   if (!ctx.packageManagerFlagProvided) {
     const detected = detectPackageManager(
       path.join(ctx.cwd, projectName),
@@ -157,6 +157,7 @@ export async function runInteractivePrompts(
         { value: "npm", label: "npm", hint: detected === "npm" ? "detected" : undefined },
         { value: "yarn", label: "yarn", hint: detected === "yarn" ? "detected" : undefined },
         { value: "pnpm", label: "pnpm", hint: detected === "pnpm" ? "detected" : undefined },
+        { value: "bun", label: "bun", hint: detected === "bun" ? "detected" : undefined },
       ],
     });
 
@@ -165,7 +166,7 @@ export async function runInteractivePrompts(
       return null;
     }
 
-    packageManager = pm as "npm" | "yarn" | "pnpm";
+    packageManager = pm as "npm" | "yarn" | "pnpm" | "bun";
   }
 
   let skipInstall: boolean | undefined;
@@ -185,12 +186,24 @@ export async function runInteractivePrompts(
 
   outro(pc.dim(`Creating ${projectName}...`));
 
-  return {
-    projectName,
-    horizonUrl,
-    sorobanUrl,
-    wallets,
-    packageManager,
-    skipInstall,
-  };
+  const result: PromptResult = { projectName };
+
+  if (!ctx.networkFlagProvided) {
+    result.horizonUrl = horizonUrl;
+    result.sorobanUrl = sorobanUrl;
+  }
+
+  if (!ctx.walletsFlagProvided) {
+    result.wallets = wallets;
+  }
+
+  if (!ctx.packageManagerFlagProvided) {
+    result.packageManager = packageManager;
+  }
+
+  if (!ctx.skipInstallFlagProvided) {
+    result.skipInstall = skipInstall;
+  }
+
+  return result;
 }

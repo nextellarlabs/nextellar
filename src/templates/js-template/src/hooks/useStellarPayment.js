@@ -2,6 +2,7 @@
 import { useCallback, useRef, useEffect } from 'react';
 import { Horizon, Keypair, TransactionBuilder, Operation, Networks, Asset, Memo, BASE_FEE, Transaction } from '@stellar/stellar-sdk';
 import { useWalletConfig } from '../contexts';
+import { decodeResultCodes } from '../lib/stellarResultCodes';
 // Default configuration
 const DEFAULT_HORIZON_URL = 'https://horizon-testnet.stellar.org';
 const DEFAULT_NETWORK = 'TESTNET';
@@ -207,9 +208,11 @@ export function useStellarPayment(opts) {
             console.error('Transaction submission failed:', err);
             // Handle specific submission errors
             let errorMessage = 'Transaction failed';
+            let resultCodes;
             if (errorObj?.response?.data?.extras?.result_codes) {
                 const codes = errorObj.response.data.extras.result_codes;
-                errorMessage = `Transaction failed - ${codes.transaction || codes.operations?.join(', ') || 'Unknown error'}`;
+                resultCodes = codes;
+                errorMessage = decodeResultCodes(codes).reason;
             }
             else if (errorObj?.response?.status === 400) {
                 errorMessage = 'Invalid transaction format or content';
@@ -223,7 +226,8 @@ export function useStellarPayment(opts) {
             return {
                 success: false,
                 error: errorMessage,
-                raw: errorObj?.response?.data
+                raw: errorObj?.response?.data,
+                resultCodes
             };
         }
     }, [serverRef, getNetworkPassphrase]);

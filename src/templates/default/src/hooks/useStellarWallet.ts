@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { 
   Horizon, 
   TransactionBuilder, 
@@ -87,12 +87,39 @@ export function useStellarWallet(
   const [walletName, setWalletName] = useState<string>();
   const [balances, setBalances] = useState<Balance[]>([]);
   const [server] = useState(() => new Server(horizonUrl));
+  const connectionSeqRef = useRef(0);
 
   /**
-   * Connect to a Stellar wallet using the modal interface
+   * Connect to a Stellar wallet (modal or explicit walletId)
    */
-  const connect = useCallback(async () => {
+  const connect = useCallback(async (walletId?: string) => {
+    const seq = ++connectionSeqRef.current;
     try {
+      if (walletId) {
+        kit().setWallet(walletId);
+        const { address } = await kit().getAddress();
+        if (seq !== connectionSeqRef.current) return;
+
+        setPublicKey(address);
+        setWalletName(walletId);
+        setConnected(true);
+
+        storage.set('stellar_wallet_connected', 'true');
+        storage.set('stellar_wallet_id', walletId);
+        storage.set('stellar_wallet_address', address);
+        storage.set('stellar_wallet_name', walletId);
+
+        try {
+          const account = await server.accounts().accountId(address).call();
+          if (seq !== connectionSeqRef.current) return;
+          setBalances(account.balances);
+        } catch (error: unknown) {
+          if (seq !== connectionSeqRef.current) return;
+          setBalances([]);
+        }
+        return;
+      }
+
       await kit().openModal({
         modalTitle: "Connect to your favorite wallet",
         onWalletSelected: async (option: ISupportedWallet) => {
@@ -100,6 +127,8 @@ export function useStellarWallet(
 
           const { address } = await kit().getAddress();
           const { name } = option;
+
+          if (seq !== connectionSeqRef.current) return;
 
           setPublicKey(address);
           setWalletName(name);
@@ -110,22 +139,18 @@ export function useStellarWallet(
           storage.set('stellar_wallet_address', address);
           storage.set('stellar_wallet_name', name);
           
-          // Load balances inline to avoid circular dependency
           try {
             const account = await server.accounts().accountId(address).call();
+            if (seq !== connectionSeqRef.current) return;
             setBalances(account.balances);
           } catch (error: unknown) {
-            // Account doesn't exist on the network yet (needs funding)
-            if (error && typeof error === 'object' && 'response' in error && (error as { response?: { status?: number } }).response?.status === 404) {
-              setBalances([]);
-            } else {
-              console.error('Failed to load balances:', error);
-              setBalances([]);
-            }
+            if (seq !== connectionSeqRef.current) return;
+            setBalances([]);
           }
         },
       });
     } catch (error) {
+      if (seq !== connectionSeqRef.current) return;
       console.error('Failed to connect wallet:', error);
       throw error;
     }
@@ -135,8 +160,12 @@ export function useStellarWallet(
    * Disconnect wallet and clear state
    */
   const disconnect = useCallback(async () => {
+    connectionSeqRef.current++;
     try {
       await kit().disconnect();
+    } catch (error) {
+      console.error('Failed to disconnect wallet:', error);
+    } finally {
       setConnected(false);
       setPublicKey(undefined);
       setWalletName(undefined);
@@ -146,8 +175,6 @@ export function useStellarWallet(
       storage.remove('stellar_wallet_id');
       storage.remove('stellar_wallet_address');
       storage.remove('stellar_wallet_name');
-    } catch (error) {
-      console.error('Failed to disconnect wallet:', error);
     }
   }, []);
 
@@ -241,6 +268,7 @@ export function useStellarWallet(
   // Auto-reconnect wallet on mount if previously connected
   useEffect(() => {
     const autoReconnect = async () => {
+      const seq = ++connectionSeqRef.current;
       const wasConnected = storage.get('stellar_wallet_connected');
       const savedWalletId = storage.get('stellar_wallet_id');
       const savedAddress = storage.get('stellar_wallet_address');
@@ -250,6 +278,7 @@ export function useStellarWallet(
         try {
           kit().setWallet(savedWalletId);
           const { address } = await kit().getAddress();
+          if (seq !== connectionSeqRef.current) return;
           
           if (address === savedAddress) {
             setPublicKey(address);
@@ -258,16 +287,15 @@ export function useStellarWallet(
             
             try {
               const account = await server.accounts().accountId(address).call();
+              if (seq !== connectionSeqRef.current) return;
               setBalances(account.balances);
             } catch (error: unknown) {
-              if (error && typeof error === 'object' && 'response' in error && (error as { response?: { status?: number } }).response?.status === 404) {
-                setBalances([]);
-              } else {
-                setBalances([]);
-              }
+              if (seq !== connectionSeqRef.current) return;
+              setBalances([]);
             }
           }
         } catch {
+          if (seq !== connectionSeqRef.current) return;
           storage.remove('stellar_wallet_connected');
           storage.remove('stellar_wallet_id');
           storage.remove('stellar_wallet_address');
