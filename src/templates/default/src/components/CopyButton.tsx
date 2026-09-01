@@ -60,12 +60,16 @@ export default function CopyButton({
         {copied ? <Check size={size} aria-hidden="true" /> : <Copy size={size} aria-hidden="true" />}
       </button>
       {showConfirmationText ? (
-        // Visible confirmation, also announced live for screen readers.
-        copied && (
-          <p role="status" className={confirmationClassName}>
-            {confirmationMessage}
-          </p>
-        )
+        // Visible confirmation with a persistent aria-live region so AT
+        // reliably announces the copy result without relying on element mount.
+        <p
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          className={`${confirmationClassName} min-h-[1rem]`}
+        >
+          {copied ? confirmationMessage : ''}
+        </p>
       ) : (
         // Compact layouts (e.g. a transaction row): announce without a
         // visible toast that would crowd the row.
