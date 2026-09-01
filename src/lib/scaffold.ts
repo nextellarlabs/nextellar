@@ -13,6 +13,7 @@ import { confirm } from "@clack/prompts";
 import { validateHorizonUrl, validateSorobanUrl } from "./validate.js";
 import { runPreflight } from "./preflight.js";
 import { resolveTemplateDir } from "./templates.js";
+import { printError, printWarning } from "./feedback.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -63,7 +64,7 @@ export async function scaffold(options: ScaffoldOptions) {
   const preflight = await runPreflight(undefined, 20, !!skipInstall);
   if (!preflight.ok) {
     for (const failure of preflight.failures) {
-      console.error(pc.red(`✖ ${failure}`));
+      printError(failure);
     }
     throw new Error(
       "Toolchain check failed. Fix the issues above and re-run scaffold.",
@@ -367,11 +368,9 @@ export async function scaffold(options: ScaffoldOptions) {
       try {
         await execa("git", ["init"], { cwd: targetDir, stdio: "ignore" });
       } catch (error: any) {
-        console.warn(
-          pc.yellow(
-            `⚠️  Could not initialize git repository (${error?.message || "unknown error"}). ` +
-              `You can run \`git init\` yourself later.`,
-          ),
+        printWarning(
+          `Could not initialize git repository (${error?.message || "unknown error"}). ` +
+            `You can run \`git init\` yourself later.`,
         );
       }
     }

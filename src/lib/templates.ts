@@ -33,7 +33,7 @@ export const TEMPLATES: readonly TemplateDefinition[] = [
     name: "minimal",
     description: "bare starter: wallet connection only, no extra UI",
     tsDir: "minimal",
-    jsDir: null,
+    jsDir: "js-minimal",
   },
   {
     name: "defi",

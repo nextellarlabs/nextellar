@@ -28,8 +28,24 @@ export default function ReceiveForm() {
       <p className="text-xs text-gray-500 dark:text-gray-400">
         Share this address to receive XLM or other assets.
       </p>
-      <div className="flex items-center gap-2 rounded-md border border-gray-300 bg-gray-50 px-3 py-2 dark:border-gray-600 dark:bg-gray-800">
-        <code className="flex-1 truncate text-xs text-gray-900 dark:text-white">{publicKey}</code>
+      {/* role="region" with aria-labelledby groups the address + copy button as a
+          named landmark so screen readers announce "Stellar address, region" when
+          navigating by landmark. The label also gives `<code>` context so the AT
+          reads "Stellar address: GABC…" rather than raw key characters. */}
+      <div
+        role="region"
+        aria-labelledby="receive-address-label"
+        className="flex items-center gap-2 rounded-md border border-gray-300 bg-gray-50 px-3 py-2 dark:border-gray-600 dark:bg-gray-800"
+      >
+        <span id="receive-address-label" className="sr-only">
+          Stellar address
+        </span>
+        <code
+          aria-describedby="receive-address-label"
+          className="flex-1 truncate text-xs text-gray-900 dark:text-white"
+        >
+          {publicKey}
+        </code>
         <CopyButton value={publicKey} label="address" className="p-1.5" showConfirmationText />
       </div>
     </div>

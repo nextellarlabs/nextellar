@@ -1,12 +1,41 @@
 /**
  * Mock for template contexts module (WalletProvider).
- * Returns undefined from useWalletConfig so hooks fall back to defaults.
- * Mapped via jest.config moduleNameMapper for '../contexts' imports.
+ * Mapped via jest.config moduleNameMapper for '../contexts' and
+ * '../contexts/WalletProvider' imports.
+ *
+ * Hooks under test (useStellarBalances, useTrustlines, …) only need
+ * `useWalletConfig` to return undefined so they fall back to their defaults.
+ *
+ * Component tests, however, render against a real context — they import
+ * `WalletContext` and wrap the component in `WalletContext.Provider` with a
+ * hand-built wallet state. So this mock exposes a genuine context rather than
+ * a throwing stub, and `useWallet` reads from it.
  */
 import { createContext, useContext } from 'react';
 
+export interface WalletAccount {
+  address: string;
+  name?: string;
+  index?: number;
+}
+
+// Intentionally loose: each template's WalletContextState differs slightly, and
+// component tests supply whichever subset of fields the component reads.
+export type WalletContextState = Record<string, unknown>;
+
+export const WalletContext = createContext<WalletContextState | undefined>(undefined);
+export const WalletConfigContext = createContext<unknown>(undefined);
+
 export function useWalletConfig() {
   return undefined;
+}
+
+export function useWallet(): WalletContextState {
+  const context = useContext(WalletContext);
+  if (context === undefined) {
+    throw new Error('useWallet must be used within a WalletProvider');
+  }
+  return context;
 }
 
 /**
@@ -16,17 +45,17 @@ export function useWalletConfig() {
  * Provider get the exact same "must be used within a WalletProvider" throw
  * as before — this is purely additive.
  */
-export const WalletContext = createContext(undefined);
-export const WalletConfigContext = createContext(undefined);
 
-export function useWallet() {
-  const ctx = useContext(WalletContext);
-  if (ctx === undefined) {
-    throw new Error('useWallet must be used within a WalletProvider');
-  }
-  return ctx;
-}
-
-export function WalletProvider() {
-  throw new Error('WalletProvider is not available in tests');
+export function WalletProvider({
+  children,
+  value,
+}: {
+  children: ReactNode;
+  value?: MockWalletState;
+}) {
+  return createElement(
+    WalletContext.Provider,
+    { value: value ?? defaultWalletState() },
+    children,
+  );
 }

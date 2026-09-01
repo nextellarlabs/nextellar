@@ -37,6 +37,7 @@ jest.unstable_mockModule("../src/mocks/wallet-contexts-mock", () => ({
 
 const [
   { default: AccountSwitcher },
+  { default: BalanceDisplay },
   { default: EmptyState },
   { default: ErrorBoundary },
   { default: LoadingBoundary },
@@ -50,6 +51,7 @@ const [
   { useWallet },
 ] = await Promise.all([
   import("../src/templates/default/src/components/AccountSwitcher"),
+  import("../src/templates/default/src/components/BalanceDisplay"),
   import("../src/templates/default/src/components/EmptyState"),
   import("../src/templates/default/src/components/ErrorBoundary"),
   import("../src/templates/default/src/components/LoadingBoundary"),
@@ -64,6 +66,12 @@ const [
 ]);
 
 describe("default template components smoke tests (#891)", () => {
+  it("renders BalanceDisplay cleanly", () => {
+    const { container } = render(<BalanceDisplay />);
+    expect(container).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(/connect wallet/i);
+  });
+
   it("renders AccountSwitcher cleanly when disconnected", () => {
     const { container } = render(<AccountSwitcher />);
     expect(container).toBeInTheDocument();
@@ -187,7 +195,7 @@ describe("default template components smoke tests (#891)", () => {
     const { container } = render(<WalletConnectButton />);
     expect(container).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /Connect Wallet/i }),
+      screen.getByRole("button", { name: "Connect Stellar wallet" }),
     ).toBeInTheDocument();
   });
 });
