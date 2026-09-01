@@ -5,6 +5,7 @@ import {
   setFreeMemoryProviderForTest,
   type CommandRunner,
 } from '../src/lib/doctor.js';
+import { confirm } from '@clack/prompts';
 
 // Every check runDoctor() runs concurrently, keyed by the exact command
 // string each check invokes (see src/lib/doctor.ts). Defaults simulate a
@@ -48,6 +49,7 @@ describe('doctor', () => {
     console.log = originalLog;
     setCommandRunnerForTest(undefined);
     setFreeMemoryProviderForTest(undefined);
+    jest.clearAllMocks();
   });
 
   describe('exit-code semantics', () => {
@@ -211,6 +213,76 @@ describe('doctor', () => {
 
       expect(global.fetch).toHaveBeenCalled();
       expect(jest.isMockFunction(global.fetch)).toBe(true);
+    });
+  });
+
+  describe('--fix auto-remediation', () => {
+    it('does not prompt for fixes when --fix is not specified', async () => {
+      setCommandRunnerForTest(withRunner({ 'yarn --version': { ok: false, out: 'not found' } }));
+      console.log = jest.fn();
+
+      await runDoctor();
+
+      expect(confirm).not.toHaveBeenCalled();
+    });
+
+    it('prompts for safe fixes when --fix is enabled and safe failures exist', async () => {
+      setCommandRunnerForTest(withRunner({ 
+        'yarn --version': { ok: false, out: 'not found' },
+        'pnpm --version': { ok: false, out: 'not found' },
+      }));
+      console.log = jest.fn();
+      (confirm as jest.Mock).mockResolvedValue(false); // Decline to avoid actual execution
+
+      await runDoctor({ fix: true });
+
+      expect(confirm).toHaveBeenCalledWith({
+        message: 'Apply 2 safe fixes?',
+        initialValue: true,
+      });
+    });
+
+    it('does not prompt for fixes when --fix is enabled but no safe failures exist', async () => {
+      setCommandRunnerForTest(withRunner());
+      console.log = jest.fn();
+
+      await runDoctor({ fix: true });
+
+      expect(confirm).not.toHaveBeenCalled();
+    });
+
+    it('does not offer fixes for required check failures', async () => {
+      setCommandRunnerForTest(withRunner({ 
+        'git --version': { ok: false, out: 'not found' },
+        'yarn --version': { ok: false, out: 'not found' },
+      }));
+      console.log = jest.fn();
+      (confirm as jest.Mock).mockResolvedValue(false); // Decline to avoid actual execution
+
+      await runDoctor({ fix: true });
+
+      // Should only offer fix for yarn (optional), not git (required)
+      expect(confirm).toHaveBeenCalledWith({
+        message: 'Apply 1 safe fix?',
+        initialValue: true,
+      });
+    });
+
+    it('does not prompt for fixes in JSON mode', async () => {
+      setCommandRunnerForTest(withRunner({ 
+        'yarn --version': { ok: false, out: 'not found' },
+      }));
+      let captured = '';
+      console.log = jest.fn((line: string) => {
+        captured += line;
+      });
+
+      await runDoctor({ fix: true, json: true });
+
+      expect(confirm).not.toHaveBeenCalled();
+      
+      const parsed = JSON.parse(captured);
+      expect(parsed.checks.find((c: { id: string }) => c.id === 'yarn').ok).toBe(false);
     });
   });
 });
