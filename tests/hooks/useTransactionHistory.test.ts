@@ -1,8 +1,20 @@
 /**
  * @jest-environment jsdom
  */
-import { renderHook, act } from "@testing-library/react";
 import { jest } from "@jest/globals";
+import {
+  act,
+  DEFAULT_PAGE_SIZE as PAGE_SIZE,
+  flush,
+  INVALID_PUBLIC_KEY_NO_G as INVALID_KEY_NO_G,
+  INVALID_PUBLIC_KEY_SHORT as INVALID_KEY_SHORT,
+  makeHorizonPage as makePage,
+  makeHorizonResponse as makeResponse,
+  PUBLIC_KEY as VALID_PUBLIC_KEY,
+  PUBLIC_KEY_2 as VALID_PUBLIC_KEY_2,
+  renderHook,
+  silenceConsole,
+} from "../helpers";
 
 await jest.unstable_mockModule(
   "@stellar/stellar-sdk",
@@ -64,24 +76,19 @@ function makeResponse(records: ReturnType<typeof makeRecord>[]) {
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe("useTransactionHistory (Template Hook)", () => {
-  let consoleErrorSpy: jest.SpyInstance;
-  let consoleWarnSpy: jest.SpyInstance;
+  let restoreConsole: () => void;
+  let consoleWarnSpy: ReturnType<typeof jest.spyOn>;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    restoreConsole = silenceConsole(["error"]);
     consoleWarnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
   });
 
   afterEach(() => {
-    consoleErrorSpy.mockRestore();
+    restoreConsole();
     consoleWarnSpy.mockRestore();
   });
-
-  /** Flush microtasks so async state updates from the hook are applied. */
-  async function flush() {
-    await act(async () => {});
-  }
 
   // ── 1. Return shape ─────────────────────────────────────────────────────
 

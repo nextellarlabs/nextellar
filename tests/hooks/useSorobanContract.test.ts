@@ -2,7 +2,14 @@
  * @jest-environment jsdom
  */
 import { jest } from "@jest/globals";
-import { renderHook, act, waitFor } from "@testing-library/react";
+import {
+  act,
+  renderHook,
+  SOROBAN_TESTNET_RPC as SOROBAN_RPC_URL,
+  USDC_ISSUER as VALID_ACCOUNT_ADDRESS,
+  VALID_CONTRACT_ID,
+  waitFor,
+} from "../helpers";
 import { setupServer } from "msw/node";
 import { http, HttpResponse } from "msw";
 import * as StellarSDK from "@stellar/stellar-sdk";
@@ -11,10 +18,6 @@ import { useSorobanContract } from "../../src/templates/default/src/hooks/useSor
 const SDK = ((StellarSDK as unknown as { default?: unknown }).default ||
   StellarSDK) as typeof StellarSDK;
 const { xdr, Address, Contract, rpc } = SDK;
-
-const SOROBAN_RPC_URL = "https://soroban-testnet.stellar.org";
-const VALID_CONTRACT_ID = "CAAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQC526";
-const VALID_ACCOUNT_ADDRESS = "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN";
 
 const server = setupServer(
   http.post(SOROBAN_RPC_URL, async ({ request }) => {
@@ -51,9 +54,9 @@ const server = setupServer(
         id: body.id ?? 1,
         error: { code: -32601, message: "Unsupported RPC method" },
       },
-      { status: 400 }
+      { status: 400 },
     );
-  })
+  }),
 );
 
 describe("useSorobanContract", () => {
@@ -74,7 +77,10 @@ describe("useSorobanContract", () => {
     } as never);
 
     const { result } = renderHook(() =>
-      useSorobanContract({ contractId: VALID_CONTRACT_ID, sorobanRpc: SOROBAN_RPC_URL })
+      useSorobanContract({
+        contractId: VALID_CONTRACT_ID,
+        sorobanRpc: SOROBAN_RPC_URL,
+      }),
     );
 
     let output: unknown;
@@ -93,7 +99,10 @@ describe("useSorobanContract", () => {
     const callSpy = jest.spyOn(Contract.prototype, "call");
 
     const { result } = renderHook(() =>
-      useSorobanContract({ contractId: VALID_CONTRACT_ID, sorobanRpc: SOROBAN_RPC_URL })
+      useSorobanContract({
+        contractId: VALID_CONTRACT_ID,
+        sorobanRpc: SOROBAN_RPC_URL,
+      }),
     );
 
     await act(async () => {
@@ -114,11 +123,16 @@ describe("useSorobanContract", () => {
     const callSpy = jest.spyOn(Contract.prototype, "call");
 
     const { result } = renderHook(() =>
-      useSorobanContract({ contractId: VALID_CONTRACT_ID, sorobanRpc: SOROBAN_RPC_URL })
+      useSorobanContract({
+        contractId: VALID_CONTRACT_ID,
+        sorobanRpc: SOROBAN_RPC_URL,
+      }),
     );
 
     await act(async () => {
-      await result.current.callFunction("set_owner", [Address.fromString(VALID_ACCOUNT_ADDRESS)]);
+      await result.current.callFunction("set_owner", [
+        Address.fromString(VALID_ACCOUNT_ADDRESS),
+      ]);
     });
 
     const call = callSpy.mock.calls[0];
@@ -133,11 +147,17 @@ describe("useSorobanContract", () => {
     const callSpy = jest.spyOn(Contract.prototype, "call");
 
     const { result } = renderHook(() =>
-      useSorobanContract({ contractId: VALID_CONTRACT_ID, sorobanRpc: SOROBAN_RPC_URL })
+      useSorobanContract({
+        contractId: VALID_CONTRACT_ID,
+        sorobanRpc: SOROBAN_RPC_URL,
+      }),
     );
 
     await act(async () => {
-      await result.current.callFunction("set_complex", [[1, 2, 3], { foo: "bar", count: 2 }]);
+      await result.current.callFunction("set_complex", [
+        [1, 2, 3],
+        { foo: "bar", count: 2 },
+      ]);
     });
 
     const call = callSpy.mock.calls[0];
@@ -153,7 +173,10 @@ describe("useSorobanContract", () => {
     } as never);
 
     const { result } = renderHook(() =>
-      useSorobanContract({ contractId: VALID_CONTRACT_ID, sorobanRpc: SOROBAN_RPC_URL })
+      useSorobanContract({
+        contractId: VALID_CONTRACT_ID,
+        sorobanRpc: SOROBAN_RPC_URL,
+      }),
     );
 
     let output: unknown;
@@ -172,7 +195,10 @@ describe("useSorobanContract", () => {
     } as never);
 
     const { result } = renderHook(() =>
-      useSorobanContract({ contractId: VALID_CONTRACT_ID, sorobanRpc: SOROBAN_RPC_URL })
+      useSorobanContract({
+        contractId: VALID_CONTRACT_ID,
+        sorobanRpc: SOROBAN_RPC_URL,
+      }),
     );
 
     let output: unknown;
@@ -187,7 +213,11 @@ describe("useSorobanContract", () => {
     const complex = xdr.ScVal.scvMap([
       new xdr.ScMapEntry({
         key: xdr.ScVal.scvString("items"),
-        val: xdr.ScVal.scvVec([xdr.ScVal.scvI32(1), xdr.ScVal.scvI32(2), xdr.ScVal.scvI32(3)]),
+        val: xdr.ScVal.scvVec([
+          xdr.ScVal.scvI32(1),
+          xdr.ScVal.scvI32(2),
+          xdr.ScVal.scvI32(3),
+        ]),
       }),
       new xdr.ScMapEntry({
         key: xdr.ScVal.scvString("enabled"),
@@ -202,7 +232,10 @@ describe("useSorobanContract", () => {
     } as never);
 
     const { result } = renderHook(() =>
-      useSorobanContract({ contractId: VALID_CONTRACT_ID, sorobanRpc: SOROBAN_RPC_URL })
+      useSorobanContract({
+        contractId: VALID_CONTRACT_ID,
+        sorobanRpc: SOROBAN_RPC_URL,
+      }),
     );
 
     let output: unknown;
@@ -215,7 +248,10 @@ describe("useSorobanContract", () => {
 
   it("buildInvokeXDR returns a non-empty base64 string", async () => {
     const { result } = renderHook(() =>
-      useSorobanContract({ contractId: VALID_CONTRACT_ID, sorobanRpc: SOROBAN_RPC_URL })
+      useSorobanContract({
+        contractId: VALID_CONTRACT_ID,
+        sorobanRpc: SOROBAN_RPC_URL,
+      }),
     );
 
     let txXdr = "";
@@ -236,11 +272,16 @@ describe("useSorobanContract", () => {
 
   it("network failure is surfaced through MSW", async () => {
     server.use(
-      http.post(SOROBAN_RPC_URL, async () => HttpResponse.json({ error: "boom" }, { status: 500 }))
+      http.post(SOROBAN_RPC_URL, async () =>
+        HttpResponse.json({ error: "boom" }, { status: 500 }),
+      ),
     );
 
     const { result } = renderHook(() =>
-      useSorobanContract({ contractId: VALID_CONTRACT_ID, sorobanRpc: SOROBAN_RPC_URL })
+      useSorobanContract({
+        contractId: VALID_CONTRACT_ID,
+        sorobanRpc: SOROBAN_RPC_URL,
+      }),
     );
 
     let thrown: Error | undefined;
@@ -269,11 +310,14 @@ describe("useSorobanContract", () => {
             message: "simulated host function failure",
           },
         });
-      })
+      }),
     );
 
     const { result } = renderHook(() =>
-      useSorobanContract({ contractId: VALID_CONTRACT_ID, sorobanRpc: SOROBAN_RPC_URL })
+      useSorobanContract({
+        contractId: VALID_CONTRACT_ID,
+        sorobanRpc: SOROBAN_RPC_URL,
+      }),
     );
 
     let thrown: Error | undefined;
