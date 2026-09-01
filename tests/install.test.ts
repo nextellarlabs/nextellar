@@ -105,6 +105,20 @@ describe('install utilities', () => {
       expect(result.packageManager).toBe('npm');
       expect(result.error).toBe('some install error');
     });
+
+    it('saves an error log with remediation details when install fails (#offline)', async () => {
+      mockExeca.mockRejectedValueOnce(new Error('ENOTFOUND registry.npmjs.org'));
+      tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'nextellar-install-test-'));
+
+      const result = await runInstall({ cwd: tmpDir, packageManager: 'npm' });
+
+      expect(result.success).toBe(false);
+      expect(result.logPath).toBeDefined();
+      const log = await fs.readFile(result.logPath as string, 'utf8');
+      expect(log).toContain('ENOTFOUND');
+      // The saved log is the "next steps" artifact scaffold reports to the user.
+      expect(log).toContain('Package Manager: npm');
+    });
   });
 
   // #673 — targeted hints for common network/registry failure signatures,
