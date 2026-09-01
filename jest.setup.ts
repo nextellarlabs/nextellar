@@ -43,9 +43,7 @@ Object.assign(globalThis, {
   fetch: undici.fetch,
 });
 
-// 5) MSW Setup (ESM-compatible dynamic import) - must be AFTER fetch polyfill
-// Note: Tests that set up their own MSW servers (like useSorobanContract.test.ts)
-// will handle their own server lifecycle independently
+// 5) MSW Setup (ESM-compatible dynamic import)
 try {
   const { server } = await import('./src/mocks/server.js');
   beforeAll(() => server.listen({ onUnhandledRequest: 'warn' }));
