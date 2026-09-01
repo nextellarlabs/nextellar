@@ -108,3 +108,8 @@ UPDATE_DOCTOR_GOLDEN=1 npx jest tests/doctor-json-golden.test.ts
 and review the resulting diff to `tests/__fixtures__/doctor-json-v2.golden.json`
 before committing it. If the change is breaking (a field renamed or removed),
 bump `DOCTOR_JSON_SCHEMA_VERSION` per the versioning policy above.
+
+## See also
+
+- [Troubleshooting Guide (Doctor-driven)](./troubleshooting.md)
+- [Network and Environment Configuration Guide](./network-environment-guide.md)
