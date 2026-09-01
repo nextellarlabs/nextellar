@@ -19,7 +19,7 @@ on:
 jobs:
   pr-smoke:
     if: github.event_name == 'pull_request'
-    name: smoke ($$ { matrix.variant.name })
+    name: smoke (${{ matrix.variant.name }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -35,7 +35,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: $$ { matrix.node }
+          node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
 
@@ -46,19 +46,19 @@ jobs:
       - name: Scaffold app
         shell: bash
         run: |
-          node dist/bin/nextellar.js scaffolded-app --defaults --skip-install $$ { matrix.variant.args }
+          node dist/bin/nextellar.js scaffolded-app --defaults --skip-install ${{ matrix.variant.args }}
       - name: Install + build generated app
         shell: bash
         working-directory: scaffolded-app
         run: |
           npm install
-          nxp next build
+          npm run build
           if grep -q '"build-storybook"' package.json; then npm run build-storybook; fi
 
   nightly-full:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    name: full ($$ { matrix.os }, node $$ { matrix.node }, $$ { matrix.variant.name })
-    runs-on: $$ { matrix.os }
+    name: full (${{ matrix.os }}, node ${{ matrix.node }}, ${{ matrix.variant.name }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
@@ -74,7 +74,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: $$ { matrix.node }
+          node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
 
@@ -86,11 +86,11 @@ jobs:
       - name: Scaffold app
         shell: bash
         run: |
-          node dist/bin/nextellar.js scaffolded-app --defaults --skip-install $$ { matrix.variant.args }
+          node dist/bin/nextellar.js scaffolded-app --defaults --skip-install ${{ matrix.variant.args }}
       - name: Install + build generated app
         shell: bash
         working-directory: scaffolded-app
         run: |
           npm install
-          nxp next build
+          npm run build
           if grep -q '"build-storybook"' package.json; then npm run build-storybook; fi
