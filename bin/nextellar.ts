@@ -326,6 +326,7 @@ program.action(async (projectName, options) => {
 
   const template = options.template || "default";
   const useTs = options.typescript && !options.javascript;
+  const withContracts = options.withContracts || template === "defi";
 
   const hasArg = (longFlag: string, shortFlag?: string) => {
     const argv = process.argv;
@@ -377,9 +378,7 @@ program.action(async (projectName, options) => {
       `  ${pc.magenta("◆")} Type:    ${pc.cyan(useTs ? "TypeScript" : "JavaScript")}`,
     );
     console.log(`  ${pc.magenta("◆")} Template: ${pc.cyan(template)}`);
-    console.log(
-      `  ${pc.magenta("◆")} Contracts: ${pc.cyan(options.withContracts ? "Yes" : "No")}\n`,
-    );
+    console.log(`  ${pc.magenta("◆")} Contracts: ${pc.cyan(withContracts ? "Yes" : "No")}\n`);
   }
 
   const shouldPrompt =
@@ -475,7 +474,7 @@ program.action(async (projectName, options) => {
       appName: finalProjectName,
       useTs,
       template,
-      withContracts: options.withContracts,
+      withContracts,
       horizonUrl: finalHorizonUrl,
       sorobanUrl: finalSorobanUrl,
       wallets: finalWallets,
