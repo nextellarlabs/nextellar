@@ -1,33 +1,44 @@
 # Changed-paths labeler configuration (#935).
+#
+# actions/labeler@v5 requires the `changed-files` / `any-glob-to-any-file`
+# keys below — the old `- changed: [...]` shorthand is a v4 config and is
+# silently ignored (no globs match) under v5, so every PR would go unlabeled.
 
 CLI core:
-- changed:
+- changed-files:
+  - any-glob-to-any-file:
     - "**/bin/**"
     - "src/lib/**"
 
 CLI entrypoint:
-- changed:
+- changed-files:
+  - any-glob-to-any-file:
     - "bin/**"
 
 Scaffold templates:
-- changed:
+- changed-files:
+  - any-glob-to-any-file:
     - "src/templates/**"
 
 Tests:
-- changed:
+- changed-files:
+  - any-glob-to-any-file:
     - "tests/**"
     - "**/__tests__/**"
 
 CI / workflows:
-- changed:
+- changed-files:
+  - any-glob-to-any-file:
     - ".github/**"
 
 Documentation:
-- changed:
+- changed-files:
+  - any-glob-to-any-file:
     - "**/*.md"
     - "docs/**"
 
 Dependencies:
-- changed:
+- changed-files:
+  - any-glob-to-any-file:
     - "package.json"
     - "package-lock.json"
