@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState, useEffect } from 'react';
 import WalletConnectButton from '../components/WalletConnectButton';
+import TransactionList from '../components/TransactionList';
 import NetworkSwitcher from '../components/NetworkSwitcher';
 
 // Theme toggle hook
@@ -172,6 +173,16 @@ export default function Home() {
               >
                 View Docs
               </a>
+            </div>
+
+            {/* Transaction History */}
+            <div className={`mt-12 rounded-2xl overflow-hidden border ${theme === 'light' ? 'bg-white/80 border-gray-200/60 shadow-sm' : 'bg-white/5 border-white/10'}`}>
+              <div className={`px-6 py-4 border-b ${theme === 'light' ? 'border-gray-100' : 'border-white/10'}`}>
+                <h2 className={`text-base font-semibold ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
+                  Transaction History
+                </h2>
+              </div>
+              <TransactionList limit={10} />
             </div>
           </div>
         </main>
