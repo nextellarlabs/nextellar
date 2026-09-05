@@ -84,21 +84,23 @@ complete -F _nextellar_completions nextellar
 /** Generate a zsh completion script (compdef style). */
 export function generateZshCompletions(root: Command): string {
   const tree = collectCommandTree(root);
-  const topLevelCommands = tree.subcommands.map((s) => s.name);
-  const globalFlags = tree.options.map((f) => `[--help]help`);
 
+  // Per-command _arguments blocks, dispatched on $line[1] in the "option" state.
   const commandBlocks = tree.subcommands
     .map((sub) => {
-      const opts = sub.options
-        .map((o) => `(\\--${o.replace(/^--/, "")})"[option]"`)
-        .join(" ");
+      const optionSpecs = sub.options.map((o) => `"${o}[${sub.name} option]"`);
+      const argSpecs = [...optionSpecs, '"1:arg"'].join(" \\\n      ");
       return `  (${sub.name})
     _arguments \\
-      ${opts ? `${opts} \\` : ""}
-      "1:arg"
-;;`;
+      ${argSpecs}
+    ;;`;
     })
     .join("\n");
+
+  // Top-level command list shown by `_values` when completing the first word.
+  const commandValues = tree.subcommands
+    .map((s) => `        "${s.name}[${s.description.replace(/"/g, "'")}]"`)
+    .join(" \\\n");
 
   return `#compdef nextellar
 # zsh completion for nextellar
@@ -115,7 +117,7 @@ _nextellar() {
   case $state in
     command)
       _values "command" \\
-${tree.subcommands.map((s) => `        "${s.name}[${s.description.replace(/"/g, "'")}"]`).join(" \\\\\n")}
+${commandValues} \\
         "--help[show help]"
       ;;
     option)

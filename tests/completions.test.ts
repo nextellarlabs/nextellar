@@ -52,6 +52,23 @@ describe("shell completions (#909)", () => {
     expect(script).toContain("scaffold");
   });
 
+  test("zsh command values use valid '\"name[description]\"' syntax", () => {
+    const script = generateZshCompletions(buildTestProgram());
+    // Regression test for a bracket/quote transposition bug: the generator
+    // once emitted `"scaffold[desc"]` (closing `]` and `"` swapped), which
+    // zsh's `_values` cannot parse. Each command entry must close as `]"`.
+    expect(script).toMatch(/"scaffold\[scaffold a new project\]"/);
+    expect(script).toMatch(/"doctor\[check toolchain health\]"/);
+    expect(script).not.toMatch(/"scaffold\[[^\]]*"\]/);
+  });
+
+  test("zsh per-command option specs use valid '\"--flag[description]\"' syntax", () => {
+    const script = generateZshCompletions(buildTestProgram());
+    expect(script).toContain('"--typescript[scaffold option]"');
+    expect(script).toContain('"--skip-install[scaffold option]"');
+    expect(script).toContain('"--json[doctor option]"');
+  });
+
   test("generateCompletions dispatches by shell name (case-insensitive)", () => {
     expect(generateCompletions("BASH", buildTestProgram())).toContain(
       "COMPREPLY",
