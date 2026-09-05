@@ -46,6 +46,16 @@ export function useWallet(): WalletContextState {
  * as before — this is purely additive.
  */
 
-export function WalletProvider() {
-  throw new Error('WalletProvider is not available in tests');
+export function WalletProvider({
+  children,
+  value,
+}: {
+  children: ReactNode;
+  value?: MockWalletState;
+}) {
+  return createElement(
+    WalletContext.Provider,
+    { value: value ?? defaultWalletState() },
+    children,
+  );
 }

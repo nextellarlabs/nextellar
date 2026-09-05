@@ -115,7 +115,7 @@ function makeNonPaymentRecord(
 
 function mockHookReturn(
   partial: Partial<{
-    items: MockTransaction[];
+    items: HorizonOperationRecord[];
     loading: boolean;
     error: Error | null;
     hasMore: boolean;
@@ -123,18 +123,19 @@ function mockHookReturn(
     refresh: () => Promise<void>;
   }>,
 ) {
-  const defaultReturn = {
-    items: [] as MockTransaction[],
-    loading: false,
-    error: null,
-    hasMore: false,
-    fetchNextPage: jest.fn().mockResolvedValue(undefined),
-    refresh: jest.fn().mockResolvedValue(undefined),
-  };
-  (useTransactionHistory as jest.Mock).mockReturnValue({
-    ...defaultReturn,
-    ...partial,
-  });
+  (useTransactionHistory as jest.Mock).mockReturnValue(
+    createTransactionHistoryState({
+      fetchNextPage: jest
+        .fn()
+        .mockResolvedValue(undefined) as () => Promise<void>,
+      refresh: jest.fn().mockResolvedValue(undefined) as () => Promise<void>,
+      ...partial,
+    }),
+  );
+}
+
+function renderList(props?: TransactionListProps, wallet = connectedWallet()) {
+  return render(React.createElement(TransactionList, props), { wallet });
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -142,10 +143,6 @@ function mockHookReturn(
 describe("TransactionList Component", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    (useWallet as jest.Mock).mockReturnValue({
-      connected: true,
-      publicKey: WALLET_ADDRESS,
-    });
   });
 
   // ── 1. Direction ────────────────────────────────────────────────────────
@@ -178,7 +175,7 @@ describe("TransactionList Component", () => {
       ];
       mockHookReturn({ items: items as any[], hasMore: true, loading: false });
 
-      render(React.createElement(TransactionList));
+      renderList();
       expect(
         screen.getByRole("button", { name: /load more/i }),
       ).toBeInTheDocument();
@@ -188,7 +185,7 @@ describe("TransactionList Component", () => {
       const items = [makePaymentRecord({ id: "op-0", isReceived: true })];
       mockHookReturn({ items: items as any[], hasMore: false, loading: false });
 
-      render(React.createElement(TransactionList));
+      renderList();
       expect(
         screen.queryByRole("button", { name: /load more/i }),
       ).not.toBeInTheDocument();
@@ -204,7 +201,7 @@ describe("TransactionList Component", () => {
         fetchNextPage,
       });
 
-      render(React.createElement(TransactionList));
+      renderList();
 
       const loadMoreBtn = screen.getByRole("button", { name: /load more/i });
       fireEvent.click(loadMoreBtn);
@@ -218,7 +215,7 @@ describe("TransactionList Component", () => {
       const items = [makePaymentRecord({ id: "op-0", isReceived: true })];
       mockHookReturn({ items: items as any[], hasMore: true, loading: true });
 
-      render(React.createElement(TransactionList));
+      renderList();
 
       const loadMoreBtn = screen.getByRole("button", {
         name: /loading more/i,
@@ -233,7 +230,7 @@ describe("TransactionList Component", () => {
     it("renders a no-transactions message when there are no items and not loading", () => {
       mockHookReturn({ items: [], loading: false, hasMore: false });
 
-      render(React.createElement(TransactionList));
+      renderList();
       expect(screen.getByText(/no transactions yet/i)).toBeInTheDocument();
     });
 
@@ -244,7 +241,7 @@ describe("TransactionList Component", () => {
       });
       mockHookReturn({ items: [], loading: false, hasMore: false });
 
-      render(React.createElement(TransactionList));
+      renderList({}, disconnectedWallet());
       expect(screen.getByText(/connect wallet/i)).toBeInTheDocument();
     });
   });
@@ -255,7 +252,7 @@ describe("TransactionList Component", () => {
     it("renders 4 skeleton rows when initially loading", () => {
       mockHookReturn({ items: [], loading: true, hasMore: false });
 
-      render(React.createElement(TransactionList));
+      renderList();
 
       // The list of rows is now a single labeled status region (via the
       // shared SkeletonList component) rather than 4 individually-labeled
@@ -278,7 +275,7 @@ describe("TransactionList Component", () => {
     it("passes default limit=10 to useTransactionHistory", () => {
       mockHookReturn({ items: [], loading: false });
 
-      render(React.createElement(TransactionList));
+      renderList();
 
       expect(useTransactionHistory).toHaveBeenCalledWith(
         expect.any(String),
@@ -289,7 +286,7 @@ describe("TransactionList Component", () => {
     it("passes a custom limit to useTransactionHistory", () => {
       mockHookReturn({ items: [], loading: false });
 
-      render(React.createElement(TransactionList, { limit: 25 }));
+      renderList({ limit: 25 });
 
       expect(useTransactionHistory).toHaveBeenCalledWith(
         expect.any(String),
@@ -330,7 +327,7 @@ describe("TransactionList Component", () => {
       ];
       mockHookReturn({ items: items as any[] });
 
-      render(React.createElement(TransactionList));
+      renderList();
 
       // Payment appears once in the payment type label
       expect(screen.getByText("Payment")).toBeInTheDocument();
@@ -350,7 +347,7 @@ describe("TransactionList Component", () => {
       ];
       mockHookReturn({ items: items as any[] });
 
-      render(React.createElement(TransactionList));
+      renderList();
 
       // The amount should appear with + prefix for received
       expect(screen.getByText(/^\+/)).toBeInTheDocument();
@@ -362,7 +359,7 @@ describe("TransactionList Component", () => {
       const items = [makeNonPaymentRecord({ id: "op-0" })];
       mockHookReturn({ items: items as any[] });
 
-      render(React.createElement(TransactionList));
+      renderList();
 
       // For non-payment ops, the type name appears in both the
       // type label and the amount slot (two times)
@@ -373,7 +370,7 @@ describe("TransactionList Component", () => {
       const items = [makePaymentRecord({ id: "op-0", isReceived: true })];
       mockHookReturn({ items: items as any[] });
 
-      render(React.createElement(TransactionList));
+      renderList();
 
       // The counterparty OTHER_ADDRESS should be truncated
       const truncated =
@@ -385,7 +382,7 @@ describe("TransactionList Component", () => {
       const items = [makePaymentRecord({ id: "op-0", isReceived: true })];
       mockHookReturn({ items: items as any[] });
 
-      render(React.createElement(TransactionList));
+      renderList();
 
       // The most recent transaction should show a time indicator
       expect(
@@ -403,7 +400,7 @@ describe("TransactionList Component", () => {
       ];
       mockHookReturn({ items: items as any[] });
 
-      render(React.createElement(TransactionList));
+      renderList();
 
       expect(screen.getByText("Failed")).toBeInTheDocument();
     });
@@ -422,7 +419,7 @@ describe("TransactionList Component", () => {
       ];
       mockHookReturn({ items: items as any[] });
 
-      render(React.createElement(TransactionList));
+      renderList();
 
       expect(screen.getByText("Unknown")).toBeInTheDocument();
     });
@@ -439,7 +436,7 @@ describe("TransactionList Component", () => {
         hasMore: false,
       });
 
-      render(React.createElement(TransactionList));
+      renderList();
 
       expect(
         screen.getByText(/failed to load transactions/i),
@@ -457,7 +454,7 @@ describe("TransactionList Component", () => {
         refresh,
       });
 
-      render(React.createElement(TransactionList));
+      renderList();
 
       const retryBtn = screen.getByRole("button", { name: /retry/i });
       fireEvent.click(retryBtn);
@@ -474,7 +471,7 @@ describe("TransactionList Component", () => {
         hasMore: true,
       });
 
-      render(React.createElement(TransactionList));
+      renderList();
 
       // Error banner should be visible along with items
       expect(screen.getByText(/failed to load more/i)).toBeInTheDocument();

@@ -9,7 +9,7 @@ import { scaffold } from "../src/lib/scaffold.js";
 import { upgrade } from "../src/lib/upgrade.js";
 import { runDeploy } from "../src/lib/deploy.js";
 import { runClean } from "../src/lib/clean.js";
-import { displaySuccess, NEXTELLAR_LOGO } from "../src/lib/feedback.js";
+import { displaySuccess, NEXTELLAR_LOGO, printError } from "../src/lib/feedback.js";
 import { detectPackageManager } from "../src/lib/install.js";
 import { runInteractivePrompts } from "../src/lib/prompts.js";
 import { validateProjectName } from "../src/lib/validate.js";
@@ -61,6 +61,7 @@ program
   .command("doctor")
   .description("Run environment diagnostics")
   .option("--json", "output results as JSON for CI integration")
+  .option("--fix", "offer to auto-fix safe/optional check failures")
   .option(
     "--horizon-url <url>",
     "Horizon endpoint to check (default: from .nextellar/config.json or testnet)",
@@ -72,6 +73,7 @@ program
   .action(
     async (cmdOpts: {
       json?: boolean;
+      fix?: boolean;
       horizonUrl?: string;
       sorobanUrl?: string;
     }) => {
@@ -79,12 +81,13 @@ program
         const { runDoctor } = await import("../src/lib/doctor.js");
         const exitCode = await runDoctor({
           json: !!cmdOpts.json,
+          fix: !!cmdOpts.fix,
           horizonUrl: cmdOpts.horizonUrl,
           sorobanUrl: cmdOpts.sorobanUrl,
         });
         await exitWithTelemetry(exitCode);
       } catch (err: any) {
-        console.error("Failed to run doctor:", err?.message || err);
+        printError(`Failed to run doctor: ${err?.message || err}`);
         await exitWithTelemetry(1);
       }
     },
@@ -133,7 +136,7 @@ program
           return;
         }
         if (!feature || feature.trim() === "") {
-          console.error(
+          printError(
             "Please specify a feature. Use " +
               pc.cyan("nextellar add --list") +
               " to see options.",
@@ -146,11 +149,11 @@ program
           packageManager: cmdOpts.packageManager,
         });
         if (!result.success) {
-          console.error(result.message ?? "Add failed.");
+          printError(result.message ?? "Add failed.");
           await exitWithTelemetry(1);
         }
       } catch (err: any) {
-        console.error("Add failed:", err?.message || err);
+        printError(`Add failed: ${err?.message || err}`);
         await exitWithTelemetry(1);
       } finally {
         await flushTelemetry();
@@ -195,6 +198,9 @@ program
         `Unknown telemetry action "${action}". Use: status, enable, disable.`,
       );
       await exitWithTelemetry(1);
+    } catch (err: any) {
+      printError(`Telemetry command failed: ${err?.message || err}`);
+      await exitWithTelemetry(1);
     } finally {
       await flushTelemetry();
     }
@@ -216,7 +222,7 @@ program
         check: options.check,
       });
     } catch (err: any) {
-      console.error(`\n❌ Error: ${err.message}`);
+      printError(err.message);
       await exitWithTelemetry(1);
     } finally {
       await flushTelemetry();
@@ -246,7 +252,7 @@ program
         sizeThreshold,
       });
     } catch (err: any) {
-      console.error(`\n❌ Error: ${err?.message || err}`);
+      printError(err?.message || String(err));
       await exitWithTelemetry(1);
     } finally {
       await flushTelemetry();
@@ -326,6 +332,7 @@ program.action(async (projectName, options) => {
 
   const template = options.template || "default";
   const useTs = options.typescript && !options.javascript;
+  const withContracts = options.withContracts || template === "defi";
 
   const hasArg = (longFlag: string, shortFlag?: string) => {
     const argv = process.argv;
@@ -343,10 +350,8 @@ program.action(async (projectName, options) => {
   };
 
   if (!isValidTemplate(template)) {
-    console.error(
-      pc.red(
-        `Unknown template "${template}". Available templates: ${TEMPLATE_LIST}.`,
-      ),
+    printError(
+      `Unknown template "${template}". Available templates: ${TEMPLATE_LIST}.`,
     );
     return await exitWithTelemetry(1);
   }
@@ -355,11 +360,9 @@ program.action(async (projectName, options) => {
   // separately from an unknown name so the message names the templates
   // that do have one.
   if (!useTs && !getTemplate(template)?.jsDir) {
-    console.error(
-      pc.red(
-        `Template "${template}" is not available for JavaScript yet. ` +
-          `Templates with a JavaScript variant: ${JS_TEMPLATE_LIST}.`,
-      ),
+    printError(
+      `Template "${template}" is not available for JavaScript yet. ` +
+        `Templates with a JavaScript variant: ${JS_TEMPLATE_LIST}.`,
     );
     return await exitWithTelemetry(1);
   }
@@ -377,9 +380,7 @@ program.action(async (projectName, options) => {
       `  ${pc.magenta("◆")} Type:    ${pc.cyan(useTs ? "TypeScript" : "JavaScript")}`,
     );
     console.log(`  ${pc.magenta("◆")} Template: ${pc.cyan(template)}`);
-    console.log(
-      `  ${pc.magenta("◆")} Contracts: ${pc.cyan(options.withContracts ? "Yes" : "No")}\n`,
-    );
+    console.log(`  ${pc.magenta("◆")} Contracts: ${pc.cyan(withContracts ? "Yes" : "No")}\n`);
   }
 
   const shouldPrompt =
@@ -401,7 +402,7 @@ program.action(async (projectName, options) => {
     try {
       validateProjectName(path.basename(projectName));
     } catch (err: any) {
-      console.error(`\n❌ ${err.message}`);
+      printError(err.message);
       return await exitWithTelemetry(1);
     }
   }
@@ -475,7 +476,7 @@ program.action(async (projectName, options) => {
       appName: finalProjectName,
       useTs,
       template,
-      withContracts: options.withContracts,
+      withContracts,
       horizonUrl: finalHorizonUrl,
       sorobanUrl: finalSorobanUrl,
       wallets: finalWallets,
@@ -496,7 +497,7 @@ program.action(async (projectName, options) => {
 
     await displaySuccess(finalProjectName, pkgManager, finalSkipInstall);
   } catch (err: any) {
-    console.error(`\n❌ Error: ${err.message}`);
+    printError(err.message);
     await exitWithTelemetry(1);
   } finally {
     await flushTelemetry();

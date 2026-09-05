@@ -1,5 +1,23 @@
 import pc from "picocolors";
 
+/**
+ * Consistent error/warning formatters for the whole CLI.
+ *
+ * Every failure path reports through these so that users see a uniform
+ * `❌ <message>` (stderr) for errors and `⚠ <message>` (stderr) for warnings,
+ * regardless of which command surfaced the problem. Keeping the formatting in
+ * one place is what makes the audit of "consistent error formatting" tractable
+ * (#consistent-errors).
+ */
+export function printError(message: string): void {
+  console.error(pc.red(`❌ ${message}`));
+}
+
+export function printWarning(message: string): void {
+  // Warnings go to stderr so they stay visible even when stdout is piped.
+  console.error(pc.yellow(`⚠ ${message}`));
+}
+
 export const NEXTELLAR_LOGO = [
   "",
   "  ███╗   ██╗███████╗██╗  ██╗████████╗███████╗██╗     ██╗      █████╗ ██████╗ ",

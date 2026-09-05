@@ -89,14 +89,18 @@ export default function SendForm() {
           placeholder="GABC...1234"
           disabled={!connected || state === 'submitting'}
           aria-invalid={!!addressError}
-          aria-describedby={addressError ? 'send-form-to-error' : undefined}
+          aria-describedby="send-form-to-error"
           className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
         />
-        {addressError && (
-          <p id="send-form-to-error" role="alert" className="mt-1 text-xs text-red-600 dark:text-red-400">
-            {addressError}
-          </p>
-        )}
+        {/* Persistent aria-live region: always in the DOM so AT reliably announces injected text */}
+        <p
+          id="send-form-to-error"
+          aria-live="assertive"
+          aria-atomic="true"
+          className="mt-1 min-h-[1rem] text-xs text-red-600 dark:text-red-400"
+        >
+          {addressError ?? ''}
+        </p>
       </div>
 
       <div>
@@ -112,14 +116,18 @@ export default function SendForm() {
           placeholder="0.00"
           disabled={!connected || state === 'submitting'}
           aria-invalid={!!amountError}
-          aria-describedby={amountError ? 'send-form-amount-error' : undefined}
+          aria-describedby="send-form-amount-error"
           className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
         />
-        {amountError && (
-          <p id="send-form-amount-error" role="alert" className="mt-1 text-xs text-red-600 dark:text-red-400">
-            {amountError}
-          </p>
-        )}
+        {/* Persistent aria-live region: always in the DOM so AT reliably announces injected text */}
+        <p
+          id="send-form-amount-error"
+          aria-live="assertive"
+          aria-atomic="true"
+          className="mt-1 min-h-[1rem] text-xs text-red-600 dark:text-red-400"
+        >
+          {amountError ?? ''}
+        </p>
       </div>
 
       <div>
@@ -144,11 +152,14 @@ export default function SendForm() {
           The connected wallet adapter does not support sending payments.
         </p>
       )}
-      {error && (
-        <p role="alert" className="text-xs text-red-600 dark:text-red-400">
-          {error}
-        </p>
-      )}
+      {/* Persistent aria-live region for submission-level errors */}
+      <p
+        aria-live="assertive"
+        aria-atomic="true"
+        className="min-h-[1rem] text-xs text-red-600 dark:text-red-400"
+      >
+        {error ?? ''}
+      </p>
 
       <button
         type="submit"

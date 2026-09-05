@@ -783,6 +783,65 @@ describe('scaffold integration', () => {
         copySpy.mockRestore();
       }
     });
+  });
 
+  // #offline — scaffolding must behave predictably offline (skip-install) and
+  // when install fails partway (#offline-scaffold).
+  describe('offline / partial-install scaffold (#offline)', () => {
+    test('skip-install (offline) produces a usable project without running any install', async () => {
+      origCwd = process.cwd();
+      const parent = await makeTempParent();
+      process.chdir(parent);
+
+      const appName = 'offline-app';
+      await scaffold({
+        appName,
+        useTs: true,
+        template: 'minimal',
+        skipInstall: true,
+      });
+
+      const target = path.join(parent, appName);
+      expect(await fs.pathExists(target)).toBe(true);
+
+      // No dependency install was attempted, so no node_modules yet — the
+      // project is still "usable" because every source file is present and the
+      // manifest is valid and ready for `npm install`.
+      expect(mockRunInstall).toHaveBeenCalledWith(
+        expect.objectContaining({ skipInstall: true })
+      );
+      expect(await fs.pathExists(path.join(target, 'node_modules'))).toBe(false);
+
+      const pkgJson = await fs.readJson(path.join(target, 'package.json'));
+      expect(pkgJson.name).toBe(appName);
+      expect(pkgJson.scripts).toHaveProperty('dev');
+      expect(pkgJson.scripts).toHaveProperty('build');
+      expect(await fs.pathExists(path.join(target, 'README.md'))).toBe(true);
+    });
+
+    test('a partway install failure reports next steps and leaves a usable project', async () => {
+      mockRunInstall.mockResolvedValueOnce({
+        success: false,
+        packageManager: 'npm',
+        error: 'network timeout',
+      });
+
+      origCwd = process.cwd();
+      const parent = await makeTempParent();
+      process.chdir(parent);
+
+      const appName = 'partway-app';
+      await expect(
+        scaffold({ appName, useTs: true, template: 'minimal', skipInstall: false })
+      ).rejects.toThrow(/install/i);
+
+      const target = path.join(parent, appName);
+      // Project remains usable: manifest valid and source files present.
+      expect(await fs.pathExists(target)).toBe(true);
+      const pkgJson = await fs.readJson(path.join(target, 'package.json'));
+      expect(pkgJson.name).toBe(appName);
+      expect(pkgJson.scripts).toHaveProperty('dev');
+      expect(await fs.pathExists(path.join(target, 'README.md'))).toBe(true);
+    });
   });
 });

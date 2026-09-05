@@ -149,6 +149,9 @@ Network and environment configuration (Horizon/Soroban, testnet/mainnet, Network
 Soroban contracts overlay guide (`--with-contracts`):  
 🔗 [docs/soroban-contracts-overlay-guide.md](docs/soroban-contracts-overlay-guide.md)
 
+Doctor diagnostic & troubleshooting guide:  
+🔗 [docs/troubleshooting.md](docs/troubleshooting.md)
+
 ---
 
 ## 🚀 Backend & Stellar Wave Routes

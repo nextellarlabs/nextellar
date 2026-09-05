@@ -38,6 +38,7 @@ const {
   trackScaffoldEvent,
   flushTelemetry,
   telemetryConfigPath,
+  ALLOWED_PROPERTY_KEYS,
 } = await import('../src/lib/telemetry');
 
 const baseProperties = {
@@ -170,6 +171,44 @@ describe('telemetry (#945)', () => {
       const serialized = JSON.stringify(body);
       expect(serialized).not.toContain(tmpHome);
       expect(serialized).not.toMatch(/HOME|USER|process\.env/i);
+    });
+
+    it('payload contains only the allowlisted, non-identifying keys', async () => {
+      await setTelemetryEnabled(true);
+      await trackScaffoldEvent(baseProperties);
+      await flushTelemetry();
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const body = JSON.parse(
+        (mockFetch.mock.calls[0] as [string, RequestInit])[1].body as string
+      );
+      expect(Object.keys(body).sort()).toEqual(['anonymousId', 'event', 'properties']);
+      expect(Object.keys(body.properties).sort()).toEqual(
+        [...ALLOWED_PROPERTY_KEYS].sort()
+      );
+    });
+
+    it('strips any non-allowlisted field so accidental PII cannot be sent', async () => {
+      await setTelemetryEnabled(true);
+      const leaky = {
+        ...baseProperties,
+        projectName: 'secret-app',
+        cwd: '/Users/me/project',
+        home: os.homedir(),
+      } as unknown as typeof baseProperties;
+
+      await trackScaffoldEvent(leaky);
+      await flushTelemetry();
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const body = JSON.parse(
+        (mockFetch.mock.calls[0] as [string, RequestInit])[1].body as string
+      );
+      expect(body.properties).not.toHaveProperty('projectName');
+      expect(body.properties).not.toHaveProperty('cwd');
+      expect(body.properties).not.toHaveProperty('home');
+      expect(JSON.stringify(body)).not.toContain('secret-app');
+      expect(JSON.stringify(body)).not.toContain(os.homedir());
     });
 
     it('anonymousId is a random identifier, not derived from machine/user info', async () => {
