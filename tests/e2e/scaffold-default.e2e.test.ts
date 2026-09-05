@@ -19,6 +19,7 @@
  * - ~2-3 minutes for full install + build cycle
  */
 
+import { jest } from '@jest/globals';
 import fs from 'fs-extra';
 import os from 'os';
 import path from 'path';

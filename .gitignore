@@ -38,6 +38,12 @@ test-*/
 tmp-test-*/
 *.log
 
+# Jest coverage output (the CLI's own `npm test -- --coverage`, see
+# .github/workflows/ci.yml coverage-gate/coverage jobs, #936 — the
+# per-template variant is already covered under "Generated template
+# artifacts" below)
+/coverage/
+
 # Nextellar specific
 # Ignore .nextellar/ in project roots (scaffolded output), but keep the
 # template versions that are part of the CLI source and must be shipped.

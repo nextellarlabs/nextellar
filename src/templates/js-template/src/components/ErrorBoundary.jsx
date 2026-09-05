@@ -61,6 +61,8 @@ class ErrorBoundary extends Component {
                 <button
                   type="button"
                   onClick={this.toggleDetails}
+                  aria-expanded={this.state.showDetails}
+                  aria-controls="error-boundary-details"
                   className="px-5 py-2.5 rounded-full font-medium border border-gray-300 text-gray-900 hover:bg-gray-100 dark:border-white/20 dark:text-white dark:hover:bg-white/10 transition-colors"
                 >
                   {this.state.showDetails ? "Hide Details" : "Show Details"}
@@ -69,7 +71,10 @@ class ErrorBoundary extends Component {
             </div>
 
             {this.state.showDetails && this.state.error && (
-              <div className="mt-6 rounded-xl border border-white/60 dark:border-white/15 bg-white/45 dark:bg-black/35 backdrop-blur-sm p-4">
+              <div
+                id="error-boundary-details"
+                className="mt-6 rounded-xl border border-white/60 dark:border-white/15 bg-white/45 dark:bg-black/35 backdrop-blur-sm p-4"
+              >
                 <p className="text-sm font-semibold mb-2">Error Details</p>
                 <pre className="text-xs sm:text-sm whitespace-pre-wrap wrap-break-word text-red-700 dark:text-red-300">
                   {this.state.error.toString()}

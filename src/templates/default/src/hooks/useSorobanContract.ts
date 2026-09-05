@@ -8,6 +8,7 @@ import {
   Address,
   Contract,
   Account,
+  StrKey,
 } from "@stellar/stellar-sdk";
 
 /**
@@ -17,6 +18,23 @@ export interface SorobanContractOptions {
   contractId: string;
   sorobanRpc?: string;
   network?: "TESTNET" | "PUBLIC";
+}
+
+/**
+ * Validates that a string is a well-formed Soroban contract ID
+ * (a StrKey-encoded contract address, e.g. "C...", 56 characters).
+ * @param contractId - The contract ID string to validate
+ * @returns true if the contract ID is valid, false otherwise
+ */
+export function isValidContractId(contractId: string): boolean {
+  if (
+    !contractId ||
+    typeof contractId !== "string" ||
+    contractId.trim().length === 0
+  ) {
+    return false;
+  }
+  return StrKey.isValidContract(contractId.trim());
 }
 
 /**
@@ -211,6 +229,12 @@ export function useSorobanContract(
     sorobanRpc = "https://soroban-testnet.stellar.org",
     network = "TESTNET",
   } = opts;
+
+  if (!isValidContractId(contractId)) {
+    throw new Error(
+      `Invalid Soroban contract ID: "${contractId}". Must be a valid StrKey-encoded contract address (56 characters, starting with "C"). Did you forget to set your contract ID in .env.local?`,
+    );
+  }
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -496,11 +520,13 @@ export function useSorobanContract(
 
     if (type === xdr.ScValType.scvMap()) {
       const entries = scVal.map() ?? [];
-      const map = new Map<unknown, unknown>();
+      const result: Record<string, unknown> = {};
       for (const entry of entries) {
-        map.set(fromXdrValue(entry.key()), fromXdrValue(entry.val()));
+        const key = fromXdrValue(entry.key());
+        const val = fromXdrValue(entry.val());
+        result[String(key)] = val;
       }
-      return map;
+      return result;
     }
 
     return scVal.toString();
@@ -517,6 +543,11 @@ export function useSorobanContract(
    */
   const callFunction = useCallback(
     async (name: string, args: TypedArg[] = []): Promise<unknown> => {
+      if (!isValidContractId(contractId)) {
+        const err = new Error(`Invalid Soroban contract ID: "${contractId}". Must be a valid StrKey-encoded contract address (56 characters, starting with "C"). Did you forget to set your contract ID in .env.local?`);
+        setError(err);
+        throw err;
+      }
       setLoading(true);
       setError(null);
 
@@ -538,7 +569,25 @@ export function useSorobanContract(
         const simulation = await rpcServer.simulateTransaction(transaction);
 
         if ("error" in simulation && simulation.error) {
-          throw new Error(`Simulation failed: ${simulation.error}`);
+          const errMessage = typeof simulation.error === "string" 
+            ? simulation.error 
+            : JSON.stringify(simulation.error);
+          const simErr = new Error(`Simulation error: ${errMessage}`);
+          setError(simErr);
+          throw simErr;
+        }
+
+        if ("restorePreamble" in simulation && (simulation as Record<string, unknown>).restorePreamble) {
+          const preamble = (simulation as Record<string, any>).restorePreamble;
+          const restoreErr = new Error(
+            `Footprint expired; restore transaction required. Min resource fee: ${preamble?.minResourceFee ?? "100"}`
+          );
+          setError(restoreErr);
+          return {
+            requiresRestore: true,
+            restorePreamble: preamble,
+            transactionData: (simulation as Record<string, any>).transactionData,
+          };
         }
 
         if ("result" in simulation && simulation.result?.retval) {
@@ -570,6 +619,11 @@ export function useSorobanContract(
    */
   const buildInvokeXDR = useCallback(
     async (name: string, args: TypedArg[] = []): Promise<string> => {
+      if (!isValidContractId(contractId)) {
+        const err = new Error(`Invalid Soroban contract ID: "${contractId}". Must be a valid StrKey-encoded contract address (56 characters, starting with "C"). Did you forget to set your contract ID in .env.local?`);
+        setError(err);
+        throw err;
+      }
       setLoading(true);
       setError(null);
 

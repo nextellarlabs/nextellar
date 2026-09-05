@@ -9,12 +9,20 @@
     "build": "npx tsc -p tsconfig.build.json",
     "start": "ts-node bin/nextellar.ts",
     "test": "cross-env NODE_OPTIONS=\"--experimental-vm-modules --no-warnings\" jest",
+    "test:coverage": "cross-env NODE_OPTIONS=\"--experimental-vm-modules --no-warnings\" jest --coverage --json --testLocationInResults --outputFile=coverage/report.json",
     "test:e2e": "cross-env NEXTELLAR_E2E=1 NODE_OPTIONS=\"--experimental-vm-modules --no-warnings\" jest tests/e2e",
     "lint": "eslint bin src/lib tests",
-    "format:check": "prettier --check \"bin/**/*.ts\" \"src/lib/**/*.ts\" \"tests/**/*.{ts,tsx}\" \"*.{json,mjs}\" \"eslint.config.mjs\" \".github/**/*.yml\"",
+    "format:check": "prettier --check \"bin/**/*.ts\" \"src/**/*.ts\" \"tests/**/*.{ts,tsx}\" \"*.{json,mjs}\" \"eslint.config.mjs\" \".github/**/*.yml\"",
+    "format": "prettier --write \"bin/**/*.ts\" \"src/**/*.ts\" \"tests/**/*.{ts,tsx}\" \"*.{json,mjs}\" \"eslint.config.mjs\" \".github/**/*.yml\"",
+    "audit": "npm audit --audit-level=moderate",
+    "audit:fix": "npm audit fix",
+    "audit:strict": "npm audit --audit-level=low --json > audit-report.json",
+    "generate:bindings": "ts-node bin/generate-soroban-bindings.ts",
     "clean": "rimraf dist",
     "verify:pack": "node scripts/verify-pack-contents.mjs",
-    "prepublishOnly": "npm run clean && npm test && npm run build"
+    "analyze:bundles": "node scripts/analyze-template-bundles.mjs",
+    "prepublishOnly": "npm run clean && npm test && npm run build",
+    "prepare": "husky"
   },
   "engines": {
     "node": ">=20.0.0"
@@ -76,6 +84,7 @@
     "@types/fs-extra": "^11.0.4",
     "@types/gradient-string": "^1.1.6",
     "@types/jest": "^30.0.0",
+    "@types/jest-axe": "^3.5.9",
     "@types/node": "^24.1.0",
     "@types/node-fetch": "^2.6.13",
     "@types/pngjs": "^6.0.5",
@@ -87,8 +96,11 @@
     "eslint": "^9.39.1",
     "express": "^5.2.1",
     "globals": "^16.5.0",
+    "husky": "^9.1.7",
     "jest": "^30.0.5",
+    "jest-axe": "^11.0.0",
     "jest-environment-jsdom": "^30.0.5",
+    "lint-staged": "^17.4.1",
     "msw": "^2.10.4",
     "node-fetch": "^2.7.0",
     "prettier": "^3.6.2",
@@ -100,5 +112,25 @@
     "typescript-eslint": "^8.46.4",
     "undici": "^6.21.3",
     "web-streams-polyfill": "^4.1.0"
+  },
+  "lint-staged": {
+    "bin/**/*.ts": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "src/**/*.ts": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "tests/**/*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,mjs}": [
+      "prettier --write"
+    ],
+    ".github/**/*.yml": [
+      "prettier --write"
+    ]
   }
 }

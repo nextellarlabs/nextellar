@@ -72,3 +72,44 @@ nextellar doctor --json
 ## Versioning
 
 Consumers should guard on `schemaVersion`. A bump indicates a breaking change (field removed or renamed). New optional fields may be added at any schema version without a bump.
+
+## Tests backing this contract
+
+Two test files guard this contract from opposite directions:
+
+- `tests/doctor-json.test.ts` — a **shape** test. It runs `doctor --json` against
+  whatever toolchain happens to be on the machine running the test and asserts
+  the *structure* holds: exact top-level key set, exact `CheckResult` key set,
+  correct field types, and the derived-field invariants (`passed + failed ===
+  checks.length`, `requiredFailures` matches the check data).
+- `tests/doctor-json-golden.test.ts` — a **golden** test. It stubs every
+  environment-dependent check (subprocess version checks, free RAM, network
+  reachability) via `setCommandRunnerForTest` / `setFreeMemoryProviderForTest`
+  and a mocked `fetch` to produce a fully deterministic, healthy-toolchain
+  run, then diffs the resulting JSON byte-for-byte against the checked-in
+  fixture at `tests/__fixtures__/doctor-json-v2.golden.json`.
+
+The shape test alone can't catch every regression — e.g. a `detail` string's
+wording changing, or a field's value format shifting — without breaking on
+every developer's differently-configured machine. The golden test closes that
+gap: because the toolchain is fully mocked, the output is identical on any
+machine and in CI, so any change to the JSON body (not just its shape) makes
+the golden test fail until the fixture is deliberately updated. That forced,
+explicit update is what prevents this documented contract from drifting out
+from under CI consumers silently.
+
+To intentionally update the fixture after a deliberate change to `runDoctor`'s
+JSON output, update `src/lib/doctor.ts` and this doc together, then run:
+
+```bash
+UPDATE_DOCTOR_GOLDEN=1 npx jest tests/doctor-json-golden.test.ts
+```
+
+and review the resulting diff to `tests/__fixtures__/doctor-json-v2.golden.json`
+before committing it. If the change is breaking (a field renamed or removed),
+bump `DOCTOR_JSON_SCHEMA_VERSION` per the versioning policy above.
+
+## See also
+
+- [Troubleshooting Guide (Doctor-driven)](./troubleshooting.md)
+- [Network and Environment Configuration Guide](./network-environment-guide.md)

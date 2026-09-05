@@ -10,9 +10,12 @@ const mockWalletContext = {
   publicKey: undefined,
   walletName: undefined,
   balances: [],
+  accounts: [],
+  currentAccountIndex: 0,
   connect: async () => {},
   disconnect: async () => {},
   refreshBalances: async () => {},
+  switchAccount: async () => {},
   sendPayment: undefined,
 };
 

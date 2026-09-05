@@ -5,6 +5,12 @@ on:
     branches: [main]
   pull_request:
 
+# Cancel superseded runs on the same ref (e.g. rapid pushes to a PR branch)
+# to save CI minutes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint:
     name: Lint and format
@@ -22,6 +28,28 @@ jobs:
       - run: npm run lint
 
       - run: npm run format:check
+
+  coverage-gate:
+    name: Coverage threshold gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+
+      # jest.config.mjs's coverageThreshold fails this step (non-zero exit)
+      # if coverage drops below the configured floor (#936). Unlike
+      # dependencies.yml's `npm test -- --coverage` (continue-on-error:
+      # true, only runs on package.json/package-lock.json changes), this
+      # runs on every PR and actually gates the merge. Distinct from the
+      # `coverage` job below, which only posts a PR comment and does not
+      # block the merge on its own.
+      - run: npm test -- --coverage
 
   package:
     name: Build and verify package
@@ -45,6 +73,48 @@ jobs:
       - name: Verify package contents
         run: npm run verify:pack
 
+  e2e-default:
+    name: E2E — default scaffold + next build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+
+      # Scope to the default-template E2E only (#858). `npm run test:e2e` runs
+      # the whole tests/e2e suite (default + js + templates) — each a real npm
+      # install + next build — which won't fit in one PR job. Run jest against
+      # just the default test, with the same env the test:e2e script sets.
+      - name: Run E2E test (default template scaffold → install → next build)
+        run: NEXTELLAR_E2E=1 NODE_OPTIONS="--experimental-vm-modules --no-warnings" npx jest tests/e2e/scaffold-default.e2e.test.ts
+        timeout-minutes: 15
+
+  e2e-minimal:
+    name: E2E — minimal scaffold + next build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+
+      # Issue #859 tracks a focused guard for the minimal template. Reuse the
+      # template E2E matrix test, but scope Jest to the minimal row so this job
+      # proves scaffold -> install -> next build without paying for every
+      # scaffold variant in the main CI workflow.
+      - name: Run E2E test (minimal template scaffold -> install -> next build)
+        run: RUN_E2E=1 NODE_OPTIONS="--experimental-vm-modules --no-warnings" npx jest tests/e2e/scaffold-templates.e2e.test.ts --testNamePattern="minimal:"
+        timeout-minutes: 15
+
   pack-guard:
     name: npm pack size guard
     runs-on: ubuntu-latest
@@ -62,3 +132,38 @@ jobs:
 
       # Pack size thresholds (~2× clean main): max 5 MB tarball, 25 MB unpacked, 1000 files
       - run: node scripts/check-pack-size.mjs
+
+  coverage:
+    name: Test coverage report
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+
+      # `npm run test:coverage` (see package.json) so this stays in sync with
+      # the same NODE_OPTIONS/ESM setup `npm test` uses locally. This
+      # intentionally does not delegate test execution to the coverage
+      # action itself: re-deriving this repo's ESM flags inside a
+      # third-party action's own test runner would be fragile.
+      - name: Run tests with coverage
+        run: npm run test:coverage
+
+      # Publishes a coverage summary as a PR comment. Runs even if the tests
+      # step above reported failures, so coverage is still visible on red
+      # PRs (this repo has pre-existing failing suites on main unrelated to
+      # any given PR's diff; see CONTRIBUTING.md).
+      - name: Report coverage on PR
+        if: always() && github.event_name == 'pull_request'
+        uses: ArtiomTr/jest-coverage-report-action@v2
+        with:
+          coverage-file: ./coverage/report.json
+          skip-step: all

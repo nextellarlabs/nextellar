@@ -56,6 +56,11 @@ export const getKit = (network?: WalletNetwork): StellarWalletsKit => {
 // Export as function to ensure lazy evaluation
 export const kit = (network?: WalletNetwork) => getKit(network);
 
+// Re-exported so callers (e.g. WalletProvider) can read the enum's runtime
+// value off this already dynamically-imported module instead of importing
+// `@creit.tech/stellar-wallets-kit` directly at module scope.
+export { WalletNetwork };
+
 interface signTransactionProps {
   unsignedTransaction: string;
   address: string;
