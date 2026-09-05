@@ -21,7 +21,14 @@ export type Trustline = {
   asset_issuer: string;
   limit?: string;
   balance?: string;
+  /** Full authorization, per Horizon's `is_authorized`. */
   authorized?: boolean;
+  /**
+   * Partial authorization — the issuer has revoked full authorization but
+   * still permits the holder to maintain (not increase) their existing
+   * liabilities, per Horizon's `is_authorized_to_maintain_liabilities`.
+   */
+  authorizedToMaintainLiabilities?: boolean;
 };
 
 /**
@@ -199,7 +206,11 @@ export function useTrustlines(
         asset_issuer: 'asset_issuer' in balance ? balance.asset_issuer : '',
         limit: 'limit' in balance ? balance.limit : undefined,
         balance: balance.balance,
-        authorized: 'is_authorized' in balance ? balance.is_authorized : undefined
+        authorized: 'is_authorized' in balance ? balance.is_authorized : undefined,
+        authorizedToMaintainLiabilities:
+          'is_authorized_to_maintain_liabilities' in balance
+            ? balance.is_authorized_to_maintain_liabilities
+            : undefined
       }));
   }, []);
 
