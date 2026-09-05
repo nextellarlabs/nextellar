@@ -157,7 +157,10 @@ export function useSorobanEvents(
         if (!isMountedRef.current) return false;
 
         if (attempt < MAX_RETRIES) {
-          const delay = BACKOFF_BASE_MS * Math.pow(3, attempt - 1);
+          const delay = Math.min(
+            BACKOFF_BASE_MS * Math.pow(3, attempt - 1),
+            MAX_BACKOFF_MS
+          );
           await new Promise<void>((resolve) => {
             retryTimerRef.current = setTimeout(resolve, delay);
           });

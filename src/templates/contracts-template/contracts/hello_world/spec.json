@@ -1,0 +1,22 @@
+{
+  "type": "contract",
+  "functions": [
+    {
+      "name": "hello",
+      "doc": "Greets a recipient by returning a vector of symbols",
+      "inputs": [
+        {
+          "name": "to",
+          "type": "symbol",
+          "doc": "The recipient symbol to greet"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "greeting",
+          "type": "vec<symbol>"
+        }
+      ]
+    }
+  ]
+}

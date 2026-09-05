@@ -1,91 +1,108 @@
 // src/mocks/handlers.ts
 import { http, HttpResponse } from "msw";
 import { xdr } from "@stellar/stellar-sdk";
+import {
+  createMockAccount,
+  createMockOperationRecord,
+  createPaginatedResponse,
+} from "./horizon-handlers.js";
 
 const defaultRetval = xdr.ScVal.scvString("ok").toXDR("base64");
 
-/**
- * Build a mock Horizon operation record for payments/operations responses.
- */
-function makeOperationRecord(index: number, type: "payment" | "create_account" = "payment") {
-  return {
-    id: `op-${index}`,
-    paging_token: `cursor-${index}`,
-    type,
-    type_i: type === "payment" ? 1 : 0,
-    created_at: new Date(Date.now() - index * 60_000).toISOString(),
-    transaction_hash: `txhash-${index}`,
-    source_account: "GABC1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234",
-    amount: `${(10 + index).toFixed(7)}`,
-    asset_type: "native",
-    ...(type === "payment"
-      ? {
-          from: "GABC1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234",
-          to: "GDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234",
-        }
-      : {}),
-  };
-}
+// Create custom account handler that handles 404 for unfunded accounts
+const customAccountHandler = http.get(
+  "https://horizon-testnet.stellar.org/accounts/:accountId",
+  ({ params }) => {
+    const accountId = Array.isArray(params.accountId)
+      ? params.accountId[0]
+      : params.accountId;
 
-export const handlers = [
-  http.get<{ accountId: string }>(
-    "https://horizon-testnet.stellar.org/accounts/:accountId",
-    ({ params }) => {
+    if (!accountId) {
+      return HttpResponse.json(
+        { status: 400, title: "Bad Request", detail: "Account ID is required" },
+        { status: 400 }
+      );
+    }
+
+    // Return 404 for specific account IDs (for testing unfunded accounts)
+    if (accountId === "UNFUNDED_ACCOUNT_ID") {
       return HttpResponse.json(
         {
-          id: params.accountId,
-          account_id: params.accountId,
-          balances: [{ asset_type: "native", balance: "1000.0000000" }],
+          status: 404,
+          title: "Not Found",
+          detail: "The requested account does not exist",
         },
-        { status: 200 }
+        { status: 404 }
       );
     }
-  ),
 
-  // Horizon payments endpoint with pagination support
-  http.get<{ accountId: string }>(
-    "https://horizon-testnet.stellar.org/accounts/:accountId/payments",
-    ({ request, params }) => {
-      const url = new URL(request.url);
-      const limit = Number(url.searchParams.get("limit") || "10");
-      const cursor = url.searchParams.get("cursor");
-      const startIndex = cursor ? Number(cursor.replace("cursor-", "")) + 1 : 0;
+    // Use the helper function from horizon-handlers to create mock account
+    const account = createMockAccount(accountId);
+    return HttpResponse.json(account, { status: 200 });
+  }
+);
 
-      const records = Array.from({ length: limit }, (_, i) =>
-        makeOperationRecord(startIndex + i, "payment")
-      );
+// Horizon payments endpoint with pagination support
+const paymentsHandler = http.get<{ accountId: string }>(
+  "https://horizon-testnet.stellar.org/accounts/:accountId/payments",
+  ({ request, params }) => {
+    const url = new URL(request.url);
+    const limit = Number(url.searchParams.get("limit") || "10");
+    const cursor = url.searchParams.get("cursor");
+    const startIndex = cursor ? Number(cursor.replace("cursor-", "")) + 1 : 0;
 
-      return HttpResponse.json({
-        _embedded: { records },
-        _links: {
-          next: { href: `https://horizon-testnet.stellar.org/accounts/${params.accountId}/payments?cursor=cursor-${startIndex + limit - 1}&limit=${limit}&order=desc` },
-        },
-      });
-    }
-  ),
+    const records = Array.from({ length: limit }, (_, i) =>
+      createMockOperationRecord(startIndex + i, "payment")
+    );
 
-  // Horizon operations endpoint with pagination support
-  http.get<{ accountId: string }>(
-    "https://horizon-testnet.stellar.org/accounts/:accountId/operations",
-    ({ request, params }) => {
-      const url = new URL(request.url);
-      const limit = Number(url.searchParams.get("limit") || "10");
-      const cursor = url.searchParams.get("cursor");
-      const startIndex = cursor ? Number(cursor.replace("cursor-", "")) + 1 : 0;
+    return HttpResponse.json(
+      createPaginatedResponse(
+        records,
+        "https://horizon-testnet.stellar.org",
+        params.accountId,
+        "payments",
+        limit,
+        startIndex
+      ),
+      { status: 200 }
+    );
+  }
+);
 
-      const records = Array.from({ length: limit }, (_, i) =>
-        makeOperationRecord(startIndex + i, "create_account")
-      );
+// Horizon operations endpoint with pagination support
+const operationsHandler = http.get<{ accountId: string }>(
+  "https://horizon-testnet.stellar.org/accounts/:accountId/operations",
+  ({ request, params }) => {
+    const url = new URL(request.url);
+    const limit = Number(url.searchParams.get("limit") || "10");
+    const cursor = url.searchParams.get("cursor");
+    const startIndex = cursor ? Number(cursor.replace("cursor-", "")) + 1 : 0;
 
-      return HttpResponse.json({
-        _embedded: { records },
-        _links: {
-          next: { href: `https://horizon-testnet.stellar.org/accounts/${params.accountId}/operations?cursor=cursor-${startIndex + limit - 1}&limit=${limit}&order=desc` },
-        },
-      });
-    }
-  ),
+    const records = Array.from({ length: limit }, (_, i) =>
+      createMockOperationRecord(startIndex + i, "create_account")
+    );
 
+    return HttpResponse.json(
+      createPaginatedResponse(
+        records,
+        "https://horizon-testnet.stellar.org",
+        params.accountId,
+        "operations",
+        limit,
+        startIndex
+      ),
+      { status: 200 }
+    );
+  }
+);
+
+export const handlers = [
+  // Use the modular Horizon handlers
+  customAccountHandler,
+  paymentsHandler,
+  operationsHandler,
+
+  // Soroban RPC - simulateTransaction and sendTransaction
   http.post("https://soroban-testnet.stellar.org", async ({ request }) => {
     const body = (await request.json()) as {
       id?: string | number;
@@ -142,7 +159,7 @@ export const handlers = [
     );
   }),
 
-  // Soroban RPC - JSON-RPC handler for getEvents
+  // Soroban RPC - getEvents
   http.post(
     "https://soroban-testnet.stellar.org",
     async ({ request }) => {

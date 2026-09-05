@@ -20,7 +20,7 @@ export interface ScaffoldTelemetryProperties {
   language: "typescript" | "javascript";
   network: "testnet" | "public";
   wallets: string[];
-  packageManager: "npm" | "yarn" | "pnpm";
+  packageManager: "npm" | "yarn" | "pnpm" | "bun";
   withContracts: boolean;
   skipInstall: boolean;
   success: boolean;
@@ -33,6 +33,44 @@ interface TelemetryEvent {
   event: "scaffold";
   anonymousId: string;
   properties: ScaffoldTelemetryProperties;
+}
+
+/**
+ * Allowlist of fields that may ever appear in a scaffold telemetry event.
+ *
+ * This is the runtime guarantee behind "telemetry never sends PII": the event
+ * built below is filtered down to exactly these keys, so even if a future
+ * change accidentally passes an identifying value (project name, path, env
+ * var, etc.) into `trackScaffoldEvent`, it is dropped before anything leaves
+ * the process. Adding a new field here requires a deliberate, reviewed change.
+ */
+export const ALLOWED_PROPERTY_KEYS: ReadonlyArray<keyof ScaffoldTelemetryProperties> = [
+  "template",
+  "language",
+  "network",
+  "wallets",
+  "packageManager",
+  "withContracts",
+  "skipInstall",
+  "success",
+  "cliVersion",
+  "nodeVersion",
+  "os",
+];
+
+/**
+ * Returns a copy of `properties` containing only the allowlisted keys. Any
+ * extra field — which is where accidental PII would otherwise leak — is
+ * stripped. Order follows ALLOWED_PROPERTY_KEYS so payloads are stable.
+ */
+function sanitizeProperties(
+  properties: ScaffoldTelemetryProperties
+): ScaffoldTelemetryProperties {
+  const clean: Record<string, unknown> = {};
+  for (const key of ALLOWED_PROPERTY_KEYS) {
+    clean[key] = (properties as Record<string, unknown>)[key];
+  }
+  return clean as ScaffoldTelemetryProperties;
 }
 
 const TELEMETRY_TIMEOUT_MS = 3000;
@@ -227,7 +265,7 @@ export async function trackScaffoldEvent(
   const request = postTelemetryEvent({
     event: "scaffold",
     anonymousId,
-    properties,
+    properties: sanitizeProperties(properties),
   });
 
   pendingTelemetryRequests.add(request);

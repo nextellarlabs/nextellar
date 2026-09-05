@@ -3,10 +3,13 @@ import path from "path";
 import fs from "fs-extra";
 import pc from "picocolors";
 import ora from "ora";
+import { printWarning } from "./feedback.js";
+
+export type PackageManager = "npm" | "yarn" | "pnpm" | "bun";
 
 export interface InstallOptions {
   cwd: string;
-  packageManager?: "npm" | "yarn" | "pnpm";
+  packageManager?: PackageManager;
   timeout?: number;
   skipInstall?: boolean;
   captureOutput?: boolean; // For testing
@@ -29,21 +32,24 @@ export interface InstallResult {
 export function detectPackageManager(
   cwd: string,
   packageManager?: string
-): "npm" | "yarn" | "pnpm" {
+): PackageManager {
   // 1. Explicit flag takes precedence
   if (packageManager) {
-    return packageManager as "npm" | "yarn" | "pnpm";
+    return packageManager as PackageManager;
   }
 
   // 2. Check npm_config_user_agent (set by package managers when running scripts)
   const userAgent = process.env.npm_config_user_agent;
   if (userAgent) {
+    if (userAgent.includes("bun")) return "bun";
     if (userAgent.includes("yarn")) return "yarn";
     if (userAgent.includes("pnpm")) return "pnpm";
     if (userAgent.includes("npm")) return "npm";
   }
 
   // 3. Check for lockfiles
+  if (fs.existsSync(path.join(cwd, "bun.lockb"))) return "bun";
+  if (fs.existsSync(path.join(cwd, "bun.lock"))) return "bun";
   if (fs.existsSync(path.join(cwd, "pnpm-lock.yaml"))) return "pnpm";
   if (fs.existsSync(path.join(cwd, "yarn.lock"))) return "yarn";
   if (fs.existsSync(path.join(cwd, "package-lock.json"))) return "npm";
@@ -56,7 +62,7 @@ export function detectPackageManager(
  * Returns the install command and arguments for the given package manager
  */
 export function getInstallCommand(
-  packageManager: "npm" | "yarn" | "pnpm"
+  packageManager: PackageManager
 ): [string, string[]] {
   switch (packageManager) {
     case "npm":
@@ -65,6 +71,8 @@ export function getInstallCommand(
       return ["yarn", ["install", "--non-interactive"]];
     case "pnpm":
       return ["pnpm", ["install", "--no-frozen-lockfile"]];
+    case "bun":
+      return ["bun", ["install"]];
     default:
       return ["npm", ["install", "--no-audit", "--no-fund"]];
   }
@@ -218,8 +226,8 @@ async function saveInstallLog(
 
     await fs.writeFile(logPath, logContent, "utf8");
     return logPath;
-  } catch (logError) {
-    console.warn("⚠️  Could not save error log:", logError);
+  } catch (logError: any) {
+    printWarning(`Could not save error log: ${logError?.message || logError}`);
     return undefined;
   }
 }
