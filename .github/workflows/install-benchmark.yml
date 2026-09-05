@@ -51,11 +51,8 @@ jobs:
       - name: Clean node_modules (keep cache)
         run: rm -rf node_modules
 
-      - name: Record start
-        id: start
-        run: echo "ts=$(date +%s)" >> "$GITHUB_OUTPUT"
-
       - name: Timed warm reinstall
+        id: timed
         run: |
           start=$(date +%s)
           npm ci --prefer-offline --no-audit --loglevel=error
@@ -64,4 +61,4 @@ jobs:
 
       - name: Report
         run: |
-          echo "Warm install: ${{ steps.start.outputs.elapsed }}s (second pass)" >> "$GITHUB_STEP_SUMMARY"
+          echo "Warm install: ${{ steps.timed.outputs.elapsed }}s (second pass)" | tee -a "$GITHUB_STEP_SUMMARY"
