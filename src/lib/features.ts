@@ -102,6 +102,14 @@ const FEATURES: Record<string, FeatureDef> = {
     npmDependencies: [],
     kind: "component",
   },
+  "receive-form": {
+    id: "receive-form",
+    description: "ReceiveForm component (QR code + address display for incoming payments)",
+    files: ["components/ReceiveForm.tsx"],
+    dependsOn: ["wallet"],
+    npmDependencies: ["qrcode"],
+    kind: "component",
+  },
   "transaction-list": {
     id: "transaction-list",
     description: "TransactionList component (renders useTransactionHistory)",
@@ -121,6 +129,7 @@ const FEATURES: Record<string, FeatureDef> = {
       "network-switcher",
       "balance-display",
       "send-form",
+      "receive-form",
       "transaction-list",
     ],
     npmDependencies: [],

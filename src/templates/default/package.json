@@ -16,7 +16,8 @@
     "next": "16.1.2",
     "@stellar/stellar-sdk": "^14.4.3",
     "@creit.tech/stellar-wallets-kit": "^1.9.5",
-    "lucide-react": "^0.447.0"
+    "lucide-react": "^0.447.0",
+    "qrcode": "^1.5.4"
   },
   "devDependencies": {
     "@storybook/addon-essentials": "^8.5.0",
@@ -34,6 +35,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/qrcode": "^1.5.5",
     "@tailwindcss/postcss": "^4",
     "tailwindcss": "^4",
     "eslint": "^9",
