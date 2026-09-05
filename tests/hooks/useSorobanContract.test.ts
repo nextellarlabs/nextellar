@@ -359,4 +359,112 @@ describe("useSorobanContract", () => {
     );
     expect(result.current.error?.message).toContain("Footprint expired");
   });
+
+  // ── simulateContractCall (#968) ─────────────────────────────────────────────
+
+  it("simulateContractCall returns decoded result and fee info", async () => {
+    jest.spyOn(rpc.Server.prototype, "simulateTransaction").mockResolvedValue({
+      result: { retval: xdr.ScVal.scvString("preview-ok") },
+      minResourceFee: "500",
+      latestLedger: 9999,
+    } as never);
+
+    const { result } = renderHook(() =>
+      useSorobanContract({ contractId: VALID_CONTRACT_ID, sorobanRpc: SOROBAN_RPC_URL })
+    );
+
+    let preview: { result: unknown; minResourceFee: string; latestLedger: number } | undefined;
+    await act(async () => {
+      preview = await result.current.simulateContractCall("get_value", []);
+    });
+
+    expect(preview).toBeDefined();
+    expect(preview!.result).toBe("preview-ok");
+    expect(preview!.minResourceFee).toBe("500");
+    expect(preview!.latestLedger).toBe(9999);
+  });
+
+  it("simulateContractCall returns null result when retval absent", async () => {
+    jest.spyOn(rpc.Server.prototype, "simulateTransaction").mockResolvedValue({
+      minResourceFee: "200",
+      latestLedger: 1234,
+    } as never);
+
+    const { result } = renderHook(() =>
+      useSorobanContract({ contractId: VALID_CONTRACT_ID, sorobanRpc: SOROBAN_RPC_URL })
+    );
+
+    let preview: { result: unknown; minResourceFee: string; latestLedger: number } | undefined;
+    await act(async () => {
+      preview = await result.current.simulateContractCall("no_return", []);
+    });
+
+    expect(preview!.result).toBeNull();
+    expect(preview!.minResourceFee).toBe("200");
+    expect(preview!.latestLedger).toBe(1234);
+  });
+
+  it("simulateContractCall surfaces simulation error and sets error state", async () => {
+    jest.spyOn(rpc.Server.prototype, "simulateTransaction").mockResolvedValue({
+      error: "contract reverted with panic",
+    } as never);
+
+    const { result } = renderHook(() =>
+      useSorobanContract({ contractId: VALID_CONTRACT_ID, sorobanRpc: SOROBAN_RPC_URL })
+    );
+
+    let thrown: Error | undefined;
+    await act(async () => {
+      try {
+        await result.current.simulateContractCall("bad_fn", []);
+      } catch (error) {
+        thrown = error as Error;
+      }
+    });
+
+    expect(thrown?.message).toContain("Simulation failed");
+    expect(thrown?.message).toContain("contract reverted");
+    await waitFor(() => expect(result.current.error).toBeInstanceOf(Error));
+  });
+
+  it("simulateContractCall sets loading true during call and false after", async () => {
+    let resolveSimulation!: (value: unknown) => void;
+    const pending = new Promise((res) => {
+      resolveSimulation = res;
+    });
+    jest
+      .spyOn(rpc.Server.prototype, "simulateTransaction")
+      .mockReturnValue(pending as never);
+
+    const { result } = renderHook(() =>
+      useSorobanContract({ contractId: VALID_CONTRACT_ID, sorobanRpc: SOROBAN_RPC_URL })
+    );
+
+    let callPromise!: Promise<unknown>;
+    act(() => {
+      callPromise = result.current.simulateContractCall("slow_fn", []);
+    });
+
+    await waitFor(() => expect(result.current.loading).toBe(true));
+
+    resolveSimulation({
+      result: { retval: xdr.ScVal.scvBool(true) },
+      minResourceFee: "100",
+      latestLedger: 42,
+    });
+
+    await act(async () => {
+      await callPromise;
+    });
+
+    expect(result.current.loading).toBe(false);
+  });
+
+  it("simulateContractCall is exposed on the hook return value", () => {
+    const { result } = renderHook(() =>
+      useSorobanContract({ contractId: VALID_CONTRACT_ID, sorobanRpc: SOROBAN_RPC_URL })
+    );
+
+    expect(typeof result.current.simulateContractCall).toBe("function");
+  });
 });
