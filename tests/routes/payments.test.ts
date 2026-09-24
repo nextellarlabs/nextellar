@@ -1,18 +1,15 @@
+import { jest } from "@jest/globals";
 import express, { Request, Response, NextFunction } from "express";
 import request from "supertest";
 
 // ---------------------------------------------------------------------------
-// We re-import the router after mocking the internal processPayment stub so
-// we can simulate a DB / provider failure without touching real infrastructure.
+// Each test calls jest.resetModules() and then dynamically imports the real
+// router fresh (see beforeEach below), so no module mock is registered here.
+// (A previous version registered a no-op jest.mock() factory for the module,
+// but jest.resetModules() discards it before every test uses the import, and
+// jest.mock()'s hoisting doesn't apply under this repo's ESM Jest config
+// anyway — --experimental-vm-modules.)
 // ---------------------------------------------------------------------------
-
-// Jest module factory — hoisted above imports automatically
-jest.mock("../../backend/routes/payments", () => {
-  // We'll override per-test via the exported mock below
-  return { __esModule: true, default: null };
-});
-
-import paymentsRouter from "../../backend/routes/payments";
 
 function buildApp(router: express.Router) {
   const app = express();

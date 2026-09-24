@@ -8,8 +8,8 @@ This is a [Next.js 16](https://nextjs.org) project bootstrapped with [Nextellar]
 
 This template includes pre-built Stellar blockchain integration:
 
-- **🔗 Wallet Connection**: `useStellarWallet` hook with Freighter wallet support
-- **💰 Balance Display**: Real-time XLM and asset balance fetching
+- **🔗 Wallet Connection**: `useStellarWallet` hook with multi-wallet support (Freighter, Rabet, XBull, Albedo, Lobstr, xBull)
+- **💰 Balance Display**: Real-time XLM and asset balance fetching via `useStellarBalances`
 - **🎨 UI Components**: Ready-to-use `WalletConnectButton` component
 - **🌐 Testnet Ready**: Pre-configured for Stellar testnet development
 

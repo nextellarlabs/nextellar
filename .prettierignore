@@ -1,0 +1,8 @@
+dist/
+node_modules/
+src/templates/
+backend/
+routes-d/
+src/mocks/
+**/tmp-test-*/
+test-*/

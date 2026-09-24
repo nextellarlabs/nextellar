@@ -1,0 +1,73 @@
+{
+  "type": "contract",
+  "functions": [
+    {
+      "name": "initialize",
+      "doc": "Initialize the counter to a starting value",
+      "inputs": [
+        {
+          "name": "initial_count",
+          "type": "i32",
+          "doc": "The initial counter value"
+        }
+      ],
+      "outputs": []
+    },
+    {
+      "name": "get_count",
+      "doc": "Get the current counter value",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "count",
+          "type": "i32"
+        }
+      ]
+    },
+    {
+      "name": "increment",
+      "doc": "Increment the counter by 1",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "new_value",
+          "type": "i32"
+        }
+      ]
+    },
+    {
+      "name": "decrement",
+      "doc": "Decrement the counter by 1",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "new_value",
+          "type": "i32"
+        }
+      ]
+    },
+    {
+      "name": "add",
+      "doc": "Increment the counter by a specified amount",
+      "inputs": [
+        {
+          "name": "amount",
+          "type": "i32",
+          "doc": "The amount to add"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "new_value",
+          "type": "i32"
+        }
+      ]
+    },
+    {
+      "name": "reset",
+      "doc": "Reset the counter to 0",
+      "inputs": [],
+      "outputs": []
+    }
+  ]
+}

@@ -8,9 +8,15 @@ This is a [Next.js 16](https://nextjs.org) project bootstrapped with [Nextellar]
 
 This template includes pre-built Stellar blockchain integration:
 
-- **🔗 Wallet Connection**: `useStellarWallet` hook with Freighter wallet support
-- **💰 Balance Display**: Real-time XLM and asset balance fetching
-- **🎨 UI Components**: Ready-to-use `WalletConnectButton` component
+- **🔗 Wallet Connection**: `useStellarWallet` hook with multi-wallet support (Freighter, Rabet, XBull, Albedo, Lobstr, xBull)
+- **💰 Balance Display**: Real-time XLM and asset balance fetching via `useStellarBalances`
+- **🎨 UI Components**: Ready-to-use `WalletConnectButton`, `NetworkSwitcher`, and `TransactionList` components
+- **🌐 Network Switching**: Built-in testnet/mainnet network switching via `NetworkSwitcher`
+- **📡 Payment Operations**: `useStellarPayment` for sending payments
+- **📊 Transaction History**: `TransactionList` component powered by `useTransactionHistory` for fetching account transactions
+- **🤝 Trustlines**: `useTrustlines` for managing asset trustlines
+- **📈 Offer Book**: `useOfferBook` for querying DEX order books
+- **🔗 Soroban Support**: `useSorobanContract` and `useSorobanEvents` for Soroban smart contract interaction
 - **🌐 Testnet Ready**: Pre-configured for Stellar testnet development
 
 ### Quick Stellar Setup
@@ -59,6 +65,50 @@ The template includes minimal shadcn/ui-inspired components built inline. You ca
 
 3. **Use your preferred UI library** - Easily swap out Button/Dropdown components
 
+### 📜 TransactionList Component
+
+The `TransactionList` component displays paginated Stellar transaction history using the `useTransactionHistory` hook. It renders transaction rows with direction indicators, operation type labels, amounts, counterparty addresses, relative timestamps, and transaction status.
+
+#### Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `limit` | `number` | `10` | Number of transactions per page (passed as `pageSize` to `useTransactionHistory`) |
+| `type` | `'payments' \| 'operations'` | `undefined` | Type of history to fetch (defaults to `'operations'` per the hook's default) |
+
+#### Usage Example
+
+```tsx
+import TransactionList from "@/components/TransactionList";
+
+export default function HistoryPage() {
+  return (
+    <div className="p-8 max-w-2xl mx-auto">
+      <h2 className="text-xl font-bold mb-4">Transaction History</h2>
+      <TransactionList limit={10} type="payments" />
+    </div>
+  );
+}
+```
+
+The component automatically integrates with the wallet context. When no wallet is connected, it displays a message prompting the user to connect.
+
+### 📚 Component Previews (Storybook)
+
+The template includes [Storybook](https://storybook.js.org/) out of the box so you can view and develop components in isolation.
+
+**To run Storybook:**
+```bash
+npm run storybook
+```
+
+**Want a lighter project?**
+If you don't need component previews and want to reduce the `node_modules` size, you can easily remove Storybook:
+1. Run `npm uninstall @storybook/addon-essentials @storybook/addon-interactions @storybook/addon-links @storybook/blocks @storybook/nextjs @storybook/react @storybook/test storybook`
+2. Remove the `.storybook` directory
+3. Remove any `*.stories.tsx` files in `src/components`
+4. Remove the `storybook` and `build-storybook` scripts from `package.json`
+
 ### ⚠️ Development vs Production
 
 **Development Mode:**
@@ -72,6 +122,45 @@ The template includes minimal shadcn/ui-inspired components built inline. You ca
 - Remove all `connectWithSecret` usage
 - Implement proper external wallet signing
 - Add error handling for wallet connection failures
+
+## Optional: i18n
+
+This template ships with i18n scaffolding (`src/contexts/I18nProvider.tsx`) and one example locale (`src/locales/en.ts`), but it's **not wired in by default** — opt in only if your app needs it.
+
+To enable it, wrap your app layout:
+
+```tsx
+// src/app/layout.tsx
+import { I18nProvider } from "@/contexts";
+
+<I18nProvider>
+  <YourApp />
+</I18nProvider>
+```
+
+Then read messages with the `useTranslation` hook:
+
+```tsx
+import { useTranslation } from "@/contexts";
+
+function Greeting() {
+  const { t, locale, setLocale } = useTranslation();
+  return <h1>{t('home.title')}</h1>;
+}
+```
+
+`t()` resolves a dot-path into the active locale's messages and substitutes any `{token}` placeholders you pass as the second argument (e.g. `t('wallet.connected', { address })`).
+
+**Adding a locale:** copy `src/locales/en.ts`, translate every value, keep every key, then register it in `I18nProvider.tsx`'s `locales` map:
+
+```ts
+// src/contexts/I18nProvider.tsx
+import { fr } from '../locales/fr';
+
+export const locales = { en, fr } as const;
+```
+
+The chosen locale persists across sessions the same way the theme choice does.
 
 ## Getting Started
 
@@ -102,8 +191,53 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-## Deploy on Vercel
+## Deploying
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Every path below needs the same environment variables — copy `.env.example` to your platform's env var settings (or `.env.local` for Docker), filling in real values for `NEXT_PUBLIC_HORIZON_URL`, `NEXT_PUBLIC_SOROBAN_URL`, `NEXT_PUBLIC_NETWORK`, and `NEXT_PUBLIC_APP_NAME`. All four are `NEXT_PUBLIC_*`, so they're baked into the client bundle **at build time** — setting them only at runtime (after the build already ran) has no effect.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Vercel
+
+This template ships a `vercel.json` with the framework preset and build/install commands already configured.
+
+1. Push your repo to GitHub/GitLab/Bitbucket.
+2. Import it at [vercel.com/new](https://vercel.com/new).
+3. Add the `NEXT_PUBLIC_*` environment variables in the project's Settings → Environment Variables (before the first deploy, so they're present at build time).
+4. Deploy.
+
+See the [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for platform-agnostic background.
+
+### Netlify
+
+This template ships a `netlify.toml` with `@netlify/plugin-nextjs`, required for App Router support (server components, route handlers, image optimization) — without it, only fully static routes work.
+
+1. Push your repo to GitHub/GitLab/Bitbucket.
+2. [Import the site](https://app.netlify.com/start) — Netlify auto-detects `netlify.toml`.
+3. Add the `NEXT_PUBLIC_*` environment variables in Site configuration → Environment variables.
+4. Deploy.
+
+### Docker
+
+This template ships a multi-stage `Dockerfile` built around `next.config.ts`'s `output: "standalone"` — the final image contains only the app's compiled output and the subset of `node_modules` actually reachable at runtime, not a full `npm install` or the source tree.
+
+```bash
+# Build (pass your real NEXT_PUBLIC_* values as build args — they're
+# compiled into the client bundle, so they must be present at build time)
+docker build \
+  --build-arg NEXT_PUBLIC_HORIZON_URL=https://horizon-testnet.stellar.org \
+  --build-arg NEXT_PUBLIC_SOROBAN_URL=https://soroban-testnet.stellar.org \
+  --build-arg NEXT_PUBLIC_NETWORK="Test SDF Network ; September 2015" \
+  --build-arg NEXT_PUBLIC_APP_NAME=my-app \
+  -t my-nextellar-app .
+
+# Run
+docker run -p 3000:3000 my-nextellar-app
+```
+
+Or with Compose, which reads the same build args from a `.env` file (Compose's `${VAR}` substitution only looks for a file literally named `.env` in this directory — not `.env.local`):
+
+```bash
+cp .env.example .env   # fill in real values first
+docker compose up --build
+```
+
+The app is served on port 3000 either way.

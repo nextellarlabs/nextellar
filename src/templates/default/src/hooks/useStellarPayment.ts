@@ -13,6 +13,7 @@ import {
   Transaction
 } from '@stellar/stellar-sdk';
 import { useWalletConfig } from '../contexts';
+import { decodeResultCodes } from '../lib/stellarResultCodes';
 
 /**
  * Payment parameters for building transactions
@@ -28,11 +29,19 @@ export type PaymentParams = {
 /**
  * Payment result structure with success/error handling
  */
-export type PaymentResult = { 
-  success: boolean; 
-  txHash?: string; 
-  raw?: unknown; 
-  error?: string 
+export type PaymentResult = {
+  success: boolean;
+  txHash?: string;
+  raw?: unknown;
+  error?: string;
+  /**
+   * Raw Stellar transaction/operation result codes (e.g. "tx_failed",
+   * "op_no_destination"), present only on a failed submission where Horizon
+   * returned `extras.result_codes`. `error` already folds these into a
+   * message; this is here for callers that want the raw codes too (e.g. to
+   * branch on a specific failure).
+   */
+  resultCodes?: { transaction?: string; operations?: string[] };
 };
 
 
@@ -292,9 +301,11 @@ export function useStellarPayment(
       
       // Handle specific submission errors
       let errorMessage = 'Transaction failed';
+      let resultCodes: PaymentResult['resultCodes'];
       if (errorObj?.response?.data?.extras?.result_codes) {
         const codes = errorObj.response.data.extras.result_codes;
-        errorMessage = `Transaction failed - ${codes.transaction || codes.operations?.join(', ') || 'Unknown error'}`;
+        resultCodes = codes;
+        errorMessage = decodeResultCodes(codes).reason;
       } else if (errorObj?.response?.status === 400) {
         errorMessage = 'Invalid transaction format or content';
       } else if (errorObj?.response?.status && errorObj.response.status >= 500) {
@@ -302,11 +313,12 @@ export function useStellarPayment(
       } else if (errorObj?.message) {
         errorMessage = errorObj.message;
       }
-      
+
       return {
         success: false,
         error: errorMessage,
-        raw: errorObj?.response?.data
+        raw: errorObj?.response?.data,
+        resultCodes
       };
     }
   }, [serverRef, getNetworkPassphrase]);

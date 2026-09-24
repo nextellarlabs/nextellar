@@ -1,15 +1,21 @@
 @import "tailwindcss";
 
+/*
+ * `dark:` matches an ancestor `.dark` class (toggled by ThemeProvider) rather
+ * than only `prefers-color-scheme`, so a manual light/dark choice can
+ * override the system preference. ThemeProvider still applies `.dark` based
+ * on `prefers-color-scheme` when the user's choice is "system".
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
 }
 
 body {

@@ -3,6 +3,7 @@ import {
   getFeatureIds,
   listFeatures,
   resolveFeatureWithDeps,
+  type FeatureDef,
 } from '../src/lib/features.js';
 
 const orderOf = (ids: string[], id: string) => ids.indexOf(id);
@@ -104,6 +105,23 @@ describe('feature registry', () => {
     it('lists each feature once even when several components share a hook', () => {
       const ids = resolveFeatureWithDeps('components').map((f) => f.id);
       expect(new Set(ids).size).toBe(ids.length);
+    });
+
+    it('terminates on a cyclic registry instead of infinite-looping', () => {
+      // Synthetic registry with a root <-> loop cycle. Without the visiting
+      // guard this would recurse forever; with it, resolution must return.
+      const cyclic: Record<string, FeatureDef> = {
+        root: { id: 'root', description: 'root', files: [], dependsOn: ['loop'], npmDependencies: [] },
+        loop: { id: 'loop', description: 'loop', files: [], dependsOn: ['root'], npmDependencies: [] },
+      };
+
+      const ids = resolveFeatureWithDeps('root', cyclic).map((f) => f.id);
+
+      // The guarantee is termination with each node emitted exactly once; the
+      // exact order is post-order (deps first), but we assert set-membership so
+      // the test isn't brittle to ordering.
+      expect(ids).toHaveLength(2);
+      expect(new Set(ids)).toEqual(new Set(['root', 'loop']));
     });
   });
 });

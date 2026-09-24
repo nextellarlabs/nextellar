@@ -1,0 +1,76 @@
+name: PR Labeler
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  area-labels:
+    name: Label by changed paths
+    runs-on: ubuntu-latest
+    steps:
+      # actions/labeler needs read access to the PR's base ref for its
+      # config file — pull_request_target runs against the base branch by
+      # default, which is what we want here (untrusted PR code is never
+      # checked out or executed by this job).
+      - uses: actions/labeler@v5
+        with:
+          configuration-path: .github/labeler.yml
+
+  size-label:
+    name: Label by PR size
+    runs-on: ubuntu-latest
+    steps:
+      - name: Determine and apply size label
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Thresholds on total changed lines (additions + deletions).
+            // Matches the common xs/s/m/l/xl convention used by most
+            // size-labeler actions/bots.
+            const SIZE_THRESHOLDS = [
+              { max: 10, label: 'size/xs' },
+              { max: 50, label: 'size/s' },
+              { max: 200, label: 'size/m' },
+              { max: 800, label: 'size/l' },
+              { max: Infinity, label: 'size/xl' },
+            ];
+
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+
+            const totalChanges = pr.additions + pr.deletions;
+            const sizeLabel = SIZE_THRESHOLDS.find((t) => totalChanges <= t.max).label;
+
+            const allSizeLabels = SIZE_THRESHOLDS.map((t) => t.label);
+            const existingLabels = pr.labels.map((l) => l.name);
+
+            // Remove any other size/* label before adding the correct one —
+            // a PR should only ever carry exactly one size label, even
+            // across multiple pushes that cross a threshold.
+            for (const label of allSizeLabels) {
+              if (label !== sizeLabel && existingLabels.includes(label)) {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  name: label,
+                });
+              }
+            }
+
+            if (!existingLabels.includes(sizeLabel)) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                labels: [sizeLabel],
+              });
+            }

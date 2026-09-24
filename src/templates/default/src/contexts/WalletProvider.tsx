@@ -10,10 +10,19 @@ import {
   Memo,
   BASE_FEE
 } from '@stellar/stellar-sdk';
-import { ISupportedWallet, WalletNetwork } from "@creit.tech/stellar-wallets-kit";
-import { kit } from '../lib/stellar-wallet-kit';
+// `ISupportedWallet`/`WalletNetwork` are only imported for their types below;
+// the runtime enum value is read off the lazily-loaded module at call sites
+// (see `loadWalletKit`) so this file never eagerly pulls in
+// `@creit.tech/stellar-wallets-kit`.
+import type { ISupportedWallet, WalletNetwork } from "@creit.tech/stellar-wallets-kit";
 import { NETWORKS } from '../config/networks';
 import { storage } from '../lib/storage';
+
+// `@creit.tech/stellar-wallets-kit` pulls in every wallet connector module
+// (Freighter, Albedo, Lobstr, xBull, Hana). None of that is needed for the
+// initial render, so it's loaded lazily and only when a wallet action is
+// actually invoked (connect, disconnect, or the mount-time auto-reconnect).
+const loadWalletKit = () => import('../lib/stellar-wallet-kit');
 
 const Server = Horizon.Server;
 
@@ -39,6 +48,14 @@ export interface PaymentOptions {
 }
 
 /**
+ * Account interface for multi-account support
+ */
+export interface WalletAccount {
+  address: string;
+  displayName?: string;
+}
+
+/**
  * Wallet context state
  */
 interface WalletContextState {
@@ -46,9 +63,12 @@ interface WalletContextState {
   publicKey?: string;
   walletName?: string;
   balances: Balance[];
+  accounts: WalletAccount[];
+  currentAccountIndex: number;
   connect: () => Promise<void>;
   disconnect: () => void;
   refreshBalances: () => Promise<void>;
+  switchAccount: (address: string) => Promise<void>;
   sendPayment?: (opts: PaymentOptions) => Promise<Horizon.HorizonApi.SubmitTransactionResponse>;
 }
 
@@ -74,8 +94,8 @@ interface WalletProviderProps {
 }
 
 // Create contexts
-const WalletContext = createContext<WalletContextState | undefined>(undefined);
-const WalletConfigContext = createContext<WalletConfigContextState | undefined>(undefined);
+export const WalletContext = createContext<WalletContextState | undefined>(undefined);
+export const WalletConfigContext = createContext<WalletConfigContextState | undefined>(undefined);
 
 /**
  * Wallet Provider Component
@@ -102,6 +122,8 @@ export function WalletProvider({
   const [publicKey, setPublicKey] = useState<string>();
   const [walletName, setWalletName] = useState<string>();
   const [balances, setBalances] = useState<Balance[]>([]);
+  const [accounts, setAccounts] = useState<WalletAccount[]>([]);
+  const [currentAccountIndex, setCurrentAccountIndex] = useState(0);
 
   // Load saved network on mount
   useEffect(() => {
@@ -128,11 +150,38 @@ export function WalletProvider({
   }, [activeHorizonUrl]);
 
   /**
+   * Helper function to save accounts to storage
+   */
+  const saveAccountsToStorage = useCallback((accts: WalletAccount[], currentIndex: number) => {
+    storage.set('stellar_wallet_accounts', JSON.stringify(accts));
+    storage.set('stellar_wallet_current_account_index', currentIndex.toString());
+  }, []);
+
+  /**
+   * Helper function to load accounts from storage
+   */
+  const loadAccountsFromStorage = useCallback(() => {
+    const saved = storage.get('stellar_wallet_accounts');
+    const savedIndex = storage.get('stellar_wallet_current_account_index');
+    if (saved) {
+      try {
+        const accts = JSON.parse(saved) as WalletAccount[];
+        const index = savedIndex ? parseInt(savedIndex, 10) : 0;
+        return { accounts: accts, index: Math.max(0, Math.min(index, accts.length - 1)) };
+      } catch {
+        return { accounts: [], index: 0 };
+      }
+    }
+    return { accounts: [], index: 0 };
+  }, []);
+
+  /**
    * Connect to a Stellar wallet using the modal interface
    */
   const connect = useCallback(async () => {
     try {
       // Get fresh kit instance (handles dynamic options)
+      const { kit, WalletNetwork } = await loadWalletKit();
       const walletNetwork = activeNetworkKey === 'mainnet' ? WalletNetwork.PUBLIC : WalletNetwork.TESTNET;
       const currentKit = kit(walletNetwork);
 
@@ -144,9 +193,36 @@ export function WalletProvider({
           const { address } = await currentKit.getAddress();
           const { name } = option;
 
+          // Create or update account list
+          const newAccount: WalletAccount = {
+            address,
+            displayName: `${name} - ${address.slice(0, 6)}...${address.slice(-6)}`,
+          };
+
           setPublicKey(address);
           setWalletName(name);
           setConnected(true);
+
+          // Check if account already exists in list
+          setAccounts((prevAccounts) => {
+            const existingIndex = prevAccounts.findIndex((acc) => acc.address === address);
+            let updatedAccounts: WalletAccount[];
+            let newIndex: number;
+
+            if (existingIndex >= 0) {
+              // Account already exists, switch to it
+              updatedAccounts = prevAccounts;
+              newIndex = existingIndex;
+            } else {
+              // New account, add to list
+              updatedAccounts = [...prevAccounts, newAccount];
+              newIndex = updatedAccounts.length - 1;
+            }
+
+            setCurrentAccountIndex(newIndex);
+            saveAccountsToStorage(updatedAccounts, newIndex);
+            return updatedAccounts;
+          });
 
           storage.set('stellar_wallet_connected', 'true');
           storage.set('stellar_wallet_id', option.id);
@@ -171,27 +247,66 @@ export function WalletProvider({
       console.error('Failed to connect wallet:', error);
       throw error;
     }
-  }, [activeNetworkKey]);
+  }, [activeNetworkKey, saveAccountsToStorage]);
 
   /**
    * Disconnect wallet and clear state
    */
   const disconnect = useCallback(async () => {
     try {
+      const { kit } = await loadWalletKit();
       await kit().disconnect();
       setConnected(false);
       setPublicKey(undefined);
       setWalletName(undefined);
       setBalances([]);
+      setAccounts([]);
+      setCurrentAccountIndex(0);
 
       storage.remove('stellar_wallet_connected');
       storage.remove('stellar_wallet_id');
       storage.remove('stellar_wallet_address');
       storage.remove('stellar_wallet_name');
+      storage.remove('stellar_wallet_accounts');
+      storage.remove('stellar_wallet_current_account_index');
     } catch (error) {
       console.error('Failed to disconnect wallet:', error);
     }
   }, []);
+
+  /**
+   * Switch to a different account in the accounts list
+   */
+  const switchAccount = useCallback(
+    async (address: string) => {
+      const accountIndex = accounts.findIndex((acc) => acc.address === address);
+      if (accountIndex < 0) {
+        console.error('Account not found:', address);
+        return;
+      }
+
+      setPublicKey(address);
+      setCurrentAccountIndex(accountIndex);
+      saveAccountsToStorage(accounts, accountIndex);
+
+      // Update storage with new active address
+      storage.set('stellar_wallet_address', address);
+
+      // Load balances for the new account
+      try {
+        const account = await serverRef.current.accounts().accountId(address).call();
+        setBalances(account.balances);
+      } catch (error: unknown) {
+        if (error && typeof error === 'object' && 'response' in error && (error as { response?: { status?: number } }).response?.status === 404) {
+          setBalances([]);
+        } else {
+          console.error('Failed to load balances for account:', error);
+          setBalances([]);
+        }
+      }
+    },
+    [accounts, saveAccountsToStorage]
+  );
 
   /**
    * Switch the active network.
@@ -268,7 +383,7 @@ export function WalletProvider({
         signedTxXdr = transaction.toXDR();
       } else {
         // Sign with wallet
-        const { signTransaction } = await import('../lib/stellar-wallet-kit');
+        const { signTransaction } = await loadWalletKit();
         signedTxXdr = await signTransaction({
           unsignedTransaction: transaction.toXDR(),
           address: publicKey,
@@ -296,6 +411,7 @@ export function WalletProvider({
 
       if (wasConnected === 'true' && savedWalletId && savedAddress) {
         try {
+          const { kit, WalletNetwork } = await loadWalletKit();
           const walletNetwork = activeNetworkKey === 'mainnet' ? WalletNetwork.PUBLIC : WalletNetwork.TESTNET;
           const currentKit = kit(walletNetwork);
           currentKit.setWallet(savedWalletId);
@@ -305,6 +421,24 @@ export function WalletProvider({
             setPublicKey(address);
             setWalletName(savedName || 'Unknown');
             setConnected(true);
+
+            // Load saved accounts or create new account list
+            const { accounts: savedAccounts, index: savedIndex } = loadAccountsFromStorage();
+            if (savedAccounts.length > 0) {
+              setAccounts(savedAccounts);
+              setCurrentAccountIndex(savedIndex);
+            } else {
+              // Create initial account list if none saved
+              const newAccounts: WalletAccount[] = [
+                {
+                  address,
+                  displayName: `${savedName} - ${address.slice(0, 6)}...${address.slice(-6)}`,
+                },
+              ];
+              setAccounts(newAccounts);
+              setCurrentAccountIndex(0);
+              saveAccountsToStorage(newAccounts, 0);
+            }
 
             try {
               const account = await serverRef.current.accounts().accountId(address).call();
@@ -322,21 +456,26 @@ export function WalletProvider({
           storage.remove('stellar_wallet_id');
           storage.remove('stellar_wallet_address');
           storage.remove('stellar_wallet_name');
+          storage.remove('stellar_wallet_accounts');
+          storage.remove('stellar_wallet_current_account_index');
         }
       }
     };
 
     autoReconnect();
-  }, [activeNetworkKey]);
+  }, [activeNetworkKey, loadAccountsFromStorage, saveAccountsToStorage]);
 
   const walletValue: WalletContextState = {
     connected,
     publicKey,
     walletName,
     balances,
+    accounts,
+    currentAccountIndex,
     connect,
     disconnect,
     refreshBalances,
+    switchAccount,
     sendPayment: connected ? sendPayment : undefined,
   };
 

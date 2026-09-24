@@ -1,0 +1,31 @@
+# Changed-paths labeler config for actions/labeler (#935).
+# See .github/workflows/labeler.yml for the workflow that applies these.
+
+area:cli:
+  - changed-files:
+      - any-glob-to-any-file: ["bin/**", "src/lib/**"]
+
+area:templates:
+  - changed-files:
+      - any-glob-to-any-file: ["src/templates/**"]
+
+area:backend:
+  - changed-files:
+      - any-glob-to-any-file: ["backend/**", "routes-d/**"]
+
+area:docs:
+  - changed-files:
+      - any-glob-to-any-file: ["docs/**", "**/*.md"]
+
+area:ci:
+  - changed-files:
+      - any-glob-to-any-file: [".github/**"]
+
+area:tests:
+  - changed-files:
+      - any-glob-to-any-file:
+          ["tests/**", "**/*.test.ts", "**/*.test.tsx", "**/__tests__/**"]
+
+area:scripts:
+  - changed-files:
+      - any-glob-to-any-file: ["scripts/**"]

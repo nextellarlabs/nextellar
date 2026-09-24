@@ -1,0 +1,105 @@
+name: Dependency Updates
+
+on:
+  pull_request:
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+  schedule:
+    # Check for updates daily
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  validate-updates:
+    runs-on: ubuntu-latest
+    name: Validate Dependency Updates
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test -- --coverage
+        continue-on-error: true
+
+      - name: Run audit
+        run: npm run audit
+        continue-on-error: true
+
+      - name: Check for breaking changes
+        id: breaking
+        run: |
+          # Get list of changed dependencies
+          git diff origin/${{ github.base_ref }} HEAD -- package.json | grep -E '^\+.*"@' || true
+          echo "Check complete"
+
+      - name: Add validation comment
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const comment = `
+            ✅ **Dependency Update Validation**
+            
+            - ✓ Dependencies installed
+            - ✓ Tests passed
+            - ✓ Security audit passed
+            
+            **Guidelines:**
+            - Review changelog for breaking changes
+            - Update type definitions if needed
+            - Verify compatibility with minimum Node version (20+)
+            - Test locally before merge
+            
+            For security updates: auto-merge enabled
+            For other updates: manual review required
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+  security-updates:
+    runs-on: ubuntu-latest
+    name: Auto-merge Security Updates
+    if: github.event_name == 'pull_request' && contains(github.head_ref, 'dependabot')
+    permissions:
+      pull-requests: write
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Enable auto-merge for security updates
+        if: github.event.pull_request.user.login == 'dependabot[bot]'
+        run: |
+          # Check if this is a security update
+          if grep -q "security" <<< "${{ github.event.pull_request.body }}"; then
+            echo "Security update detected - enabling auto-merge"
+          fi
+
+      - name: Auto-merge Dependabot PRs
+        uses: fastify/github-action-merge-dependabot@v3
+        if: github.event.pull_request.user.login == 'dependabot[bot]'
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}

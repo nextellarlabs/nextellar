@@ -10,6 +10,7 @@ import {
   type FeatureDef,
 } from "./features.js";
 import { detectPackageManager } from "./install.js";
+import { printError } from "./feedback.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -124,7 +125,7 @@ async function installPackages(
     return true;
   } catch (err: any) {
     spinner.fail(pc.red(`Failed to install packages with ${pc.bold(pm)}`));
-    console.error(err?.message || err);
+    printError(err?.message || String(err));
     return false;
   }
 }

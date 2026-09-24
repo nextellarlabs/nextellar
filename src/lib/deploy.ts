@@ -1,12 +1,13 @@
 import path from "path";
 import fs from "fs-extra";
-import { execa } from "execa";
+import { create } from "tar";
 import pc from "picocolors";
 
 export interface DeployOptions {
   cwd?: string;
   dryRun?: boolean;
   token?: string;
+  sizeThreshold?: number;
 }
 
 interface DeployContext {
@@ -52,6 +53,22 @@ export async function runDeploy(options: DeployOptions = {}): Promise<void> {
   console.log(`  Path: ${pc.cyan(bundlePath)}`);
   console.log(`  Size: ${pc.cyan(formatBytes(bundleStats.size))}`);
   console.log(`  Saved: ${pc.cyan(path.join(projectRoot, DEPLOY_STATE_DIR, DEPLOY_STATE_FILE))}`);
+
+  // Bundle size report and threshold warning
+  const sizeThreshold = options.sizeThreshold || 50 * 1024 * 1024; // Default 50MB
+  const sizeMB = bundleStats.size / (1024 * 1024);
+  const thresholdMB = sizeThreshold / (1024 * 1024);
+
+  console.log(`\n${pc.cyan("Bundle Size Report:")}`);
+  console.log(`  Total: ${pc.bold(formatBytes(bundleStats.size))}`);
+  console.log(`  Threshold: ${pc.dim(formatBytes(sizeThreshold))}`);
+
+  if (bundleStats.size > sizeThreshold) {
+    console.log(`\n${pc.yellow("⚠ Warning:")} Bundle size (${formatBytes(bundleStats.size)}) exceeds threshold (${formatBytes(sizeThreshold)})`);
+    console.log(`  Consider optimizing your build or increasing the threshold with --size-threshold`);
+  } else {
+    console.log(`\n${pc.green("✔")} Bundle size is within acceptable limits`);
+  }
 
   // TODO(platform): accept --token <api-token> and authenticate upload requests.
   // TODO(platform): POST bundle to /v1/deployments and stream deployment logs.
@@ -111,27 +128,35 @@ function getBundlePath(projectRoot: string): string {
 }
 
 async function createBundle(projectRoot: string, bundlePath: string): Promise<void> {
-  const args = [
-    "-czf",
-    bundlePath,
-    "--exclude=node_modules",
-    "--exclude=.git",
-    "--exclude=.next/cache",
-    "--exclude=.nextellar/deploy",
-    "-C",
-    projectRoot,
-    ".",
+  const exclude = [
+    "node_modules",
+    ".git",
+    ".next/cache",
+    ".nextellar/deploy",
   ];
 
-  try {
-    await execa("tar", args, {
+  await create(
+    {
+      gzip: true,
+      file: bundlePath,
       cwd: projectRoot,
-    });
-  } catch (error: any) {
-    const stderr = typeof error?.stderr === "string" ? error.stderr.trim() : "";
-    const details = stderr.length > 0 ? ` Details: ${stderr}` : "";
-    throw new Error(`Failed to create deployment bundle with tar.${details}`);
-  }
+      filter: (filePath: string) => {
+        // node-tar passes paths prefixed with "./" (the packed entry name);
+        // strip it so the exclusion patterns match.
+        const normalizedPath = filePath.replace(/\\/g, "/").replace(/^\.\//, "");
+        for (const pattern of exclude) {
+          if (
+            normalizedPath === pattern ||
+            normalizedPath.startsWith(`${pattern}/`)
+          ) {
+            return false;
+          }
+        }
+        return true;
+      },
+    },
+    ["."]
+  );
 }
 
 async function writeBundleState(

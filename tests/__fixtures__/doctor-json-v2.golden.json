@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 2,
+  "horizonUrl": "https://horizon-testnet.stellar.org",
+  "sorobanUrl": "https://soroban-testnet.stellar.org",
+  "checks": [
+    {
+      "id": "node",
+      "name": "Node.js",
+      "required": true,
+      "ok": true,
+      "detail": "v20.10.0 (>= 20.0.0 required)",
+      "fix": "Install Node.js >= 20: https://nodejs.org/",
+      "link": "https://nodejs.org/"
+    },
+    {
+      "id": "npm",
+      "name": "npm",
+      "required": true,
+      "ok": true,
+      "detail": "v10.2.3",
+      "fix": "npm comes with Node.js. Install Node: https://nodejs.org/"
+    },
+    {
+      "id": "yarn",
+      "name": "yarn",
+      "required": false,
+      "ok": true,
+      "detail": "v1.22.19",
+      "fix": "Install: npm install -g yarn"
+    },
+    {
+      "id": "pnpm",
+      "name": "pnpm",
+      "required": false,
+      "ok": true,
+      "detail": "v8.10.0",
+      "fix": "Install: npm install -g pnpm"
+    },
+    {
+      "id": "git",
+      "name": "Git",
+      "required": true,
+      "ok": true,
+      "detail": "v2.42.0",
+      "fix": "Install: https://git-scm.com/downloads",
+      "link": "https://git-scm.com/downloads"
+    },
+    {
+      "id": "rustc",
+      "name": "Rust",
+      "required": false,
+      "ok": true,
+      "detail": "rustc 1.73.0",
+      "fix": "Install: https://rustup.rs",
+      "link": "https://rustup.rs"
+    },
+    {
+      "id": "stellar-cli",
+      "name": "Stellar CLI",
+      "required": false,
+      "ok": true,
+      "detail": "stellar-cli 20.0.0",
+      "fix": "Install: cargo install stellar-cli"
+    },
+    {
+      "id": "wasm32",
+      "name": "wasm32 target",
+      "required": false,
+      "ok": true,
+      "detail": "wasm32-unknown-unknown installed",
+      "fix": "Install: rustup target add wasm32-unknown-unknown"
+    },
+    {
+      "id": "horizon",
+      "name": "Horizon API",
+      "required": true,
+      "ok": true,
+      "detail": "https://horizon-testnet.stellar.org (200)",
+      "fix": "Check network or use --horizon-url to override",
+      "link": "https://horizon-testnet.stellar.org"
+    },
+    {
+      "id": "soroban",
+      "name": "Soroban RPC",
+      "required": false,
+      "ok": true,
+      "detail": "https://soroban-testnet.stellar.org (200)",
+      "fix": "Check network or use --soroban-url to override",
+      "link": "https://soroban-testnet.stellar.org"
+    },
+    {
+      "id": "disk",
+      "name": "Free Memory (RAM)",
+      "required": true,
+      "ok": true,
+      "detail": "3815 MB RAM free",
+      "fix": "Free up at least 1GB of RAM"
+    }
+  ],
+  "passed": 11,
+  "failed": 0,
+  "requiredFailures": 0
+}

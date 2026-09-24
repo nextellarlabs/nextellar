@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import express, { Request, Response, NextFunction } from 'express';
 import request from 'supertest';
 import notificationsRouter, { notificationDeps } from '../../backend/routes/notifications.js';

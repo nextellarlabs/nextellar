@@ -236,7 +236,12 @@ export function useTransactionHistory(publicKey, options = {}) {
         try {
             const result = await fetchTransactionHistory(publicKey, nextCursorRef.current);
             setItems(prevItems => {
-                const newItems = [...prevItems, ...result.records];
+                // De-duplicate by paging_token (falling back to id): a record
+                // at the exact page boundary can be re-returned by the next
+                // page's request, which would otherwise render it twice.
+                const seenTokens = new Set(prevItems.map(item => item.paging_token ?? item.id));
+                const newRecords = result.records.filter(record => !seenTokens.has(record.paging_token ?? record.id));
+                const newItems = [...prevItems, ...newRecords];
                 // Memory management: limit total items in memory
                 if (newItems.length > MAX_ITEMS_IN_MEMORY) {
                     const trimmedItems = newItems.slice(-MAX_ITEMS_IN_MEMORY);

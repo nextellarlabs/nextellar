@@ -1,5 +1,18 @@
 import { useState, useCallback, useMemo } from "react";
-import { rpc, TransactionBuilder, Networks, Keypair, xdr, Address, Contract, Account, } from "@stellar/stellar-sdk";
+import { rpc, TransactionBuilder, Networks, Keypair, xdr, Address, Contract, Account, StrKey, } from "@stellar/stellar-sdk";
+
+/**
+ * Validates that a string is a well-formed Soroban contract ID
+ * (a StrKey-encoded contract address, e.g. "C...", 56 characters).
+ * @param {string} contractId - The contract ID string to validate
+ * @returns {boolean} true if the contract ID is valid, false otherwise
+ */
+export function isValidContractId(contractId) {
+    if (!contractId || typeof contractId !== "string" || contractId.trim().length === 0) {
+        return false;
+    }
+    return StrKey.isValidContract(contractId.trim());
+}
 /**
  * Custom React hook for interacting with Soroban smart contracts
  *
@@ -46,6 +59,9 @@ import { rpc, TransactionBuilder, Networks, Keypair, xdr, Address, Contract, Acc
  */
 export function useSorobanContract(opts) {
     const { contractId, sorobanRpc = "https://soroban-testnet.stellar.org", network = "TESTNET", } = opts;
+    if (!isValidContractId(contractId)) {
+        throw new Error(`Invalid Soroban contract ID: "${contractId}". Must be a valid StrKey-encoded contract address (56 characters, starting with "C"). Did you forget to set your contract ID in .env.local?`);
+    }
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     // Get network passphrase based on network selection
@@ -154,16 +170,93 @@ export function useSorobanContract(opts) {
             const transaction = txBuilder.build();
             // Simulate the transaction
             const simulation = await rpcServer.simulateTransaction(transaction);
+
             if ("error" in simulation && simulation.error) {
-                throw new Error(`Simulation failed: ${simulation.error}`);
+                const errMessage = typeof simulation.error === "string" 
+                    ? simulation.error 
+                    : JSON.stringify(simulation.error);
+                const simErr = new Error(`Simulation error: ${errMessage}`);
+                setError(simErr);
+                throw simErr;
             }
-            // Extract and convert the result
+
+            if ("restorePreamble" in simulation && simulation.restorePreamble) {
+                const preamble = simulation.restorePreamble;
+                const restoreErr = new Error(`Footprint expired; restore transaction required. Min resource fee: ${preamble?.minResourceFee ?? "100"}`);
+                setError(restoreErr);
+                return {
+                    requiresRestore: true,
+                    restorePreamble: preamble,
+                    transactionData: simulation.transactionData,
+                };
+            }
+
             if ("result" in simulation && simulation.result?.retval) {
                 setError(null);
                 return fromXdrValue(simulation.result.retval);
             }
             setError(null);
             return null;
+        }
+        catch (err) {
+            const error = err;
+            setError(error);
+            throw error;
+        }
+        finally {
+            setLoading(false);
+        }
+    }, [contractId, networkPassphrase, rpcServer, toXdrValue, fromXdrValue]);
+    /**
+     * Simulate a contract call and return the decoded result **plus** fee
+     * information — without submitting the transaction to the network.
+     *
+     * Use this to display a preview panel before the user confirms and submits.
+     *
+     * @param {string} name - The name of the contract function to simulate
+     * @param {Array} args - Array of arguments to pass to the function
+     * @returns {Promise<{result: unknown, minResourceFee: string, latestLedger: number}>}
+     *
+     * @example
+     * ```js
+     * const preview = await simulateContractCall('transfer', ['GABC...', 1000]);
+     * console.log('Estimated fee:', preview.minResourceFee, 'stroops');
+     * console.log('Return value:', preview.result);
+     * ```
+     */
+    const simulateContractCall = useCallback(async (name, args = []) => {
+        setLoading(true);
+        setError(null);
+        try {
+            const dummyKeypair = Keypair.random();
+            const dummyAccount = new Account(dummyKeypair.publicKey(), "0");
+            const contract = new Contract(contractId);
+            const operation = contract.call(name, ...args.map(toXdrValue));
+            const txBuilder = new TransactionBuilder(dummyAccount, {
+                fee: "100",
+                networkPassphrase,
+            })
+                .addOperation(operation)
+                .setTimeout(30);
+            const transaction = txBuilder.build();
+            const simulation = await rpcServer.simulateTransaction(transaction);
+            if ("error" in simulation && simulation.error) {
+                throw new Error(`Simulation failed: ${simulation.error}`);
+            }
+            const decodedResult =
+                "result" in simulation && simulation.result?.retval
+                    ? fromXdrValue(simulation.result.retval)
+                    : null;
+            const minResourceFee =
+                "minResourceFee" in simulation
+                    ? String(simulation.minResourceFee)
+                    : "0";
+            const latestLedger =
+                "latestLedger" in simulation
+                    ? Number(simulation.latestLedger)
+                    : 0;
+            setError(null);
+            return { result: decodedResult, minResourceFee, latestLedger };
         }
         catch (err) {
             const error = err;
@@ -248,6 +341,7 @@ export function useSorobanContract(opts) {
     }, [networkPassphrase, rpcServer]);
     return {
         callFunction,
+        simulateContractCall,
         buildInvokeXDR,
         submitInvokeWithSecret,
         loading,

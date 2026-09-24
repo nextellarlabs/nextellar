@@ -1,0 +1,83 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: "Build and pack without publishing"
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Build
+        run: npm run build
+
+      - name: Verify tag matches package.json
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::Tag version v$TAG_VERSION does not match package.json version $PKG_VERSION"
+            exit 1
+          fi
+          echo "Tag version v$TAG_VERSION matches package.json version $PKG_VERSION"
+
+      - name: Pack-size guard
+        run: |
+          npm pack --dry-run > /dev/null
+          PACKAGE_SIZE=$(npm pack --dry-run --json | node -p "JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'))[0].size")
+          MAX_SIZE=5242880
+          echo "Package size: $PACKAGE_SIZE bytes"
+          if [ "$PACKAGE_SIZE" -gt "$MAX_SIZE" ]; then
+            echo "::error::Package size $PACKAGE_SIZE exceeds $MAX_SIZE byte limit"
+            exit 1
+          fi
+          echo "Package size $PACKAGE_SIZE is within limit"
+
+      - name: Create tarball
+        if: ${{ inputs.dry-run }}
+        run: npm pack
+
+      - name: Upload tarball
+        if: ${{ inputs.dry-run }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: nextellar-${{ github.ref_name }}
+          path: "*.tgz"
+
+      - name: Publish to npm
+        if: ${{ !inputs.dry-run }}
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
