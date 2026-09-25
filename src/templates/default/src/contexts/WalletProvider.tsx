@@ -91,7 +91,20 @@ interface WalletProviderProps {
   horizonUrl?: string;
   sorobanUrl?: string;
   network?: string;
+  /**
+   * Opt-in inactivity timeout, in milliseconds. When set, the wallet
+   * automatically disconnects after this long with no user activity
+   * (mouse, keyboard, touch, or scroll input). Disabled (`undefined`) by
+   * default — integrators building security-sensitive apps can opt in,
+   * e.g. `inactivityTimeoutMs={15 * 60 * 1000}` for a 15-minute auto-lock.
+   */
+  inactivityTimeoutMs?: number;
 }
+
+// Activity events that reset the inactivity timer. Deliberately excludes
+// `mousemove`, which fires too often to be a meaningful "the user is still
+// here" signal and would defeat the point of the timeout.
+const ACTIVITY_EVENTS = ['mousedown', 'keydown', 'touchstart', 'scroll'] as const;
 
 // Create contexts
 export const WalletContext = createContext<WalletContextState | undefined>(undefined);
@@ -110,12 +123,23 @@ export const WalletConfigContext = createContext<WalletConfigContextState | unde
  *   <YourApp />
  * </WalletProvider>
  * ```
+ *
+ * @example
+ * ```tsx
+ * // Opt in to an inactivity auto-lock — disconnects after 15 minutes with
+ * // no mouse, keyboard, touch, or scroll activity. Useful for
+ * // security-sensitive apps; disabled by default.
+ * <WalletProvider inactivityTimeoutMs={15 * 60 * 1000}>
+ *   <YourApp />
+ * </WalletProvider>
+ * ```
  */
 export function WalletProvider({
   children,
   horizonUrl: initialHorizonUrl = process.env.NEXT_PUBLIC_HORIZON_URL || 'https://horizon-testnet.stellar.org',
   sorobanUrl: initialSorobanUrl = process.env.NEXT_PUBLIC_SOROBAN_URL || 'https://soroban-testnet.stellar.org',
-  network: initialNetwork = (process.env.NEXT_PUBLIC_NETWORK === 'PUBLIC' ? Networks.PUBLIC : Networks.TESTNET)
+  network: initialNetwork = (process.env.NEXT_PUBLIC_NETWORK === 'PUBLIC' ? Networks.PUBLIC : Networks.TESTNET),
+  inactivityTimeoutMs
 }: WalletProviderProps) {
   const [activeNetworkKey, setActiveNetworkKey] = useState<string>('testnet');
   const [connected, setConnected] = useState(false);
@@ -273,6 +297,44 @@ export function WalletProvider({
       console.error('Failed to disconnect wallet:', error);
     }
   }, []);
+
+  /**
+   * Inactivity auto-lock (opt-in via `inactivityTimeoutMs`).
+   *
+   * Disconnects the wallet after the configured period with no user
+   * activity. The timer only runs while a wallet is connected, and resets
+   * on every tracked activity event; disconnecting stops it entirely.
+   */
+  useEffect(() => {
+    if (!inactivityTimeoutMs || inactivityTimeoutMs <= 0 || !connected) {
+      return;
+    }
+
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    let timeoutId: ReturnType<typeof setTimeout>;
+
+    const resetTimer = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        disconnect();
+      }, inactivityTimeoutMs);
+    };
+
+    resetTimer();
+    ACTIVITY_EVENTS.forEach((event) => {
+      window.addEventListener(event, resetTimer, { passive: true });
+    });
+
+    return () => {
+      clearTimeout(timeoutId);
+      ACTIVITY_EVENTS.forEach((event) => {
+        window.removeEventListener(event, resetTimer);
+      });
+    };
+  }, [inactivityTimeoutMs, connected, disconnect]);
 
   /**
    * Switch to a different account in the accounts list
