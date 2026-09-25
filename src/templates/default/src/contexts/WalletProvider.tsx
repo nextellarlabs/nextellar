@@ -26,6 +26,28 @@ const loadWalletKit = () => import('../lib/stellar-wallet-kit');
 
 const Server = Horizon.Server;
 
+// ── Connection retry backoff (#1070) ────────────────────────────────────────
+// Repeated connection failures (extension not installed, user rejects, RPC
+// unreachable, etc.) back off exponentially instead of retrying eagerly.
+// Same shape as useSorobanEvents' backoff: 1s → 3s → 9s → ... capped at 30s.
+// The counter resets on a successful connect (or an explicit disconnect), so
+// a fresh session always gets an eager first attempt.
+const CONNECT_BACKOFF_BASE_MS = 1_000;
+const CONNECT_BACKOFF_FACTOR = 3;
+const CONNECT_MAX_BACKOFF_MS = 30_000;
+
+function connectBackoffDelayMs(failureCount: number): number {
+  if (failureCount <= 0) return 0;
+  return Math.min(
+    CONNECT_BACKOFF_BASE_MS * Math.pow(CONNECT_BACKOFF_FACTOR, failureCount - 1),
+    CONNECT_MAX_BACKOFF_MS
+  );
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 /**
  * Balance interface for account assets
  */
@@ -149,6 +171,11 @@ export function WalletProvider({
   const [accounts, setAccounts] = useState<WalletAccount[]>([]);
   const [currentAccountIndex, setCurrentAccountIndex] = useState(0);
 
+  // Consecutive connect() failures, used to compute the backoff delay for
+  // the *next* attempt. Not component state — it must not trigger a
+  // re-render, and needs to persist across renders without resetting.
+  const connectFailureCountRef = useRef(0);
+
   // Load saved network on mount
   useEffect(() => {
     const savedNetwork = storage.get('stellar_network');
@@ -200,9 +227,22 @@ export function WalletProvider({
   }, []);
 
   /**
-   * Connect to a Stellar wallet using the modal interface
+   * Connect to a Stellar wallet using the modal interface.
+   *
+   * Retries back off exponentially (#1070): if the previous attempt(s)
+   * failed — extension not installed, user rejected, RPC unreachable, etc.
+   * — this call first waits `connectBackoffDelayMs(failureCount)` before
+   * opening the modal again, so a user (or integrator code) hammering
+   * "Connect" after a failure doesn't hit the wallet/network on every
+   * click. A successful connection resets the counter, so the next fresh
+   * attempt is always eager.
    */
   const connect = useCallback(async () => {
+    const backoffDelay = connectBackoffDelayMs(connectFailureCountRef.current);
+    if (backoffDelay > 0) {
+      await sleep(backoffDelay);
+    }
+
     try {
       // Get fresh kit instance (handles dynamic options)
       const { kit, WalletNetwork } = await loadWalletKit();
@@ -216,6 +256,11 @@ export function WalletProvider({
 
           const { address } = await currentKit.getAddress();
           const { name } = option;
+
+          // Reached a real address — the connection succeeded. Reset the
+          // backoff counter so the next connect() (e.g. after a future
+          // disconnect) starts eager again.
+          connectFailureCountRef.current = 0;
 
           // Create or update account list
           const newAccount: WalletAccount = {
@@ -268,6 +313,7 @@ export function WalletProvider({
         },
       });
     } catch (error) {
+      connectFailureCountRef.current += 1;
       console.error('Failed to connect wallet:', error);
       throw error;
     }
@@ -286,6 +332,9 @@ export function WalletProvider({
       setBalances([]);
       setAccounts([]);
       setCurrentAccountIndex(0);
+      // An explicit disconnect is a clean slate — the next connect() should
+      // be eager, not penalized by failures from a previous session.
+      connectFailureCountRef.current = 0;
 
       storage.remove('stellar_wallet_connected');
       storage.remove('stellar_wallet_id');
