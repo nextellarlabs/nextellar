@@ -163,6 +163,7 @@ The following components and tools are planned but **not yet included** in scaff
 | `<BalanceDisplay>` component | Installable via `nextellar add balance-display` | — |
 | `<SendForm>` component | Installable via `nextellar add send-form` | — |
 | `<TransactionList>` component | Installable via `nextellar add transaction-list` | — |
+| `<ContractCallForm>` / `<ContractCallPreview>` components | Installable via `nextellar add contract-call` | — |
 | `<ReceiveForm>` component | Planned | — |
 | `<TransactionStatusBadge>` component | Planned | — |
 | Full `shadcn/ui` integration | Templates ship inline shadcn/ui-inspired components; full setup is manual | — |
@@ -192,6 +193,9 @@ Network and environment configuration (Horizon/Soroban, testnet/mainnet, Network
 
 Soroban contracts overlay guide (`--with-contracts`):  
 🔗 [docs/soroban-contracts-overlay-guide.md](docs/soroban-contracts-overlay-guide.md)
+
+Anchor discovery & KYC fields (SEP-1 / SEP-9 / SEP-38):  
+🔗 [docs/anchor-discovery-and-kyc.md](docs/anchor-discovery-and-kyc.md)
 
 Web authentication & payment request URIs (SEP-7 / SEP-45):  
 🔗 [docs/web-auth-and-payments.md](docs/web-auth-and-payments.md)
