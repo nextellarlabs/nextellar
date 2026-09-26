@@ -293,3 +293,65 @@ function ContractEvents({ contractId }) {
   );
 }
 ```
+
+### `useContractEventHistory(contractId, options?)`
+
+Fetches **historical** events emitted by a Soroban smart contract over a
+ledger range, with cursor-based pagination. Unlike `useSorobanEvents` (which
+polls for new/live events), this hook performs on-demand, page-at-a-time
+lookups of past events — suited to an activity feed, audit log, or "load
+more" UI backed by `getEvents`.
+
+**Signature:**
+```typescript
+function useContractEventHistory(
+  contractId: string,
+  options?: {
+    sorobanRpc?: string;
+    startLedger?: number;
+    topics?: string[][];
+    limit?: number;
+  }
+): {
+  events: SorobanEvent[],
+  loading: boolean,
+  error: Error | null,
+  isDone: boolean,
+  fetchNextPage: () => Promise<{ events: SorobanEvent[]; cursor?: string; isDone: boolean } | undefined>,
+  reset: () => void,
+}
+```
+
+**Returns:**
+An object containing:
+- `events` (array): Every event accumulated so far across all fetched pages.
+- `loading` (boolean): True while a page fetch is in flight.
+- `error` (Error | null): Any error encountered during the last fetch.
+- `isDone` (boolean): True once a page returns fewer events than `limit`, meaning there is nothing further to fetch.
+- `fetchNextPage()`: Fetches the next page and appends it to `events`. Resumes from the last RPC cursor; no-ops while a fetch is already in flight or once `isDone` is `true`.
+- `reset()`: Clears `events` and pagination state, allowing the fetch to restart from `startLedger`.
+
+**Example:**
+```tsx
+import { useContractEventHistory } from 'nextellar/hooks';
+
+function ContractActivity({ contractId }) {
+  const { events, loading, isDone, fetchNextPage } =
+    useContractEventHistory(contractId, { startLedger: 100000, limit: 50 });
+
+  return (
+    <div>
+      <ul>
+        {events.map((evt) => (
+          <li key={evt.id}>Event Topic: {evt.topic} @ ledger {evt.ledger}</li>
+        ))}
+      </ul>
+      {!isDone && (
+        <button onClick={fetchNextPage} disabled={loading}>
+          {loading ? 'Loading…' : 'Load more'}
+        </button>
+      )}
+    </div>
+  );
+}
+```

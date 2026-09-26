@@ -22,7 +22,8 @@ export interface FeatureDef {
 const FEATURES: Record<string, FeatureDef> = {
   wallet: {
     id: "wallet",
-    description: "Wallet connection: WalletProvider, WalletConnectButton, stellar-wallet-kit, useStellarWallet",
+    description:
+      "Wallet connection: WalletProvider, WalletConnectButton, stellar-wallet-kit, useStellarWallet",
     files: [
       "contexts/WalletProvider.tsx",
       "components/WalletConnectButton.tsx",
@@ -30,7 +31,10 @@ const FEATURES: Record<string, FeatureDef> = {
       "hooks/useStellarWallet.ts",
     ],
     dependsOn: [],
-    npmDependencies: ["@stellar/stellar-sdk", "@creit.tech/stellar-wallets-kit"],
+    npmDependencies: [
+      "@stellar/stellar-sdk",
+      "@creit.tech/stellar-wallets-kit",
+    ],
   },
   balances: {
     id: "balances",
@@ -74,6 +78,14 @@ const FEATURES: Record<string, FeatureDef> = {
     dependsOn: ["wallet"],
     npmDependencies: ["@stellar/stellar-sdk"],
   },
+  "contract-event-history": {
+    id: "contract-event-history",
+    description:
+      "Historical Soroban contract events with pagination: useContractEventHistory hook",
+    files: ["hooks/useContractEventHistory.ts"],
+    dependsOn: ["contracts"],
+    npmDependencies: ["@stellar/stellar-sdk"],
+  },
 
   // UI components. Each one is addable on its own so a project can pull in a
   // single widget, and each depends on the hook feature it imports from — that
@@ -104,7 +116,8 @@ const FEATURES: Record<string, FeatureDef> = {
   },
   "receive-form": {
     id: "receive-form",
-    description: "ReceiveForm component (QR code + address display for incoming payments)",
+    description:
+      "ReceiveForm component (QR code + address display for incoming payments)",
     files: ["components/ReceiveForm.tsx"],
     dependsOn: ["wallet"],
     npmDependencies: ["qrcode"],
