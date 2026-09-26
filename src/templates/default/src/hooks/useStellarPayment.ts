@@ -24,6 +24,8 @@ export type PaymentParams = {
   amount: string;
   asset?: 'XLM' | { code: string; issuer: string };
   memo?: string;
+  sponsor?: string;
+  fee?: number | string;
 };
 
 /**
@@ -386,8 +388,35 @@ export function useStellarPayment(
     }
   }, [buildPaymentXDR, submitSignedXDR, getNetworkPassphrase, isValidSecret]);
 
+  /**
+   * Build a Fee-Bump Transaction wrapping an inner payment transaction
+   */
+  const buildFeeBumpPaymentXDR = useCallback(async (
+    params: PaymentParams & { sponsor: string; maxFee?: number | string }
+  ): Promise<string> => {
+    if (!serverRef.current) {
+      throw new Error('Horizon server not initialized');
+    }
+    if (!isValidAddress(params.sponsor)) {
+      throw new Error('Invalid sponsor public key format');
+    }
+
+    const innerTxXdr = await buildPaymentXDR(params);
+    const innerTx = new Transaction(innerTxXdr, getNetworkPassphrase());
+
+    const feeBumpTx = TransactionBuilder.buildFeeBumpTransaction(
+      params.sponsor,
+      params.maxFee || BASE_FEE,
+      innerTx,
+      getNetworkPassphrase()
+    );
+
+    return feeBumpTx.toXDR();
+  }, [serverRef, isValidAddress, buildPaymentXDR, getNetworkPassphrase]);
+
   return {
     buildPaymentXDR,
+    buildFeeBumpPaymentXDR,
     submitSignedXDR,
     signAndSubmitWithSecret,
   };

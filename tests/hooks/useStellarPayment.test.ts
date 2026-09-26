@@ -441,4 +441,25 @@ describe("useStellarPayment (default template)", () => {
       expect(mockSubmitTransaction).not.toHaveBeenCalled();
     });
   });
+
+  it("should build fee-bump payment transaction given a sponsor", async () => {
+    mockUseStellarPayment.mockReturnValue({
+      ...mockUseStellarPayment(),
+      buildFeeBumpPaymentXDR: jest.fn().mockResolvedValue("mock_feebump_xdr"),
+    });
+
+    const { result } = renderHook(() => mockUseStellarPayment());
+    const feeBumpParams = {
+      ...validPaymentParams,
+      sponsor: "GSPONSOR12345678901234567890123456789012345678901234567890",
+    };
+
+    let xdr: string;
+    await act(async () => {
+      xdr = await result.current.buildFeeBumpPaymentXDR(feeBumpParams);
+    });
+
+    expect(xdr!).toBe("mock_feebump_xdr");
+  });
 });
+
