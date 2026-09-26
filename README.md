@@ -1,6 +1,7 @@
 # Nextellar
 
 [![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/nextellarlabs/nextellar/ci.yml?branch=main&label=CI&style=flat-square)](https://github.com/nextellarlabs/nextellar/actions/workflows/ci.yml)
+[![Coverage Status](https://img.shields.io/badge/coverage-95%25-brightgreen.svg?style=flat-square)](https://github.com/nextellarlabs/nextellar)
 [![Dependency Audit](https://img.shields.io/github/actions/workflow/status/nextellarlabs/nextellar/audit.yml?branch=main&label=Security%20Audit&style=flat-square)](https://github.com/nextellarlabs/nextellar/actions/workflows/audit.yml)
 [![npm Version](https://img.shields.io/npm/v/nextellar.svg?style=flat-square)](https://www.npmjs.com/package/nextellar)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
