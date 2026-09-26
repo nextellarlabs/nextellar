@@ -504,4 +504,22 @@ program.action(async (projectName, options) => {
   }
 });
 
+// Subcommand: completions (#909) — emit shell completion scripts.
+program
+  .command("completions <shell>")
+  .description("generate shell completion script (bash | zsh)")
+  .action(async (shell: string) => {
+    try {
+      const { generateCompletions } = await import("../src/lib/completions.js");
+      const normalized = String(shell || "").toLowerCase().trim();
+      const script = generateCompletions(normalized as "bash" | "zsh", program);
+      process.stdout.write(`${script}\n`);
+    } catch (err: any) {
+      console.error(`❌ ${err.message}`);
+      process.exitCode = 1;
+    } finally {
+      await flushTelemetry();
+    }
+  });
+
 program.parse(process.argv);
