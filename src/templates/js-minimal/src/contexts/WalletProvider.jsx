@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import {
   Horizon,
   TransactionBuilder,
@@ -11,6 +11,7 @@ import {
   BASE_FEE
 } from '@stellar/stellar-sdk';
 import { storage } from '../lib/storage';
+import { NETWORKS } from '../config/networks';
 
 // Create contexts
 export const WalletContext = createContext(undefined);
@@ -20,15 +21,21 @@ export const WalletConfigContext = createContext(undefined);
 // (Freighter, Albedo, Lobstr, xBull, Hana). None of that is needed for the
 // initial render, so it's loaded lazily and only when a wallet action is
 // actually invoked (connect, disconnect, or the mount-time auto-reconnect).
+// The same import also yields the `WalletNetwork` enum value, so this module
+// never has to import the kit package at module scope.
 const loadWalletKit = () => import('../lib/stellar-wallet-kit');
 
 const Server = Horizon.Server;
+
+/** Maps a NETWORKS key onto the wallet kit's network enum. */
+const toWalletNetwork = (WalletNetwork, networkKey) =>
+  networkKey === 'mainnet' ? WalletNetwork.PUBLIC : WalletNetwork.TESTNET;
 
 /**
  * Wallet Provider Component
  *
  * Wraps your app to provide wallet functionality throughout the component tree.
- * Handles wallet connection, persistence, and state management.
+ * Handles wallet connection, network switching, persistence, and state management.
  *
  * @example
  * ```jsx
@@ -40,15 +47,44 @@ const Server = Horizon.Server;
  */
 export function WalletProvider({
   children,
-  horizonUrl = process.env.NEXT_PUBLIC_HORIZON_URL || 'https://horizon-testnet.stellar.org',
-  sorobanUrl = process.env.NEXT_PUBLIC_SOROBAN_URL || 'https://soroban-testnet.stellar.org',
-  network = (process.env.NEXT_PUBLIC_NETWORK === 'PUBLIC' ? Networks.PUBLIC : Networks.TESTNET)
+  // These fall back only as far as the env vars on purpose: a hardcoded
+  // default here is a non-empty string that always wins over the per-network
+  // config below, which would pin the app to testnet and leave a network
+  // switch re-pointing nothing. The per-network defaults live in NETWORKS.
+  horizonUrl: initialHorizonUrl = process.env.NEXT_PUBLIC_HORIZON_URL,
+  sorobanUrl: initialSorobanUrl = process.env.NEXT_PUBLIC_SOROBAN_URL,
+  network: initialNetwork = (process.env.NEXT_PUBLIC_NETWORK === 'PUBLIC' ? Networks.PUBLIC : undefined)
 }) {
+  const [activeNetworkKey, setActiveNetworkKey] = useState('testnet');
   const [connected, setConnected] = useState(false);
   const [publicKey, setPublicKey] = useState();
   const [walletName, setWalletName] = useState();
   const [balances, setBalances] = useState([]);
-  const [server] = useState(() => new Server(horizonUrl));
+
+  // Restore the previously selected network on mount.
+  useEffect(() => {
+    const savedNetwork = storage.get('stellar_network');
+    if (savedNetwork && NETWORKS[savedNetwork]) {
+      setActiveNetworkKey(savedNetwork);
+    }
+  }, []);
+
+  // Derive the active endpoints from the selected network, letting explicit
+  // props win so a caller can still pin a custom Horizon/Soroban instance.
+  const config = NETWORKS[activeNetworkKey] || NETWORKS.testnet;
+  const activeHorizonUrl = initialHorizonUrl || config.horizonUrl;
+  const activeSorobanUrl = initialSorobanUrl || config.sorobanUrl;
+  const activeNetworkPassphrase = initialNetwork || config.passphrase;
+
+  const [server, setServer] = useState(() => new Server(activeHorizonUrl));
+  const serverRef = useRef(server);
+
+  // Re-point the Horizon client whenever the active URL changes.
+  useEffect(() => {
+    const nextServer = new Server(activeHorizonUrl);
+    setServer(nextServer);
+    serverRef.current = nextServer;
+  }, [activeHorizonUrl]);
 
   /**
    * Connect to a Stellar wallet using the modal interface
@@ -56,8 +92,8 @@ export function WalletProvider({
   const connect = useCallback(async () => {
     try {
       // Get fresh kit instance (handles dynamic options)
-      const { kit } = await loadWalletKit();
-      const currentKit = kit();
+      const { kit, WalletNetwork } = await loadWalletKit();
+      const currentKit = kit(toWalletNetwork(WalletNetwork, activeNetworkKey));
 
       await currentKit.openModal({
         modalTitle: "Connect to your favorite wallet",
@@ -78,7 +114,7 @@ export function WalletProvider({
 
           // Load balances
           try {
-            const account = await server.accounts().accountId(address).call();
+            const account = await serverRef.current.accounts().accountId(address).call();
             setBalances(account.balances);
           } catch (error) {
             if (error && typeof error === 'object' && 'response' in error && error.response?.status === 404) {
@@ -94,7 +130,7 @@ export function WalletProvider({
       console.error('Failed to connect wallet:', error);
       throw error;
     }
-  }, [server]);
+  }, [activeNetworkKey]);
 
   /**
    * Disconnect wallet and clear state
@@ -118,13 +154,29 @@ export function WalletProvider({
   }, []);
 
   /**
+   * Switch the active network.
+   */
+  const switchNetwork = useCallback((networkKey) => {
+    if (!NETWORKS[networkKey]) return;
+
+    // Changing network requires disconnecting the current session
+    // since accounts and balances are network-specific.
+    if (connected) {
+      disconnect();
+    }
+
+    storage.set('stellar_network', networkKey);
+    setActiveNetworkKey(networkKey);
+  }, [connected, disconnect]);
+
+  /**
    * Refresh balances for the connected wallet
    */
   const refreshBalances = useCallback(async () => {
     if (!publicKey) return;
 
     try {
-      const account = await server.accounts().accountId(publicKey).call();
+      const account = await serverRef.current.accounts().accountId(publicKey).call();
       setBalances(account.balances);
     } catch (error) {
       if (error && typeof error === 'object' && 'response' in error && error.response?.status === 404) {
@@ -134,7 +186,7 @@ export function WalletProvider({
         setBalances([]);
       }
     }
-  }, [publicKey, server]);
+  }, [publicKey]);
 
   /**
    * Send a payment transaction
@@ -145,14 +197,14 @@ export function WalletProvider({
     }
 
     try {
-      const account = await server.loadAccount(publicKey);
+      const account = await serverRef.current.loadAccount(publicKey);
       const asset = opts.asset === 'XLM' || !opts.asset
         ? Asset.native()
         : new Asset(opts.asset.code, opts.asset.issuer);
 
       const txBuilder = new TransactionBuilder(account, {
         fee: BASE_FEE,
-        networkPassphrase: network,
+        networkPassphrase: activeNetworkPassphrase,
       }).addOperation(
         Operation.payment({
           destination: opts.to,
@@ -183,8 +235,8 @@ export function WalletProvider({
         });
       }
 
-      const signedTransaction = TransactionBuilder.fromXDR(signedTxXdr, network);
-      const result = await server.submitTransaction(signedTransaction);
+      const signedTransaction = TransactionBuilder.fromXDR(signedTxXdr, activeNetworkPassphrase);
+      const result = await serverRef.current.submitTransaction(signedTransaction);
 
       await refreshBalances();
       return result;
@@ -192,7 +244,7 @@ export function WalletProvider({
       console.error('Payment failed:', error);
       throw error;
     }
-  }, [publicKey, connected, server, network, refreshBalances]);
+  }, [publicKey, connected, activeNetworkPassphrase, refreshBalances]);
 
   // Auto-reconnect wallet on mount if previously connected
   useEffect(() => {
@@ -204,8 +256,8 @@ export function WalletProvider({
 
       if (wasConnected === 'true' && savedWalletId && savedAddress) {
         try {
-          const { kit } = await loadWalletKit();
-          const currentKit = kit();
+          const { kit, WalletNetwork } = await loadWalletKit();
+          const currentKit = kit(toWalletNetwork(WalletNetwork, activeNetworkKey));
           currentKit.setWallet(savedWalletId);
           const { address } = await currentKit.getAddress();
 
@@ -215,7 +267,7 @@ export function WalletProvider({
             setConnected(true);
 
             try {
-              const account = await server.accounts().accountId(address).call();
+              const account = await serverRef.current.accounts().accountId(address).call();
               setBalances(account.balances);
             } catch (error) {
               if (error && typeof error === 'object' && 'response' in error && error.response?.status === 404) {
@@ -235,7 +287,7 @@ export function WalletProvider({
     };
 
     autoReconnect();
-  }, [server]);
+  }, [activeNetworkKey]);
 
   const walletValue = {
     connected,
@@ -246,12 +298,16 @@ export function WalletProvider({
     disconnect,
     refreshBalances,
     sendPayment: connected ? sendPayment : undefined,
+    switchNetwork,
+    activeNetworkKey,
   };
 
   const configValue = {
-    horizonUrl,
-    network,
-    sorobanUrl,
+    activeNetworkKey,
+    horizonUrl: activeHorizonUrl,
+    sorobanUrl: activeSorobanUrl,
+    network: activeNetworkPassphrase,
+    switchNetwork,
   };
 
   return (
