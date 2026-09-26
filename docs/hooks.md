@@ -414,6 +414,49 @@ function Transfer({ from, to }: { from: string; to: string }) {
 
 ---
 
+## SEP Hooks
+
+### `useSep38Quote(options?)`
+
+Requests indicative (non-binding) prices and firm (binding) quotes from a [SEP-38](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0038.md) anchor quote server. Discover the quote server first with `discoverSep38QuoteServer(homeDomain)` (`@/lib/sep38`), which resolves `ANCHOR_QUOTE_SERVER` from the domain's `stellar.toml`.
+
+Does not fetch on mount, and never fetches automatically as parameters change — a quote is only requested when `getIndicativePrice`/`getFirmQuote` is called, since anchor quote requests can be rate-limited and a firm quote should never be requested unintentionally.
+
+**Signature:**
+```typescript
+function useSep38Quote(options?: UseSep38QuoteOptions): UseSep38QuoteReturn
+```
+
+**Returns:**
+An object containing:
+- `getIndicativePrice(params)`: Requests `GET /price`. Returns a `Sep38IndicativePrice` (`kind: 'indicative'`) — informational only, never binding.
+- `getFirmQuote(params)`: Requests `POST /quote` (requires a SEP-10 `authToken`). Returns a `Sep38FirmQuote` (`kind: 'firm'`) with an `id` and an `expiresAt` taken as-is from the anchor — never fabricated or extended client-side.
+- `quote` (`Sep38IndicativePrice | Sep38FirmQuote | undefined`): The most recently resolved result. Check `quote.kind` before treating it as executable.
+- `loading` (boolean), `error` (Error | null).
+- `isExpired` (boolean): True once a firm quote's `expiresAt` has passed. Always `false` for an indicative price.
+- `reset()`: Clears `quote` and `error`.
+
+**Example:**
+```tsx
+import { useSep38Quote } from '@/hooks/useSep38Quote';
+import { discoverSep38QuoteServer } from '@/lib/sep38';
+
+async function getPrice() {
+  const quoteServer = await discoverSep38QuoteServer('anchor.example.com');
+  const { getIndicativePrice, quote, loading, error } = useSep38Quote();
+
+  await getIndicativePrice({
+    quoteServer,
+    sellAsset: 'iso4217:USD',
+    buyAsset: 'stellar:XLM:GISSUER...',
+    sellAmount: '100',
+    context: 'sep6',
+  });
+}
+```
+
+---
+
 ## Utility Hooks
 
 ### `useClipboard(options)`
