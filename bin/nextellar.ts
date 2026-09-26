@@ -5,11 +5,16 @@ import { fileURLToPath } from "url";
 import fs from "fs-extra";
 import pc from "picocolors";
 import gradient from "gradient-string";
+import ora from "ora";
 import { scaffold } from "../src/lib/scaffold.js";
 import { upgrade } from "../src/lib/upgrade.js";
-import { runDeploy } from "../src/lib/deploy.js";
+import { runDeploy, type BundleProgress } from "../src/lib/deploy.js";
 import { runClean } from "../src/lib/clean.js";
-import { displaySuccess, NEXTELLAR_LOGO, printError } from "../src/lib/feedback.js";
+import {
+  displaySuccess,
+  NEXTELLAR_LOGO,
+  printError,
+} from "../src/lib/feedback.js";
 import { detectPackageManager } from "../src/lib/install.js";
 import { runInteractivePrompts } from "../src/lib/prompts.js";
 import { validateProjectName } from "../src/lib/validate.js";
@@ -245,6 +250,25 @@ program
     "52428800",
   )
   .action(async (cmdOpts: { dryRun?: boolean; sizeThreshold?: string }) => {
+    const spinner = cmdOpts.dryRun
+      ? undefined
+      : ora({
+          text: "Packing deployment bundle...",
+          color: "magenta",
+          spinner: "dots",
+        }).start();
+
+    const formatBytes = (bytes: number): string => {
+      if (bytes === 0) return "0 B";
+      const units = ["B", "KB", "MB", "GB"];
+      const exponent = Math.min(
+        Math.floor(Math.log(bytes) / Math.log(1024)),
+        units.length - 1,
+      );
+      const value = bytes / 1024 ** exponent;
+      return `${value.toFixed(exponent === 0 ? 0 : 1)} ${units[exponent]}`;
+    };
+
     try {
       const sizeThreshold = cmdOpts.sizeThreshold
         ? parseInt(cmdOpts.sizeThreshold, 10)
@@ -253,8 +277,21 @@ program
         cwd: process.cwd(),
         dryRun: !!cmdOpts.dryRun,
         sizeThreshold,
+        onProgress: spinner
+          ? (progress: BundleProgress) => {
+              const pct =
+                progress.totalBytes > 0
+                  ? Math.round(
+                      (progress.bytesPacked / progress.totalBytes) * 100,
+                    )
+                  : 0;
+              spinner.text = `Packing deployment bundle... ${pct}% (${progress.filesPacked}/${progress.totalFiles} files, ${formatBytes(progress.bytesPacked)}/${formatBytes(progress.totalBytes)})`;
+            }
+          : undefined,
       });
+      spinner?.succeed(pc.green("Deployment bundle packed"));
     } catch (err: any) {
+      spinner?.fail(pc.red("Failed to pack deployment bundle"));
       printError(err?.message || String(err));
       await exitWithTelemetry(1);
     } finally {
@@ -383,7 +420,9 @@ program.action(async (projectName, options) => {
       `  ${pc.magenta("◆")} Type:    ${pc.cyan(useTs ? "TypeScript" : "JavaScript")}`,
     );
     console.log(`  ${pc.magenta("◆")} Template: ${pc.cyan(template)}`);
-    console.log(`  ${pc.magenta("◆")} Contracts: ${pc.cyan(withContracts ? "Yes" : "No")}\n`);
+    console.log(
+      `  ${pc.magenta("◆")} Contracts: ${pc.cyan(withContracts ? "Yes" : "No")}\n`,
+    );
   }
 
   const shouldPrompt =

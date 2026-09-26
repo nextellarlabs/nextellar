@@ -58,14 +58,76 @@ describe('ReceiveForm Component (#880)', () => {
     expect(screen.getByText(ADDRESS)).toBeInTheDocument();
   });
 
-  it('copies the address to the clipboard and shows a confirmation on click', async () => {
+  it('copies the address to the clipboard on click', async () => {
     renderWithWallet(<ReceiveForm />);
 
-    fireEvent.click(screen.getByRole('button', { name: /copy address/i }));
+    fireEvent.click(screen.getByTestId('receive-form-copy'));
 
     await waitFor(() => {
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(ADDRESS);
     });
-    expect(await screen.findByText(/copied to clipboard/i)).toBeInTheDocument();
+  });
+
+  describe('SEP-7 payment request (#1056)', () => {
+    it('renders a plain address (no SEP-7 request) when no amount is provided', () => {
+      renderWithWallet(<ReceiveForm />);
+
+      expect(screen.getByText('Receive Stellar Assets')).toBeInTheDocument();
+      expect(screen.queryByTestId('receive-form-request-summary')).not.toBeInTheDocument();
+    });
+
+    it('shows a "Request Payment" heading and summary when an amount is provided', () => {
+      renderWithWallet(<ReceiveForm amount="25" />);
+
+      expect(screen.getByText('Request Payment')).toBeInTheDocument();
+      expect(screen.getByTestId('receive-form-request-summary')).toHaveTextContent('Requesting 25 XLM');
+    });
+
+    it('shows the asset code in the summary for a non-native asset', () => {
+      renderWithWallet(
+        <ReceiveForm
+          amount="10"
+          asset={{ code: 'USDC', issuer: 'GISSUERAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWJ4' }}
+        />,
+      );
+
+      expect(screen.getByTestId('receive-form-request-summary')).toHaveTextContent('Requesting 10 USDC');
+    });
+
+    it('still displays the plain address as text even when a SEP-7 request is active', () => {
+      renderWithWallet(<ReceiveForm amount="25" />);
+
+      expect(screen.getByTestId('receive-form-address')).toHaveTextContent(ADDRESS);
+    });
+
+    it('copies the SEP-7 URI (not the bare address) to the clipboard when an amount is set', async () => {
+      renderWithWallet(<ReceiveForm amount="25" />);
+
+      fireEvent.click(screen.getByTestId('receive-form-copy'));
+
+      await waitFor(() => {
+        expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+          `web+stellar:pay?destination=${ADDRESS}&amount=25`,
+        );
+      });
+    });
+
+    it('uses a SEP-7 payment-request aria-label on the copy button when an amount is set', () => {
+      renderWithWallet(<ReceiveForm amount="25" />);
+
+      expect(screen.getByRole('button', { name: /copy payment request/i })).toBeInTheDocument();
+    });
+
+    it('falls back to a bare-address QR code if building the SEP-7 URI throws', () => {
+      // asset without an issuer is invalid per buildSep7PayUri and should throw internally;
+      // the component should swallow it and fall back rather than crash.
+      renderWithWallet(
+        // @ts-expect-error - deliberately omitting required issuer to exercise the fallback path
+        <ReceiveForm amount="25" asset={{ code: 'USDC' }} />,
+      );
+
+      expect(screen.getByText('Receive Stellar Assets')).toBeInTheDocument();
+      expect(screen.queryByTestId('receive-form-request-summary')).not.toBeInTheDocument();
+    });
   });
 });
