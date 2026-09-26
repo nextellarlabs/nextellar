@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
 import { WalletContext, WalletConfigContext } from '../contexts/WalletProvider';
+import { NETWORKS } from '../config/networks';
 import NetworkSwitcher from './NetworkSwitcher';
 
 const mockWalletContext = {
@@ -23,6 +24,9 @@ const mockConfigContext = {
   sorobanUrl: 'https://soroban-testnet.stellar.org',
   network: 'Test SDF Network ; September 2015',
   switchNetwork: () => {},
+  networks: NETWORKS,
+  addCustomNetwork: () => {},
+  removeCustomNetwork: () => {},
 };
 
 const withMockContexts =
@@ -61,5 +65,23 @@ export const Mainnet: Story = {
 export const ConnectedWallet: Story = {
   decorators: [
     withMockContexts({}, { connected: true, walletName: 'Freighter', publicKey: 'GABC...XYZ' }),
+  ],
+};
+
+/** A previously-added custom network appears alongside the built-in presets */
+export const WithCustomNetwork: Story = {
+  decorators: [
+    withMockContexts({
+      networks: {
+        ...NETWORKS,
+        futurenet: {
+          name: 'Futurenet',
+          horizonUrl: 'https://horizon-futurenet.stellar.org',
+          sorobanUrl: 'https://rpc-futurenet.stellar.org',
+          passphrase: 'Test SDF Future Network ; October 2022',
+          isCustom: true,
+        },
+      },
+    }),
   ],
 };

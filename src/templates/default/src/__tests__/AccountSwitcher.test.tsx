@@ -115,8 +115,10 @@ describe('AccountSwitcher Component', () => {
 
       fireEvent.click(screen.getByRole('button'));
 
-      expect(screen.getByText('Freighter - GACCOUNT0000000001')).toBeInTheDocument();
-      expect(screen.getByText('Freighter - GACCOUNT0000000002')).toBeInTheDocument();
+      const menuItems = screen.getAllByRole('menuitem');
+      expect(menuItems).toHaveLength(2);
+      expect(menuItems[0]).toHaveTextContent('Freighter - GACCOUNT0000000001');
+      expect(menuItems[1]).toHaveTextContent('Freighter - GACCOUNT0000000002');
     });
 
     it('should show checkmark on current account', () => {
@@ -124,11 +126,11 @@ describe('AccountSwitcher Component', () => {
 
       fireEvent.click(screen.getByRole('button'));
 
-      const buttons = screen.getAllByRole('button');
-      // First button is dropdown toggle, second is first account
-      const firstAccountButton = buttons[1];
+      // menuitem buttons carry role="menuitem", not the implicit "button"
+      // role, so they're queried separately from the dropdown toggle.
+      const [firstAccountItem] = screen.getAllByRole('menuitem');
 
-      expect(firstAccountButton.querySelector('svg')).toBeInTheDocument();
+      expect(firstAccountItem.querySelector('svg')).toBeInTheDocument();
     });
   });
 
@@ -139,9 +141,8 @@ describe('AccountSwitcher Component', () => {
       const button = screen.getByRole('button');
       fireEvent.click(button);
 
-      const allButtons = screen.getAllByRole('button');
-      // Click on second account (after dropdown button)
-      fireEvent.click(allButtons[2]);
+      const menuItems = screen.getAllByRole('menuitem');
+      fireEvent.click(menuItems[1]); // Second account
 
       expect(mockSwitchAccount).toHaveBeenCalledWith('GACCOUNT0000000002');
     });
@@ -151,8 +152,8 @@ describe('AccountSwitcher Component', () => {
 
       fireEvent.click(screen.getByRole('button'));
 
-      const allButtons = screen.getAllByRole('button');
-      fireEvent.click(allButtons[1]); // First account (same as current)
+      const menuItems = screen.getAllByRole('menuitem');
+      fireEvent.click(menuItems[0]); // First account (same as current)
 
       expect(mockSwitchAccount).not.toHaveBeenCalled();
     });
@@ -161,8 +162,8 @@ describe('AccountSwitcher Component', () => {
       renderWithWallet(<AccountSwitcher />);
 
       fireEvent.click(screen.getByRole('button'));
-      const allButtons = screen.getAllByRole('button');
-      fireEvent.click(allButtons[2]); // Different account
+      const menuItems = screen.getAllByRole('menuitem');
+      fireEvent.click(menuItems[1]); // Different account
 
       await waitFor(() => {
         expect(screen.queryByText(/Available Accounts/)).not.toBeInTheDocument();
@@ -188,6 +189,69 @@ describe('AccountSwitcher Component', () => {
       await waitFor(() => {
         expect(screen.queryByText(/Available Accounts/)).not.toBeInTheDocument();
       });
+    });
+  });
+
+  describe('Focus management (#1140)', () => {
+    it('moves focus into the menu when it opens', () => {
+      renderWithWallet(<AccountSwitcher />);
+
+      fireEvent.click(screen.getByRole('button'));
+
+      const [firstMenuItem] = screen.getAllByRole('menuitem');
+      expect(firstMenuItem).toHaveFocus();
+    });
+
+    it('closes and restores focus to the trigger button on Escape', () => {
+      renderWithWallet(<AccountSwitcher />);
+
+      const trigger = screen.getByRole('button');
+      fireEvent.click(trigger);
+      expect(screen.getByRole('menu')).toBeInTheDocument();
+
+      fireEvent.keyDown(document, { key: 'Escape' });
+
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+      expect(trigger).toHaveFocus();
+    });
+
+    it('restores focus to the trigger button after selecting an account', async () => {
+      renderWithWallet(<AccountSwitcher />);
+
+      const trigger = screen.getByRole('button');
+      fireEvent.click(trigger);
+
+      const menuItems = screen.getAllByRole('menuitem');
+      fireEvent.click(menuItems[1]);
+
+      // handleAccountChange awaits switchAccount() before restoring focus.
+      await waitFor(() => {
+        expect(trigger).toHaveFocus();
+      });
+    });
+
+    it('wraps focus from the last item to the first on Tab', () => {
+      renderWithWallet(<AccountSwitcher />);
+
+      fireEvent.click(screen.getByRole('button'));
+      const menuItems = screen.getAllByRole('menuitem');
+
+      menuItems[menuItems.length - 1].focus();
+      fireEvent.keyDown(document, { key: 'Tab' });
+
+      expect(menuItems[0]).toHaveFocus();
+    });
+
+    it('wraps focus from the first item to the last on Shift+Tab', () => {
+      renderWithWallet(<AccountSwitcher />);
+
+      fireEvent.click(screen.getByRole('button'));
+      const menuItems = screen.getAllByRole('menuitem');
+
+      menuItems[0].focus();
+      fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+
+      expect(menuItems[menuItems.length - 1]).toHaveFocus();
     });
   });
 });

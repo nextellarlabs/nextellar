@@ -15,7 +15,7 @@ import {
 // (see `loadWalletKit`) so this file never eagerly pulls in
 // `@creit.tech/stellar-wallets-kit`.
 import type { ISupportedWallet, WalletNetwork } from "@creit.tech/stellar-wallets-kit";
-import { NETWORKS } from '../config/networks';
+import { NETWORKS, NetworkConfig, assertValidNetworkUrl } from '../config/networks';
 import { storage } from '../lib/storage';
 
 // `@creit.tech/stellar-wallets-kit` pulls in every wallet connector module
@@ -103,6 +103,33 @@ interface WalletConfigContextState {
   sorobanUrl: string;
   network: string;
   switchNetwork: (networkKey: string) => void;
+  /**
+   * Every selectable network, built-in presets plus any added via
+   * `addCustomNetwork` (issue #1107). `NetworkSwitcher` renders this instead
+   * of the static `NETWORKS` import so a custom entry appears immediately.
+   *
+   * Optional so a `WalletConfigContextState` value built against a provider
+   * version predating issue #1107 (or a hand-rolled test/story mock) still
+   * type-checks — consumers fall back to the static `NETWORKS` import.
+   */
+  networks?: Record<string, NetworkConfig>;
+  /**
+   * Register a custom Horizon/Soroban RPC pair as a selectable network.
+   * Validates both URLs the same way the CLI's `doctor --horizon-url`/
+   * `--soroban-url` does (issue #831) and throws with the same message
+   * shape on failure. Persists across reloads; does not switch to it —
+   * call `switchNetwork(key)` afterwards to activate it.
+   *
+   * Optional for the same backward-compatibility reason as `networks`.
+   */
+  addCustomNetwork?: (key: string, config: Omit<NetworkConfig, 'isCustom'>) => void;
+  /**
+   * Remove a previously-added custom network. A no-op for `testnet`/
+   * `mainnet` or any key that isn't marked `isCustom` — the built-in
+   * presets can't be removed this way. Optional for the same reason as
+   * `networks`/`addCustomNetwork`.
+   */
+  removeCustomNetwork?: (key: string) => void;
 }
 
 /**
@@ -170,22 +197,71 @@ export function WalletProvider({
   const [balances, setBalances] = useState<Balance[]>([]);
   const [accounts, setAccounts] = useState<WalletAccount[]>([]);
   const [currentAccountIndex, setCurrentAccountIndex] = useState(0);
+  // User-added networks beyond the built-in testnet/mainnet presets
+  // (issue #1107), keyed the same way as NETWORKS so both can be merged.
+  const [customNetworks, setCustomNetworks] = useState<Record<string, NetworkConfig>>({});
 
   // Consecutive connect() failures, used to compute the backoff delay for
   // the *next* attempt. Not component state — it must not trigger a
   // re-render, and needs to persist across renders without resetting.
   const connectFailureCountRef = useRef(0);
 
-  // Load saved network on mount
+  // Load persisted custom networks, then the saved active network — in that
+  // order, since a saved active key may itself be a custom network that
+  // only just became known.
   useEffect(() => {
+    const savedCustom = storage.get('stellar_custom_networks');
+    let loadedCustom: Record<string, NetworkConfig> = {};
+    if (savedCustom) {
+      try {
+        loadedCustom = JSON.parse(savedCustom) as Record<string, NetworkConfig>;
+        setCustomNetworks(loadedCustom);
+      } catch {
+        // Corrupt/foreign localStorage value — ignore rather than throw on mount.
+      }
+    }
+
     const savedNetwork = storage.get('stellar_network');
-    if (savedNetwork && NETWORKS[savedNetwork]) {
+    if (savedNetwork && (NETWORKS[savedNetwork] || loadedCustom[savedNetwork])) {
       setActiveNetworkKey(savedNetwork);
     }
   }, []);
 
+  // Every selectable network: built-in presets plus custom entries.
+  const networks = { ...NETWORKS, ...customNetworks };
+
+  const addCustomNetwork = useCallback(
+    (key: string, networkConfig: Omit<NetworkConfig, 'isCustom'>) => {
+      if (!key.trim()) {
+        throw new Error('Invalid network key: must not be empty.');
+      }
+      if (NETWORKS[key]) {
+        throw new Error(`Invalid network key: "${key}" is a reserved built-in network name.`);
+      }
+      assertValidNetworkUrl(networkConfig.horizonUrl, 'Horizon URL');
+      assertValidNetworkUrl(networkConfig.sorobanUrl, 'Soroban URL');
+
+      setCustomNetworks((prev) => {
+        const next = { ...prev, [key]: { ...networkConfig, isCustom: true } };
+        storage.set('stellar_custom_networks', JSON.stringify(next));
+        return next;
+      });
+    },
+    []
+  );
+
+  const removeCustomNetwork = useCallback((key: string) => {
+    setCustomNetworks((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      storage.set('stellar_custom_networks', JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
   // Derive active settings from the selected network; explicit props override.
-  const config = NETWORKS[activeNetworkKey] || NETWORKS.testnet;
+  const config = networks[activeNetworkKey] || NETWORKS.testnet;
   const activeHorizonUrl = horizonUrlProp ?? config.horizonUrl;
   const activeSorobanUrl = sorobanUrlProp ?? config.sorobanUrl;
   const activeNetworkPassphrase = networkPassphraseProp ?? config.passphrase;
@@ -457,17 +533,17 @@ export function WalletProvider({
    * Switch the active network.
    */
   const switchNetwork = useCallback((networkKey: string) => {
-    if (!NETWORKS[networkKey]) return;
-    
+    if (!NETWORKS[networkKey] && !customNetworks[networkKey]) return;
+
     // Changing network requires disconnecting the current session
     // since accounts and balances are network-specific.
     if (connected) {
       disconnect();
     }
-    
+
     storage.set('stellar_network', networkKey);
     setActiveNetworkKey(networkKey);
-  }, [connected, disconnect]);
+  }, [connected, disconnect, customNetworks]);
 
   /**
    * Refresh balances for the connected wallet
@@ -630,6 +706,9 @@ export function WalletProvider({
     sorobanUrl: activeSorobanUrl,
     network: activeNetworkPassphrase,
     switchNetwork,
+    networks,
+    addCustomNetwork,
+    removeCustomNetwork,
   };
 
   return (
