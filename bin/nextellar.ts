@@ -9,7 +9,11 @@ import { scaffold } from "../src/lib/scaffold.js";
 import { upgrade } from "../src/lib/upgrade.js";
 import { runDeploy } from "../src/lib/deploy.js";
 import { runClean } from "../src/lib/clean.js";
-import { displaySuccess, NEXTELLAR_LOGO, printError } from "../src/lib/feedback.js";
+import {
+  displaySuccess,
+  NEXTELLAR_LOGO,
+  printError,
+} from "../src/lib/feedback.js";
 import { detectPackageManager } from "../src/lib/install.js";
 import { runInteractivePrompts } from "../src/lib/prompts.js";
 import { validateProjectName } from "../src/lib/validate.js";
@@ -92,6 +96,52 @@ program
       }
     },
   );
+
+// Status subcommand: nextellar status [--json]
+program
+  .command("status")
+  .description(
+    "Show a scaffolded project's health score (deps, env vars, telemetry, git)",
+  )
+  .option("--json", "output results as JSON for CI integration")
+  .action(async (cmdOpts: { json?: boolean }) => {
+    try {
+      const { runStatus } = await import("../src/lib/status.js");
+      const exitCode = await runStatus({ json: !!cmdOpts.json });
+      await exitWithTelemetry(exitCode);
+    } catch (err: any) {
+      printError(`Failed to run status: ${err?.message || err}`);
+      await exitWithTelemetry(1);
+    }
+  });
+
+// Templates subcommand: nextellar templates [name] [--json]
+//
+// The template name is a positional argument here, not a --template option:
+// the root program already declares its own --template <name> (for
+// scaffolding), and Commander does not route a same-named option down into
+// a subcommand's own option of the same name when the root program defines
+// it too — the subcommand would silently always see it as undefined.
+program
+  .command("templates")
+  .description(
+    "Preview each template's file tree and description without scaffolding",
+  )
+  .argument("[name]", "preview only this template")
+  .option("--json", "output the preview data as JSON")
+  .action(async (name: string | undefined, cmdOpts: { json?: boolean }) => {
+    try {
+      const { runTemplatePreview } = await import("../src/lib/preview.js");
+      const exitCode = await runTemplatePreview({
+        template: name,
+        json: !!cmdOpts.json,
+      });
+      await exitWithTelemetry(exitCode);
+    } catch (err: any) {
+      printError(`Failed to preview templates: ${err?.message || err}`);
+      await exitWithTelemetry(1);
+    }
+  });
 
 // Add subcommand: nextellar add <feature> | nextellar add --list
 program
@@ -380,7 +430,9 @@ program.action(async (projectName, options) => {
       `  ${pc.magenta("◆")} Type:    ${pc.cyan(useTs ? "TypeScript" : "JavaScript")}`,
     );
     console.log(`  ${pc.magenta("◆")} Template: ${pc.cyan(template)}`);
-    console.log(`  ${pc.magenta("◆")} Contracts: ${pc.cyan(withContracts ? "Yes" : "No")}\n`);
+    console.log(
+      `  ${pc.magenta("◆")} Contracts: ${pc.cyan(withContracts ? "Yes" : "No")}\n`,
+    );
   }
 
   const shouldPrompt =
