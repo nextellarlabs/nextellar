@@ -199,6 +199,9 @@ Web authentication & payment request URIs (SEP-7 / SEP-45):
 Doctor diagnostic & troubleshooting guide:  
 🔗 [docs/troubleshooting.md](docs/troubleshooting.md)
 
+Testing guide for generated apps (Storybook interaction tests, and adding Jest/Vitest if you need it):  
+🔗 [docs/testing-guide.md](docs/testing-guide.md)
+
 ---
 
 ## 🚀 Backend & Stellar Wave Routes

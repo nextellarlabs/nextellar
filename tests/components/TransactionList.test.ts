@@ -12,10 +12,22 @@
  * - Rendering (type label, amount/asset, address truncation, relative time)
  * - Error handling
  */
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { jest, describe, it, expect, beforeEach } from "@jest/globals";
 import React from "react";
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  createTransactionHistoryState,
+  connectedWallet,
+  disconnectedWallet,
+  PUBLIC_KEY,
+  USDC,
+  type HorizonOperationRecord,
+} from "../helpers";
+import type { TransactionListProps } from "../../src/templates/default/src/components/TransactionList";
 
 // ── Mock useWallet from contexts ──────────────────────────────────────────────
 jest.unstable_mockModule("../../src/mocks/wallet-contexts-mock", () => ({
@@ -63,8 +75,11 @@ type MockTransaction = {
 
 // ── Test data factories ───────────────────────────────────────────────────────
 
-const WALLET_ADDRESS =
-  "GABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234";
+// Must match connectedWallet()'s publicKey (PUBLIC_KEY) -- that's what
+// useWallet() resolves to by default (see the beforeEach below and
+// renderList's default arg), and TransactionRow's sent/received direction
+// is derived by comparing each record's from/to against walletAddress.
+const WALLET_ADDRESS = PUBLIC_KEY;
 const OTHER_ADDRESS =
   "GXYZ7890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCD";
 
@@ -134,8 +149,14 @@ function mockHookReturn(
   );
 }
 
+// useWallet is a fully module-mocked jest.fn() (see the unstable_mockModule
+// call above), not the real hook reading WalletContext -- so the wrapped
+// render's `wallet` provider option has nothing to attach to. Configuring
+// the mock's return value directly is what actually determines what
+// TransactionList sees when it calls useWallet().
 function renderList(props?: TransactionListProps, wallet = connectedWallet()) {
-  return render(React.createElement(TransactionList, props), { wallet });
+  (useWallet as jest.Mock).mockReturnValue(wallet);
+  return render(React.createElement(TransactionList, props));
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -143,6 +164,7 @@ function renderList(props?: TransactionListProps, wallet = connectedWallet()) {
 describe("TransactionList Component", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (useWallet as jest.Mock).mockReturnValue(connectedWallet());
   });
 
   // ── 1. Direction ────────────────────────────────────────────────────────
@@ -153,7 +175,10 @@ describe("TransactionList Component", () => {
       mockHookReturn({ items: [receivedTx as any] });
 
       render(React.createElement(TransactionList));
-      expect(screen.getByLabelText("Received")).toBeInTheDocument();
+      // The row's full non-visual description starts with the direction
+      // (see the "rowLabel" construction in TransactionList.tsx) -- there's
+      // no bare "Received"/"Sent" aria-label on its own.
+      expect(screen.getByLabelText(/^Received /)).toBeInTheDocument();
     });
 
     it("renders a sent transaction with outgoing indicator", () => {
@@ -161,7 +186,7 @@ describe("TransactionList Component", () => {
       mockHookReturn({ items: [sentTx as any] });
 
       render(React.createElement(TransactionList));
-      expect(screen.getByLabelText("Sent")).toBeInTheDocument();
+      expect(screen.getByLabelText(/^Sent /)).toBeInTheDocument();
     });
   });
 
@@ -235,10 +260,6 @@ describe("TransactionList Component", () => {
     });
 
     it("renders a connect-wallet message when wallet is not connected", () => {
-      (useWallet as jest.Mock).mockReturnValue({
-        connected: false,
-        publicKey: undefined,
-      });
       mockHookReturn({ items: [], loading: false, hasMore: false });
 
       renderList({}, disconnectedWallet());
@@ -314,6 +335,100 @@ describe("TransactionList Component", () => {
         expect.any(String),
         expect.objectContaining({ type: "operations" }),
       );
+    });
+  });
+
+  // ── Asset filtering (#1102) ──────────────────────────────────────────────
+  // Applied client-side to the already-fetched page, so it does NOT change
+  // what's passed to useTransactionHistory -- these assert on rendered
+  // output, not on the hook call args.
+
+  describe("asset filtering", () => {
+    it("shows only transactions matching the asset filter, hiding the rest", () => {
+      const usdcTx = makePaymentRecord({
+        id: "op-0",
+        isReceived: true,
+        asset_type: "credit_alphanum4",
+        asset_code: USDC.code,
+      });
+      const xlmTx = makePaymentRecord({
+        id: "op-1",
+        isReceived: true,
+        asset_type: "native",
+      });
+      mockHookReturn({ items: [usdcTx, xlmTx] as any[] });
+
+      renderList({ asset: "USDC" });
+
+      expect(screen.getAllByRole("listitem")).toHaveLength(1);
+      expect(screen.getByText("USDC")).toBeInTheDocument();
+      expect(screen.queryByText("XLM")).not.toBeInTheDocument();
+    });
+
+    it("matches the asset filter case-insensitively", () => {
+      const usdcTx = makePaymentRecord({
+        id: "op-0",
+        isReceived: true,
+        asset_type: "credit_alphanum4",
+        asset_code: USDC.code,
+      });
+      mockHookReturn({ items: [usdcTx] as any[] });
+
+      renderList({ asset: "usdc" });
+
+      expect(screen.getAllByRole("listitem")).toHaveLength(1);
+    });
+
+    it('filters to only the native asset when asset="XLM"', () => {
+      const usdcTx = makePaymentRecord({
+        id: "op-0",
+        isReceived: true,
+        asset_type: "credit_alphanum4",
+        asset_code: USDC.code,
+      });
+      const xlmTx = makePaymentRecord({
+        id: "op-1",
+        isReceived: true,
+        asset_type: "native",
+      });
+      mockHookReturn({ items: [usdcTx, xlmTx] as any[] });
+
+      renderList({ asset: "XLM" });
+
+      expect(screen.getAllByRole("listitem")).toHaveLength(1);
+      expect(screen.getByText("XLM")).toBeInTheDocument();
+    });
+
+    it("renders every item when no asset filter is provided", () => {
+      const usdcTx = makePaymentRecord({
+        id: "op-0",
+        isReceived: true,
+        asset_type: "credit_alphanum4",
+        asset_code: USDC.code,
+      });
+      const xlmTx = makePaymentRecord({
+        id: "op-1",
+        isReceived: true,
+        asset_type: "native",
+      });
+      mockHookReturn({ items: [usdcTx, xlmTx] as any[] });
+
+      renderList();
+
+      expect(screen.getAllByRole("listitem")).toHaveLength(2);
+    });
+
+    it("shows the empty state when the filter matches nothing on the current page", () => {
+      const xlmTx = makePaymentRecord({
+        id: "op-0",
+        isReceived: true,
+        asset_type: "native",
+      });
+      mockHookReturn({ items: [xlmTx] as any[] });
+
+      renderList({ asset: "USDC" });
+
+      expect(screen.getByText(/no transactions yet/i)).toBeInTheDocument();
     });
   });
 
@@ -402,7 +517,10 @@ describe("TransactionList Component", () => {
 
       renderList();
 
-      expect(screen.getByText("Failed")).toBeInTheDocument();
+      // "Failed" appears twice: the visible status badge and the row's
+      // sr-only full description -- both are intentional, not a duplicate
+      // bug, so assert on the count rather than a single unique match.
+      expect(screen.getAllByText("Failed").length).toBeGreaterThanOrEqual(1);
     });
 
     it("handles missing counterparty gracefully", () => {

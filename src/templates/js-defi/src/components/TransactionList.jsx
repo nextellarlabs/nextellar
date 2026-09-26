@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useWallet } from '../contexts';
 import { useTransactionHistory } from '../hooks/useTransactionHistory';
 import {
@@ -256,7 +256,7 @@ function TransactionRow({ item, walletAddress }) {
  * @param {number}  [props.limit=10]                    - Transactions per page.
  * @param {'payments'|'operations'} [props.type]        - Fetch mode.
  */
-export default function TransactionList({ limit = 10, type }) {
+export default function TransactionList({ limit = 10, type, asset }) {
   const [mounted, setMounted] = useState(false);
   const { connected, publicKey } = useWallet();
 
@@ -265,6 +265,18 @@ export default function TransactionList({ limit = 10, type }) {
       pageSize: limit,
       type,
     });
+
+  // Filtered client-side, against whatever page of results is already
+  // loaded -- Horizon's operations/payments builder used by
+  // useTransactionHistory has no asset param to filter server-side, and
+  // filtering there would also desync hasMore/pagination math, which is
+  // computed from the unfiltered page size.
+  const filteredItems = useMemo(() => {
+    if (!asset) return items;
+    return items.filter(
+      (item) => getAssetLabel(item).toLowerCase() === asset.toLowerCase(),
+    );
+  }, [items, asset]);
 
   // Prevent hydration mismatch in Next.js
   useEffect(() => {
@@ -323,7 +335,7 @@ export default function TransactionList({ limit = 10, type }) {
   }
 
   // ── Empty state ───────────────────────────────────────────────
-  if (!loading && items.length === 0) {
+  if (!loading && filteredItems.length === 0) {
     return (
       <div className="w-full p-10 text-center" role="status">
         <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 mb-4">
@@ -369,7 +381,7 @@ export default function TransactionList({ limit = 10, type }) {
         role="list"
         aria-label="Transaction history"
       >
-        {items.map((item) => (
+        {filteredItems.map((item) => (
           <div key={item.id} role="listitem">
             <TransactionRow item={item} walletAddress={publicKey || ''} />
           </div>
