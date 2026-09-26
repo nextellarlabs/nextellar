@@ -209,14 +209,16 @@ export function buildSep9Payload(fields: Sep9Fields): Sep9Fields {
     );
   }
 
-  const result: Sep9Fields = {};
-  for (const [key, value] of Object.entries(fields) as [keyof Sep9Fields, unknown][]) {
+  const result: Record<string, Sep9Fields[keyof Sep9Fields]> = {};
+  for (const [key, value] of Object.entries(fields) as [
+    keyof Sep9Fields,
+    Sep9Fields[keyof Sep9Fields],
+  ][]) {
     if (value === undefined || value === null) continue;
     if (typeof value === "string" && value.trim() === "") continue;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (result as any)[key] = value;
+    result[key] = value;
   }
-  return result;
+  return result as Sep9Fields;
 }
 
 /**
