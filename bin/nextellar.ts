@@ -106,6 +106,7 @@ program
   .option("--force", "overwrite existing files")
   .option("--skip-install", "skip installing npm dependencies")
   .option("--package-manager <manager>", "npm, yarn, or pnpm")
+  .option("--dry-run", "simulate feature addition without writing files or installing packages")
   .action(
     async (
       feature: string | undefined,
@@ -114,6 +115,7 @@ program
         force?: boolean;
         skipInstall?: boolean;
         packageManager?: string;
+        dryRun?: boolean;
       },
     ) => {
       try {
@@ -152,6 +154,7 @@ program
           force: cmdOpts.force,
           skipInstall: cmdOpts.skipInstall,
           packageManager: cmdOpts.packageManager,
+          dryRun: cmdOpts.dryRun,
         });
         if (!result.success) {
           printError(result.message ?? "Add failed.");

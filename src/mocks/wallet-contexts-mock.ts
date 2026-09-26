@@ -11,7 +11,7 @@
  * hand-built wallet state. So this mock exposes a genuine context rather than
  * a throwing stub, and `useWallet` reads from it.
  */
-import { createContext, useContext } from 'react';
+import { createContext, createElement, useContext, type ReactNode } from 'react';
 
 export interface WalletAccount {
   address: string;
@@ -22,6 +22,54 @@ export interface WalletAccount {
 // Intentionally loose: each template's WalletContextState differs slightly, and
 // component tests supply whichever subset of fields the component reads.
 export type WalletContextState = Record<string, unknown>;
+
+// `tests/helpers/fixtures.ts` and `tests/helpers/render.tsx` import these
+// shapes from here; they describe the subset of the real WalletProvider's
+// context value that component/hook tests actually exercise.
+export interface MockWalletAccount {
+  address: string;
+  displayName?: string;
+}
+
+export interface MockBalance {
+  asset_type: string;
+  asset_code?: string;
+  asset_issuer?: string;
+  balance: string;
+}
+
+export interface MockWalletConfig {
+  horizonUrl?: string;
+  network?: string;
+}
+
+export interface MockWalletState {
+  connected: boolean;
+  publicKey: string | undefined;
+  walletName: string | undefined;
+  balances: MockBalance[];
+  accounts: MockWalletAccount[];
+  currentAccountIndex: number;
+  connect: () => Promise<void>;
+  disconnect: () => void;
+  refreshBalances: () => Promise<void>;
+  switchAccount: (address: string) => Promise<void>;
+}
+
+export function defaultWalletState(): MockWalletState {
+  return {
+    connected: false,
+    publicKey: undefined,
+    walletName: undefined,
+    balances: [],
+    accounts: [],
+    currentAccountIndex: 0,
+    connect: async () => {},
+    disconnect: () => {},
+    refreshBalances: async () => {},
+    switchAccount: async () => {},
+  };
+}
 
 export const WalletContext = createContext<WalletContextState | undefined>(undefined);
 export const WalletConfigContext = createContext<unknown>(undefined);

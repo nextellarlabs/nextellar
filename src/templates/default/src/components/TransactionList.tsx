@@ -15,7 +15,52 @@ import {
   Loader2,
   ChevronDown,
   Clock,
+  Download,
 } from 'lucide-react';
+
+// ── CSV Export Helper ─────────────────────────────────────────────────────────
+
+export function generateTransactionsCSV(items: OperationItem[]): string {
+  const headers = ['id', 'type', 'created_at', 'amount', 'asset', 'from', 'to', 'transaction_hash', 'status'];
+  const rows = items.map((item) => {
+    const op = item as unknown as Record<string, unknown>;
+    const amount = typeof op.amount === 'string' ? op.amount : '';
+    const asset = getAssetLabel(item);
+    const from = typeof op.from === 'string' ? op.from : (item.source_account || '');
+    const to = typeof op.to === 'string' ? op.to : '';
+    const txHash = typeof op.transaction_hash === 'string' ? op.transaction_hash : '';
+    const status = getStatus(item).label;
+
+    return [
+      item.id,
+      item.type,
+      item.created_at,
+      amount,
+      asset,
+      from,
+      to,
+      txHash,
+      status,
+    ].map((val) => `"${String(val).replace(/"/g, '""')}"`).join(',');
+  });
+
+  return [headers.join(','), ...rows].join('\n');
+}
+
+export function exportTransactionsToCSV(items: OperationItem[], filename = 'stellar-transactions.csv') {
+  if (typeof window === 'undefined' || items.length === 0) return;
+  const csvContent = generateTransactionsCSV(items);
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', filename);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -357,6 +402,18 @@ export function TransactionListContent({
           </button>
         </div>
       )}
+
+      {/* Actions Toolbar */}
+      <div className="flex justify-end p-2 border-b border-gray-100 dark:border-gray-800">
+        <button
+          onClick={() => exportTransactionsToCSV(items)}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
+          aria-label="Export transactions to CSV"
+        >
+          <Download className="w-3.5 h-3.5" />
+          Export CSV
+        </button>
+      </div>
 
       {/* Transaction rows */}
       <ul

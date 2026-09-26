@@ -13,6 +13,7 @@
  * - In-flight labelling and the disabled guard
  * - Failure handling for both actions
  * - Theme styling and the AccountSwitcher slot
+ * - Manual balance-refresh affordance (#1069)
  */
 import "@testing-library/jest-dom";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
@@ -37,10 +38,25 @@ jest.unstable_mockModule("../../src/mocks/wallet-contexts-mock", () => ({
   ),
 }));
 
+// WalletConnectButton also wires the refresh affordance directly to
+// useStellarBalances (real hook, not the wallet context), so it's mocked the
+// same way BalanceDisplay's tests mock it.
+jest.unstable_mockModule(
+  "../../src/templates/default/src/hooks/useStellarBalances",
+  () => ({
+    useStellarBalances: jest.fn(),
+  }),
+);
+
 // ── Dynamic imports (must come after unstable_mockModule) ─────────────────────
-const [{ default: WalletConnectButton }, { useWallet }] = await Promise.all([
+const [
+  { default: WalletConnectButton },
+  { useWallet },
+  { useStellarBalances },
+] = await Promise.all([
   import("../../src/templates/default/src/components/WalletConnectButton"),
   import("../../src/mocks/wallet-contexts-mock"),
+  import("../../src/templates/default/src/hooks/useStellarBalances"),
 ]);
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -77,6 +93,35 @@ function mockWallet(partial: Partial<WalletState> = {}) {
   return state;
 }
 
+type BalancesState = {
+  balances: unknown[];
+  loading: boolean;
+  error: Error | null;
+  refresh: () => Promise<void>;
+  stopPolling: () => void;
+};
+
+/** Configures useStellarBalances for a single test, filling in inert defaults. */
+function mockBalances(partial: Partial<BalancesState> = {}) {
+  const state: BalancesState = {
+    balances: [],
+    loading: false,
+    error: null,
+    refresh: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
+    stopPolling: jest.fn(),
+    ...partial,
+  };
+  (useStellarBalances as unknown as jest.Mock).mockReturnValue(state);
+  return state;
+}
+
+/** The manual balance-refresh button, only rendered while connected. */
+function getRefreshButton() {
+  return screen.getByRole("button", {
+    name: /refresh(ing)? balances/i,
+  });
+}
+
 /** The primary connect/disconnect button. */
 function getActionButton() {
   return screen.getByRole("button", {
@@ -87,6 +132,7 @@ function getActionButton() {
 describe("WalletConnectButton", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockBalances();
   });
 
   afterEach(() => {
@@ -184,7 +230,85 @@ describe("WalletConnectButton", () => {
 
       render(<WalletConnectButton />);
 
-      expect(screen.getAllByRole("button")).toHaveLength(1);
+      // Disconnect button + refresh button, but no switcher trigger.
+      expect(screen.getAllByRole("button")).toHaveLength(2);
+    });
+  });
+
+  describe("balance refresh (#1069)", () => {
+    it("does not render a refresh button while disconnected", () => {
+      mockWallet({ connected: false });
+
+      render(<WalletConnectButton />);
+
+      expect(
+        screen.queryByRole("button", { name: /refresh(ing)? balances/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("renders a refresh button when connected", () => {
+      mockWallet({
+        connected: true,
+        walletName: "Freighter",
+        accounts: [ACCOUNT_A],
+        publicKey: ACCOUNT_A,
+      });
+
+      render(<WalletConnectButton />);
+
+      expect(getRefreshButton()).toBeInTheDocument();
+    });
+
+    it("calls the balances hook's refresh() when clicked", () => {
+      const balances = mockBalances();
+      mockWallet({
+        connected: true,
+        walletName: "Freighter",
+        accounts: [ACCOUNT_A],
+        publicKey: ACCOUNT_A,
+      });
+
+      render(<WalletConnectButton />);
+      fireEvent.click(getRefreshButton());
+
+      expect(balances.refresh).toHaveBeenCalledTimes(1);
+    });
+
+    it('shows a "Refreshing balances" busy state while the refresh is in flight', () => {
+      mockBalances({ loading: true });
+      mockWallet({
+        connected: true,
+        walletName: "Freighter",
+        accounts: [ACCOUNT_A],
+        publicKey: ACCOUNT_A,
+      });
+
+      render(<WalletConnectButton />);
+
+      const button = getRefreshButton();
+      expect(button).toBeDisabled();
+      expect(button).toHaveAttribute("aria-busy", "true");
+    });
+
+    it("passes the wallet's public key to useStellarBalances so it can query the active account", () => {
+      mockWallet({
+        connected: true,
+        walletName: "Freighter",
+        accounts: [ACCOUNT_A],
+        publicKey: ACCOUNT_A,
+      });
+
+      render(<WalletConnectButton />);
+
+      expect(useStellarBalances).toHaveBeenCalledWith(ACCOUNT_A);
+    });
+
+    it("passes null to useStellarBalances while disconnected", () => {
+      mockWallet({ connected: false, publicKey: undefined });
+
+      render(<WalletConnectButton />);
+
+      expect(useStellarBalances).toHaveBeenCalledWith(null);
     });
   });
 
