@@ -131,6 +131,23 @@ const FEATURES: Record<string, FeatureDef> = {
     npmDependencies: [],
     kind: "component",
   },
+  "contract-call": {
+    id: "contract-call",
+    description:
+      "ContractCallForm + ContractCallPreview components (build, simulate, and submit a Soroban contract call)",
+    // ContractCallForm imports contract-spec.ts directly (not shipped by the
+    // "contracts" feature, which only covers the two hooks), plus the
+    // ContractCallPreview it renders. useSorobanContract/useSorobanEvents
+    // come from the "contracts" dependency below.
+    files: [
+      "lib/contract-spec.ts",
+      "components/ContractCallPreview.tsx",
+      "components/ContractCallForm.tsx",
+    ],
+    dependsOn: ["contracts"],
+    npmDependencies: [],
+    kind: "component",
+  },
   components: {
     id: "components",
     description: "All Nextellar UI components and the hooks they render",
@@ -144,6 +161,7 @@ const FEATURES: Record<string, FeatureDef> = {
       "send-form",
       "receive-form",
       "transaction-list",
+      "contract-call",
     ],
     npmDependencies: [],
     kind: "component",
