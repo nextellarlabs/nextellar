@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  *
- * TransactionList Component Tests — defi template (#814)
+ * TransactionList Component Tests — js-template template
  */
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
@@ -17,7 +17,7 @@ jest.unstable_mockModule("../../src/mocks/wallet-contexts-mock", () => ({
 }));
 
 jest.unstable_mockModule(
-  "../../src/templates/defi/src/hooks/useTransactionHistory",
+  "../../src/templates/js-template/src/hooks/useTransactionHistory",
   () => ({
     useTransactionHistory: jest.fn(),
   }),
@@ -25,8 +25,8 @@ jest.unstable_mockModule(
 
 const [{ default: TransactionList }, { useTransactionHistory }, { useWallet }] =
   await Promise.all([
-    import("../../src/templates/defi/src/components/TransactionList"),
-    import("../../src/templates/defi/src/hooks/useTransactionHistory"),
+    import("../../src/templates/js-template/src/components/TransactionList"),
+    import("../../src/templates/js-template/src/hooks/useTransactionHistory"),
     import("../../src/mocks/wallet-contexts-mock"),
   ]);
 
@@ -81,7 +81,7 @@ function mockHook(overrides: Record<string, unknown> = {}) {
   });
 }
 
-describe("TransactionList (defi template)", () => {
+describe("TransactionList (js-template template)", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (useWallet as jest.Mock).mockReturnValue({
