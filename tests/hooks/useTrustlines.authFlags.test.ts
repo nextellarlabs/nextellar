@@ -12,6 +12,10 @@
  */
 import { jest } from "@jest/globals";
 import { renderHook, act } from "@testing-library/react";
+import {
+  PUBLIC_KEY as VALID_PUBLIC_KEY,
+  PUBLIC_KEY_2 as VALID_ISSUER,
+} from "../helpers/fixtures";
 
 const mockAccountsCall = jest.fn();
 const mockLoadAccount = jest.fn();
@@ -50,10 +54,6 @@ await jest.unstable_mockModule("@stellar/stellar-sdk", () => ({
 
 const { useTrustlines } =
   await import("../../src/templates/default/src/hooks/useTrustlines.js");
-
-const VALID_PUBLIC_KEY =
-  "GABC1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234";
-const VALID_ISSUER = "GDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234";
 
 function balanceLine(overrides: Record<string, unknown>) {
   return {

@@ -11,17 +11,11 @@ import {
   flush,
   advanceAndFlush,
 } from "../helpers/fake-timers.js";
-
-const HORIZON_URL = "https://horizon-testnet.stellar.org";
-
-const USDC = {
-  code: "USDC",
-  issuer: "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
-};
-const BTC = {
-  code: "BTC",
-  issuer: "GDXTJEK4JZNSTNQAWA53RZNS2GIKTDRPEUWDXELFMKU52XNECNVDVUTD",
-};
+import {
+  HORIZON_TESTNET_URL as HORIZON_URL,
+  USDC,
+  BTC,
+} from "../helpers/fixtures";
 
 function makeOrderbookResponse(bids: any[] = [], asks: any[] = []) {
   return { bids, asks };

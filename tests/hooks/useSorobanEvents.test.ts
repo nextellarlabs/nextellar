@@ -11,6 +11,7 @@ import {
   advanceAndFlush,
   exhaustPendingTimers,
 } from "../helpers/fake-timers.js";
+import { CONTRACT_ID, makeSdkEvent } from "../helpers/fixtures";
 
 await jest.unstable_mockModule(
   "@stellar/stellar-sdk",
@@ -41,39 +42,6 @@ interface SorobanEvent {
 }
 
 // ── Test fixtures ─────────────────────────────────────────────────────────────
-
-const CONTRACT_ID = "CABC1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12345";
-
-/**
- * Build a mock SDK EventResponse matching the shape of rpc.Api.EventResponse.
- * The real SDK returns objects with toXDR() on topic/value and toString() on
- * contractId – we replicate that interface here.
- */
-function makeSdkEvent(overrides: Record<string, any> = {}) {
-  const {
-    id = "evt-001",
-    type = "contract",
-    ledger = 100,
-    ledgerClosedAt = "2024-01-01T00:00:00Z",
-    contractId = CONTRACT_ID,
-    topic = ["AAAADgAAAAh0cmFuc2Zlcg=="],
-    value = "AAAAAQAAAA==",
-    txHash = "abc123def456",
-    inSuccessfulContractCall = true,
-  } = overrides;
-
-  return {
-    id,
-    type,
-    ledger,
-    ledgerClosedAt,
-    contractId: { toString: () => contractId },
-    topic: (topic as string[]).map((t: string) => ({ toXDR: () => t })),
-    value: { toXDR: () => value },
-    txHash,
-    inSuccessfulContractCall,
-  };
-}
 
 // Pre-built SDK-shaped mock events
 const sdkEvent1 = makeSdkEvent({ id: "evt-001", ledger: 100 });
@@ -597,9 +565,8 @@ describe("useSorobanEvents (Template Hook)", () => {
     });
 
     it("should cap backoff at MAX_BACKOFF_MS", async () => {
-      const { MAX_BACKOFF_MS } = await import(
-        "../../src/templates/default/src/hooks/useSorobanEvents.js"
-      );
+      const { MAX_BACKOFF_MS } =
+        await import("../../src/templates/default/src/hooks/useSorobanEvents.js");
       expect(MAX_BACKOFF_MS).toBe(30_000);
     });
 
@@ -619,4 +586,3 @@ describe("useSorobanEvents (Template Hook)", () => {
     });
   });
 });
-

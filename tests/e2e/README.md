@@ -117,6 +117,23 @@ If the test fails with unresolved `{{PLACEHOLDER}}` syntax:
 2. Verify the file is in `filesToProcess` array in `src/lib/scaffold.ts`
 3. Verify the placeholder key exists in the `config` object in `src/lib/scaffold.ts`
 
+### `scaffold-dev-server.e2e.test.ts`
+
+Validates that a scaffolded app actually boots and renders — not just builds. The other suites here run `next build` (a production compile), which does not catch every runtime error a dev server load can hit (a client-only hook misbehaving, a hydration mismatch, a broken provider).
+
+**What it tests:**
+- Scaffolds the default TypeScript template and runs `npm install`
+- Starts `npm run dev` on a dedicated port (3100, distinct from the default 3000 to avoid colliding with a developer's own local dev server)
+- Loads the home page in a real Chromium browser via Playwright
+- Asserts the page responds successfully, renders non-empty content, and produces no console errors or uncaught page errors
+
+**Requirements:**
+- Everything `scaffold-default.e2e.test.ts` requires, plus Playwright's Chromium browser:
+  ```bash
+  npx playwright install chromium
+  ```
+- ~1-2 minutes execution time
+
 ## Future E2E Tests
 
 Additional E2E tests can be added for:
@@ -124,3 +141,4 @@ Additional E2E tests can be added for:
 - `scaffold-defi.e2e.test.ts` - Test DeFi template
 - `scaffold-js.e2e.test.ts` - Test JavaScript template
 - `scaffold-with-contracts.e2e.test.ts` - Test with `--contracts` flag
+- Extending `scaffold-dev-server.e2e.test.ts`'s dev-server smoke check to the other templates (minimal, defi, js-template, js-defi)
