@@ -105,6 +105,7 @@ export function useStellarPayment(
   opts?: { horizonUrl?: string; network?: 'TESTNET' | 'PUBLIC' }
 ): {
   buildPaymentXDR: (params: PaymentParams) => Promise<string>;
+  buildFeeBumpPaymentXDR: (params: PaymentParams & { sponsor: string; maxFee?: number | string }) => Promise<string>;
   submitSignedXDR: (signedXdrBase64: string) => Promise<PaymentResult>;
   signAndSubmitWithSecret: (params: PaymentParams & { secret: string }) => Promise<PaymentResult>;
 } {
@@ -406,7 +407,7 @@ export function useStellarPayment(
 
     const feeBumpTx = TransactionBuilder.buildFeeBumpTransaction(
       params.sponsor,
-      params.maxFee || BASE_FEE,
+      String(params.maxFee || BASE_FEE),
       innerTx,
       getNetworkPassphrase()
     );

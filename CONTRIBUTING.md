@@ -59,3 +59,34 @@ npm run format:check
 
 # 5. Run the CLI locally against your changes
 npm start
+```
+
+## Accessibility (a11y) Testing
+
+`tests/accessibility.test.tsx` and `tests/accessibility.mocked-wallet.test.tsx` run
+`jest-axe` against real, rendered markup for the `default` template's components
+(see `docs/accessibility-audit.md` for the full manual audit these automate a subset
+of). These are ordinary Jest test files matched by `jest.config.mjs`'s `testMatch`,
+so **`npm test` already runs them, and a `toHaveNoViolations()` failure fails the
+suite like any other test** — no separate a11y-specific CI job exists or is needed.
+
+In CI, the `Coverage threshold gate` job in `.github/workflows/ci.yml` runs
+`npm test -- --coverage` on every PR and blocks the merge on any test failure,
+including an axe violation in these two files. If you add or change a component
+under `src/templates/default/src/components/`, run `npm test` locally before
+pushing to catch a violation before CI does.
+
+When adding a new component (or a new interactive state to an existing one) that
+belongs in this coverage, add a case to whichever of the two files matches its
+testing style:
+- `tests/accessibility.test.tsx` — uses `./helpers`'s Context-Provider-based
+  `render(el, { wallet })`. Use this for most components.
+- `tests/accessibility.mocked-wallet.test.tsx` — uses
+  `jest.unstable_mockModule` to make `useWallet()`/`useStellarBalances()` real
+  `jest.fn()`s with per-test `mockReturnValue` control. Use this only when a
+  component's test genuinely needs that (e.g. asserting the hook was called with
+  specific arguments) — do **not** import from `./helpers` in this file, since
+  `./helpers` statically imports the real `src/mocks/wallet-contexts-mock` and
+  that import happens (per the ES module spec) before any
+  `jest.unstable_mockModule` call in the same file could intercept it, silently
+  making the mock never take effect.

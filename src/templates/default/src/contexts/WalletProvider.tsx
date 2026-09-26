@@ -67,6 +67,29 @@ export interface PaymentOptions {
   asset?: 'XLM' | { code: string; issuer: string };
   memo?: string;
   secret?: string;
+  /**
+   * Public key of a third party who will cover this transaction's fee via a
+   * CAP-15 fee-bump wrapper. A fee-bump's outer envelope must be signed by
+   * the sponsor's own key, which this wallet has no way to obtain — there is
+   * no sponsor-signing channel here, only their public key. So when set,
+   * sendPayment signs the inner payment as usual but does NOT submit it:
+   * it returns the *unsigned* fee-bump envelope's XDR for the caller to hand
+   * to the sponsor out-of-band (e.g. paste into another wallet) to sign and
+   * submit themselves.
+   */
+  sponsor?: string;
+}
+
+/** Result of a fee-bumped sendPayment call — the sponsor still needs to sign and submit this. */
+export interface UnsignedFeeBumpResult {
+  requiresSponsorSignature: true;
+  feeBumpXdr: string;
+}
+
+export function isUnsignedFeeBumpResult(
+  value: Horizon.HorizonApi.SubmitTransactionResponse | UnsignedFeeBumpResult
+): value is UnsignedFeeBumpResult {
+  return (value as UnsignedFeeBumpResult).requiresSponsorSignature === true;
 }
 
 /**
@@ -91,7 +114,7 @@ interface WalletContextState {
   disconnect: () => void;
   refreshBalances: () => Promise<void>;
   switchAccount: (address: string) => Promise<void>;
-  sendPayment?: (opts: PaymentOptions) => Promise<Horizon.HorizonApi.SubmitTransactionResponse>;
+  sendPayment?: (opts: PaymentOptions) => Promise<Horizon.HorizonApi.SubmitTransactionResponse | UnsignedFeeBumpResult>;
 }
 
 /**
@@ -491,7 +514,7 @@ export function WalletProvider({
   /**
    * Send a payment transaction
    */
-  const sendPayment = useCallback(async (opts: PaymentOptions): Promise<Horizon.HorizonApi.SubmitTransactionResponse> => {
+  const sendPayment = useCallback(async (opts: PaymentOptions): Promise<Horizon.HorizonApi.SubmitTransactionResponse | UnsignedFeeBumpResult> => {
     if (!publicKey || !connected) {
       throw new Error('Wallet not connected');
     }
@@ -536,6 +559,22 @@ export function WalletProvider({
       }
 
       const signedTransaction = TransactionBuilder.fromXDR(signedTxXdr, activeNetworkPassphrase);
+
+      if (opts.sponsor) {
+        // A fee-bump envelope must itself be signed by the sponsor, which
+        // this wallet has no channel to obtain — only their public key was
+        // supplied. Build the unsigned fee-bump wrapper and hand its XDR
+        // back to the caller; it's the sponsor's own wallet that needs to
+        // sign and submit it from here.
+        const feeBumpTx = TransactionBuilder.buildFeeBumpTransaction(
+          opts.sponsor,
+          BASE_FEE,
+          signedTransaction as import('@stellar/stellar-sdk').Transaction,
+          activeNetworkPassphrase
+        );
+        return { requiresSponsorSignature: true, feeBumpXdr: feeBumpTx.toXDR() };
+      }
+
       const result = await serverRef.current.submitTransaction(signedTransaction);
 
       await refreshBalances();

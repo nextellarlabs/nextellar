@@ -21,6 +21,7 @@
     "clean": "rimraf dist",
     "verify:pack": "node scripts/verify-pack-contents.mjs",
     "analyze:bundles": "node scripts/analyze-template-bundles.mjs",
+    "lint:i18n": "node scripts/check-hardcoded-jsx-text.mjs --new-only",
     "prepublishOnly": "npm run clean && npm test && npm run build",
     "prepare": "husky"
   },

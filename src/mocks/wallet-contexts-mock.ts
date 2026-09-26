@@ -103,7 +103,7 @@ export function WalletProvider({
 }) {
   return createElement(
     WalletContext.Provider,
-    { value: value ?? defaultWalletState() },
+    { value: (value ?? defaultWalletState()) as unknown as WalletContextState },
     children,
   );
 }
