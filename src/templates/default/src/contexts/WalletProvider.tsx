@@ -201,30 +201,61 @@ export function WalletProvider({
   }, [activeHorizonUrl]);
 
   /**
+   * The active account list/index is persisted per wallet extension *and*
+   * per network (#1067): a Freighter account selected on testnet has no
+   * bearing on which account should be active for Albedo on mainnet, so
+   * each combination gets its own storage key rather than one global pair
+   * that the next wallet/network to connect would silently inherit or
+   * clobber. Falls back to `stellar_wallet_id` in storage when no id is
+   * passed explicitly, since some call sites run before (or without ever
+   * having) a fresh id of their own to pass in.
+   */
+  const accountsStorageKey = useCallback(
+    (walletId?: string) => {
+      const scopeWalletId = walletId ?? storage.get('stellar_wallet_id') ?? 'unknown';
+      return `stellar_wallet_accounts:${activeNetworkKey}:${scopeWalletId}`;
+    },
+    [activeNetworkKey]
+  );
+  const accountIndexStorageKey = useCallback(
+    (walletId?: string) => {
+      const scopeWalletId = walletId ?? storage.get('stellar_wallet_id') ?? 'unknown';
+      return `stellar_wallet_current_account_index:${activeNetworkKey}:${scopeWalletId}`;
+    },
+    [activeNetworkKey]
+  );
+
+  /**
    * Helper function to save accounts to storage
    */
-  const saveAccountsToStorage = useCallback((accts: WalletAccount[], currentIndex: number) => {
-    storage.set('stellar_wallet_accounts', JSON.stringify(accts));
-    storage.set('stellar_wallet_current_account_index', currentIndex.toString());
-  }, []);
+  const saveAccountsToStorage = useCallback(
+    (accts: WalletAccount[], currentIndex: number, walletId?: string) => {
+      storage.set(accountsStorageKey(walletId), JSON.stringify(accts));
+      storage.set(accountIndexStorageKey(walletId), currentIndex.toString());
+    },
+    [accountsStorageKey, accountIndexStorageKey]
+  );
 
   /**
    * Helper function to load accounts from storage
    */
-  const loadAccountsFromStorage = useCallback(() => {
-    const saved = storage.get('stellar_wallet_accounts');
-    const savedIndex = storage.get('stellar_wallet_current_account_index');
-    if (saved) {
-      try {
-        const accts = JSON.parse(saved) as WalletAccount[];
-        const index = savedIndex ? parseInt(savedIndex, 10) : 0;
-        return { accounts: accts, index: Math.max(0, Math.min(index, accts.length - 1)) };
-      } catch {
-        return { accounts: [], index: 0 };
+  const loadAccountsFromStorage = useCallback(
+    (walletId?: string) => {
+      const saved = storage.get(accountsStorageKey(walletId));
+      const savedIndex = storage.get(accountIndexStorageKey(walletId));
+      if (saved) {
+        try {
+          const accts = JSON.parse(saved) as WalletAccount[];
+          const index = savedIndex ? parseInt(savedIndex, 10) : 0;
+          return { accounts: accts, index: Math.max(0, Math.min(index, accts.length - 1)) };
+        } catch {
+          return { accounts: [], index: 0 };
+        }
       }
-    }
-    return { accounts: [], index: 0 };
-  }, []);
+      return { accounts: [], index: 0 };
+    },
+    [accountsStorageKey, accountIndexStorageKey]
+  );
 
   /**
    * Connect to a Stellar wallet using the modal interface.
@@ -289,7 +320,7 @@ export function WalletProvider({
             }
 
             setCurrentAccountIndex(newIndex);
-            saveAccountsToStorage(updatedAccounts, newIndex);
+            saveAccountsToStorage(updatedAccounts, newIndex, option.id);
             return updatedAccounts;
           });
 
@@ -336,16 +367,19 @@ export function WalletProvider({
       // be eager, not penalized by failures from a previous session.
       connectFailureCountRef.current = 0;
 
+      // Read the wallet id before clearing it: the accounts/index keys are
+      // scoped by wallet id + network (#1067), so removing them needs the
+      // same id that was used to save them.
+      storage.remove(accountsStorageKey());
+      storage.remove(accountIndexStorageKey());
       storage.remove('stellar_wallet_connected');
       storage.remove('stellar_wallet_id');
       storage.remove('stellar_wallet_address');
       storage.remove('stellar_wallet_name');
-      storage.remove('stellar_wallet_accounts');
-      storage.remove('stellar_wallet_current_account_index');
     } catch (error) {
       console.error('Failed to disconnect wallet:', error);
     }
-  }, []);
+  }, [accountsStorageKey, accountIndexStorageKey]);
 
   /**
    * Inactivity auto-lock (opt-in via `inactivityTimeoutMs`).
@@ -534,7 +568,7 @@ export function WalletProvider({
             setConnected(true);
 
             // Load saved accounts or create new account list
-            const { accounts: savedAccounts, index: savedIndex } = loadAccountsFromStorage();
+            const { accounts: savedAccounts, index: savedIndex } = loadAccountsFromStorage(savedWalletId);
             if (savedAccounts.length > 0) {
               setAccounts(savedAccounts);
               setCurrentAccountIndex(savedIndex);
@@ -548,7 +582,7 @@ export function WalletProvider({
               ];
               setAccounts(newAccounts);
               setCurrentAccountIndex(0);
-              saveAccountsToStorage(newAccounts, 0);
+              saveAccountsToStorage(newAccounts, 0, savedWalletId);
             }
 
             try {
@@ -563,18 +597,18 @@ export function WalletProvider({
             }
           }
         } catch {
+          storage.remove(accountsStorageKey(savedWalletId));
+          storage.remove(accountIndexStorageKey(savedWalletId));
           storage.remove('stellar_wallet_connected');
           storage.remove('stellar_wallet_id');
           storage.remove('stellar_wallet_address');
           storage.remove('stellar_wallet_name');
-          storage.remove('stellar_wallet_accounts');
-          storage.remove('stellar_wallet_current_account_index');
         }
       }
     };
 
     autoReconnect();
-  }, [activeNetworkKey, loadAccountsFromStorage, saveAccountsToStorage]);
+  }, [activeNetworkKey, loadAccountsFromStorage, saveAccountsToStorage, accountsStorageKey, accountIndexStorageKey]);
 
   const walletValue: WalletContextState = {
     connected,
