@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { Networks } from '@stellar/stellar-sdk';
 import {
   useSorobanContract,
   type SimulateContractCallResult,
   type TypedArg,
 } from '../hooks/useSorobanContract';
+import { fetchContractSpec, type ContractFunctionSpec } from '../lib/contract-spec';
 import ContractCallPreview, { type SimulationPreview } from './ContractCallPreview';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -25,6 +27,17 @@ export interface ContractCallFormProps {
    * Network to target. Defaults to `"TESTNET"`.
    */
   network?: 'TESTNET' | 'PUBLIC';
+  /**
+   * When `true`, the form fetches the contract's on-chain spec/ABI on mount
+   * (via {@link fetchContractSpec}) and renders a function **dropdown**
+   * populated from it instead of the free-text function-name input. Falls
+   * back to the free-text input if the spec fetch fails (e.g. the contract
+   * has no embedded spec section) or while it's still loading.
+   *
+   * Defaults to `false` — the free-text input remains the default so this
+   * is an opt-in enhancement, not a behavior change.
+   */
+  useContractSpec?: boolean;
   /**
    * Called after a successful `buildInvokeXDR`. Receives the unsigned XDR
    * string so the parent can hand it to a wallet adapter for signing and
@@ -66,6 +79,7 @@ export default function ContractCallForm({
   contractId,
   sorobanRpc,
   network = 'TESTNET',
+  useContractSpec = false,
   onSubmit,
   className = '',
 }: ContractCallFormProps) {
@@ -74,6 +88,8 @@ export default function ContractCallForm({
   const [preview, setPreview] = useState<SimulationPreview | undefined>();
   const [submitError, setSubmitError] = useState<Error | null>(null);
   const [submitLoading, setSubmitLoading] = useState(false);
+  const [specFunctions, setSpecFunctions] = useState<ContractFunctionSpec[] | null>(null);
+  const [specLoading, setSpecLoading] = useState(false);
 
   const opts = {
     contractId,
@@ -83,6 +99,37 @@ export default function ContractCallForm({
 
   const { simulateContractCall, buildInvokeXDR, loading, error } =
     useSorobanContract(opts);
+
+  // ── Optional spec-driven function dropdown ──────────────────────────────
+  useEffect(() => {
+    if (!useContractSpec) {
+      setSpecFunctions(null);
+      return;
+    }
+
+    let cancelled = false;
+    setSpecLoading(true);
+
+    const rpcUrl = sorobanRpc ?? 'https://soroban-testnet.stellar.org';
+    const networkPassphrase = network === 'PUBLIC' ? Networks.PUBLIC : Networks.TESTNET;
+
+    fetchContractSpec(rpcUrl, contractId, networkPassphrase)
+      .then(({ functions }) => {
+        if (!cancelled) setSpecFunctions(functions);
+      })
+      .catch(() => {
+        // Spec fetch is a best-effort enhancement — fall back to the
+        // free-text input rather than surfacing this as a form error.
+        if (!cancelled) setSpecFunctions(null);
+      })
+      .finally(() => {
+        if (!cancelled) setSpecLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [useContractSpec, contractId, sorobanRpc, network]);
 
   /**
    * Parse the raw comma-separated argument string into a TypedArg array.
@@ -163,19 +210,43 @@ export default function ContractCallForm({
         >
           Function name
         </label>
-        <input
-          id="ccf-fn-name"
-          type="text"
-          value={fnName}
-          onChange={(e) => {
-            setFnName(e.target.value);
-            setPreview(undefined);
-          }}
-          placeholder="e.g. transfer"
-          autoComplete="off"
-          spellCheck={false}
-          className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
-        />
+        {specFunctions && specFunctions.length > 0 ? (
+          <select
+            id="ccf-fn-name"
+            value={fnName}
+            onChange={(e) => {
+              setFnName(e.target.value);
+              setPreview(undefined);
+            }}
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+          >
+            <option value="" disabled>
+              Select a function…
+            </option>
+            {specFunctions.map((fn) => (
+              <option key={fn.name} value={fn.name}>
+                {fn.name}
+                {fn.args.length > 0
+                  ? ` (${fn.args.map((a) => `${a.name}: ${a.type}`).join(', ')})`
+                  : ' ()'}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <input
+            id="ccf-fn-name"
+            type="text"
+            value={fnName}
+            onChange={(e) => {
+              setFnName(e.target.value);
+              setPreview(undefined);
+            }}
+            placeholder={specLoading ? 'Loading contract functions…' : 'e.g. transfer'}
+            autoComplete="off"
+            spellCheck={false}
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
+          />
+        )}
       </div>
 
       {/* Arguments */}
