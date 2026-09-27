@@ -92,6 +92,20 @@ interface WalletContextState {
   refreshBalances: () => Promise<void>;
   switchAccount: (address: string) => Promise<void>;
   sendPayment?: (opts: PaymentOptions) => Promise<Horizon.HorizonApi.SubmitTransactionResponse>;
+  /**
+   * The network passphrase the connected wallet itself reports, or undefined
+   * if not connected or the wallet couldn't answer getNetwork(). Compare
+   * against WalletConfigContextState.network to detect a mismatch yourself,
+   * or just read networkMismatch below.
+   */
+  walletNetworkPassphrase?: string;
+  /**
+   * True only when a wallet is connected, reported its network, AND that
+   * network's passphrase differs from this app's configured network (#1072).
+   * False (not true) when the wallet's network is simply unknown — an
+   * unknown network is not evidence of a mismatch.
+   */
+  networkMismatch: boolean;
 }
 
 /**
@@ -197,9 +211,12 @@ export function WalletProvider({
   const [balances, setBalances] = useState<Balance[]>([]);
   const [accounts, setAccounts] = useState<WalletAccount[]>([]);
   const [currentAccountIndex, setCurrentAccountIndex] = useState(0);
-  // User-added networks beyond the built-in testnet/mainnet presets
-  // (issue #1107), keyed the same way as NETWORKS so both can be merged.
-  const [customNetworks, setCustomNetworks] = useState<Record<string, NetworkConfig>>({});
+  // The network passphrase the connected wallet itself reports (via the kit's
+  // getNetwork()), as opposed to activeNetworkPassphrase below, which is the
+  // app's configured network. They can disagree if the wallet extension is
+  // set to a different network than this app (#1072) — e.g. Freighter set to
+  // mainnet while the app is configured for testnet.
+  const [walletNetworkPassphrase, setWalletNetworkPassphrase] = useState<string>();
 
   // Consecutive connect() failures, used to compute the backoff delay for
   // the *next* attempt. Not component state — it must not trigger a
@@ -369,6 +386,17 @@ export function WalletProvider({
           // disconnect) starts eager again.
           connectFailureCountRef.current = 0;
 
+          // Not every wallet can answer getNetwork() (some, notably
+          // hardware wallets, throw or omit it) — a failure here must not
+          // fail the whole connection, it just means the mismatch banner
+          // has nothing to compare and stays hidden.
+          try {
+            const { networkPassphrase } = await currentKit.getNetwork();
+            setWalletNetworkPassphrase(networkPassphrase);
+          } catch {
+            setWalletNetworkPassphrase(undefined);
+          }
+
           // Create or update account list
           const newAccount: WalletAccount = {
             address,
@@ -439,6 +467,7 @@ export function WalletProvider({
       setBalances([]);
       setAccounts([]);
       setCurrentAccountIndex(0);
+      setWalletNetworkPassphrase(undefined);
       // An explicit disconnect is a clean slate — the next connect() should
       // be eager, not penalized by failures from a previous session.
       connectFailureCountRef.current = 0;
@@ -643,6 +672,13 @@ export function WalletProvider({
             setWalletName(savedName || 'Unknown');
             setConnected(true);
 
+            try {
+              const { networkPassphrase } = await currentKit.getNetwork();
+              setWalletNetworkPassphrase(networkPassphrase);
+            } catch {
+              setWalletNetworkPassphrase(undefined);
+            }
+
             // Load saved accounts or create new account list
             const { accounts: savedAccounts, index: savedIndex } = loadAccountsFromStorage(savedWalletId);
             if (savedAccounts.length > 0) {
@@ -686,6 +722,11 @@ export function WalletProvider({
     autoReconnect();
   }, [activeNetworkKey, loadAccountsFromStorage, saveAccountsToStorage, accountsStorageKey, accountIndexStorageKey]);
 
+  const networkMismatch =
+    connected &&
+    !!walletNetworkPassphrase &&
+    walletNetworkPassphrase !== activeNetworkPassphrase;
+
   const walletValue: WalletContextState = {
     connected,
     publicKey,
@@ -698,6 +739,8 @@ export function WalletProvider({
     refreshBalances,
     switchAccount,
     sendPayment: connected ? sendPayment : undefined,
+    walletNetworkPassphrase,
+    networkMismatch,
   };
 
   const configValue: WalletConfigContextState = {

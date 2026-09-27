@@ -59,7 +59,10 @@ function safeHost(url: string): string {
   }
 }
 
-function resolveUrls(horizonUrl?: string, sorobanUrl?: string): { horizonUrl: string; sorobanUrl: string } {
+function resolveUrls(
+  horizonUrl?: string,
+  sorobanUrl?: string,
+): { horizonUrl: string; sorobanUrl: string } {
   if (horizonUrl) assertValidUrl(horizonUrl, "--horizon-url");
   if (sorobanUrl) assertValidUrl(sorobanUrl, "--soroban-url");
 
@@ -122,7 +125,9 @@ let commandRunner: CommandRunner = defaultCommandRunner;
  * spawning a real subprocess. Pass `undefined` to restore the real,
  * subprocess-spawning runner.
  */
-export function setCommandRunnerForTest(runner: CommandRunner | undefined): void {
+export function setCommandRunnerForTest(
+  runner: CommandRunner | undefined,
+): void {
   commandRunner = runner ?? defaultCommandRunner;
 }
 
@@ -226,6 +231,7 @@ async function checkStellarCli(): Promise<CheckResult> {
     ok,
     detail: ok ? res.out : "Not installed (needed for contract development)",
     fix: "Install: cargo install stellar-cli",
+    fixCommand: "cargo install stellar-cli",
   };
 }
 
@@ -247,7 +253,10 @@ async function checkHorizon(horizonUrl: string): Promise<CheckResult> {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
-    const res = await fetch(horizonUrl, { method: "HEAD", signal: controller.signal });
+    const res = await fetch(horizonUrl, {
+      method: "HEAD",
+      signal: controller.signal,
+    });
     clearTimeout(timeout);
     return {
       id: "horizon",
@@ -277,7 +286,12 @@ async function checkSoroban(sorobanUrl: string): Promise<CheckResult> {
     const timeout = setTimeout(() => controller.abort(), 5000);
     const res = await fetch(sorobanUrl, {
       method: "POST",
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "status", params: [] }),
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "status",
+        params: [],
+      }),
       headers: { "content-type": "application/json" },
       signal: controller.signal,
     });
@@ -312,7 +326,9 @@ let freeMemoryProvider: () => number = () => os.freemem();
  * test time — flaky in exactly the same way an unmocked subprocess call
  * would be. Pass `undefined` to restore the real os.freemem()-based check.
  */
-export function setFreeMemoryProviderForTest(provider: (() => number) | undefined): void {
+export function setFreeMemoryProviderForTest(
+  provider: (() => number) | undefined,
+): void {
   freeMemoryProvider = provider ?? (() => os.freemem());
 }
 
@@ -324,7 +340,9 @@ async function checkDisk(): Promise<CheckResult> {
     name: "Free Memory (RAM)",
     required: true,
     ok,
-    detail: ok ? `${Math.round(free / (1024 * 1024))} MB RAM free` : `${Math.round(free / (1024 * 1024))} MB RAM free`,
+    detail: ok
+      ? `${Math.round(free / (1024 * 1024))} MB RAM free`
+      : `${Math.round(free / (1024 * 1024))} MB RAM free`,
     fix: "Free up at least 1GB of RAM",
   };
 }
@@ -348,10 +366,14 @@ async function applyFix(check: CheckResult): Promise<boolean> {
     return false;
   }
 
-  console.log(`\n${pc.dim(`Running fix for ${check.name}:`)} ${pc.cyan(check.fixCommand)}`);
-  
+  console.log(
+    `\n${pc.dim(`Running fix for ${check.name}:`)} ${pc.cyan(check.fixCommand)}`,
+  );
+
   try {
-    const { stdout, stderr } = await exec(check.fixCommand, { timeout: 120000 });
+    const { stdout, stderr } = await exec(check.fixCommand, {
+      timeout: 120000,
+    });
     if (stdout) console.log(stdout);
     if (stderr) console.error(stderr);
     return true;
@@ -372,7 +394,10 @@ function isSafeFix(check: CheckResult): boolean {
 export async function runDoctor(opts?: DoctorOptions) {
   const json = !!opts?.json;
   const fix = !!opts?.fix;
-  const { horizonUrl, sorobanUrl } = resolveUrls(opts?.horizonUrl, opts?.sorobanUrl);
+  const { horizonUrl, sorobanUrl } = resolveUrls(
+    opts?.horizonUrl,
+    opts?.sorobanUrl,
+  );
 
   let checks = await Promise.all([
     checkNode(),
@@ -391,13 +416,15 @@ export async function runDoctor(opts?: DoctorOptions) {
   // If --fix is enabled and not in JSON mode, offer to fix safe failures
   if (fix && !json) {
     const safeFixes = checks.filter((c) => !c.ok && isSafeFix(c));
-    
+
     if (safeFixes.length > 0) {
       console.log(pc.bold("\nSafe auto-fixes available:"));
       for (const check of safeFixes) {
-        console.log(`  ${pc.yellow("⚠")} ${pc.bold(check.name)}: ${pc.dim(check.fix || "")}`);
+        console.log(
+          `  ${pc.yellow("⚠")} ${pc.bold(check.name)}: ${pc.dim(check.fix || "")}`,
+        );
       }
-      
+
       const shouldFix = await confirm({
         message: `Apply ${safeFixes.length} safe fix${safeFixes.length > 1 ? "es" : ""}?`,
         initialValue: true,
@@ -413,9 +440,13 @@ export async function runDoctor(opts?: DoctorOptions) {
             fixedCount++;
           }
         }
-        
+
         if (fixedCount > 0) {
-          console.log(pc.green(`\n${fixedCount} fix${fixedCount > 1 ? "es" : ""} applied. Re-running checks...\n`));
+          console.log(
+            pc.green(
+              `\n${fixedCount} fix${fixedCount > 1 ? "es" : ""} applied. Re-running checks...\n`,
+            ),
+          );
           // Re-run all checks to verify fixes
           checks = await Promise.all([
             checkNode(),
@@ -446,7 +477,9 @@ export async function runDoctor(opts?: DoctorOptions) {
       sorobanUrl,
       // fixCommand is an internal detail used to drive `--fix`'s prompt/exec
       // flow; it's not part of the public --json schema, so strip it here.
-      checks: checks.map(({ fixCommand: _fixCommand, ...publicCheck }) => publicCheck),
+      checks: checks.map(
+        ({ fixCommand: _fixCommand, ...publicCheck }) => publicCheck,
+      ),
       passed,
       failed,
       requiredFailures,
@@ -460,7 +493,11 @@ export async function runDoctor(opts?: DoctorOptions) {
   console.log(`  ${pc.dim("Soroban:" + " ".repeat(8))}${sorobanUrl}`);
   console.log("");
   for (const c of checks) {
-    const mark = c.ok ? pc.green("✔") : c.required ? pc.red("✖") : pc.yellow("⚠");
+    const mark = c.ok
+      ? pc.green("✔")
+      : c.required
+        ? pc.red("✖")
+        : pc.yellow("⚠");
     const name = pc.bold(c.name.padEnd(16));
     const detail = c.detail ? ` ${pc.dim(c.detail)}` : "";
     console.log(`${mark} ${name}${detail}`);
@@ -470,7 +507,10 @@ export async function runDoctor(opts?: DoctorOptions) {
   }
 
   console.log("");
-  console.log(`${passed} checks passed, ${failed} checks failed` + (requiredFailures > 0 ? ` (${requiredFailures} required failed)` : ""));
+  console.log(
+    `${passed} checks passed, ${failed} checks failed` +
+      (requiredFailures > 0 ? ` (${requiredFailures} required failed)` : ""),
+  );
   console.log("");
 
   return requiredFailures > 0 ? 1 : 0;
