@@ -18,6 +18,13 @@ const CheckIcon = () => (
   </svg>
 );
 
+const DownloadIcon = () => (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+      d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
+  </svg>
+);
+
 export interface ReceiveFormProps {
   /** Override the public key shown (e.g. to display a specific account). Defaults to the connected wallet. */
   address?: string;
@@ -141,6 +148,19 @@ export default function ReceiveForm({
     }
   };
 
+  // Saves the generated QR as a PNG by driving a temporary, off-DOM anchor's
+  // `download` attribute — the standard client-side approach for saving a
+  // data: URL without a server round-trip.
+  const handleDownload = () => {
+    if (!qrDataUrl) return;
+    const link = document.createElement('a');
+    link.href = qrDataUrl;
+    link.download = `stellar-address-${address ? address.slice(0, 8) : 'qr'}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // --- Disconnected / no address fallback ---
   if (!address) {
     return (
@@ -198,6 +218,19 @@ export default function ReceiveForm({
           />
         )}
       </div>
+
+      {qrDataUrl && (
+        <button
+          type="button"
+          onClick={handleDownload}
+          aria-label="Download QR code as PNG"
+          className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-gray-100 transition-colors"
+          data-testid="receive-form-download"
+        >
+          <DownloadIcon />
+          Download QR
+        </button>
+      )}
 
       {sep7Uri && (
         <p className="text-xs text-gray-500 dark:text-gray-400" data-testid="receive-form-request-summary">

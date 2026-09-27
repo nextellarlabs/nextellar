@@ -27,7 +27,7 @@ export interface UseTransactionHistoryOptions {
 export interface TransactionHistoryState {
   items: OperationItem[];
   loading: boolean;
-  error?: Error | null;
+  error: Error | null;
   fetchNextPage: () => Promise<void>;
   refresh: () => Promise<void>;
   hasMore: boolean;

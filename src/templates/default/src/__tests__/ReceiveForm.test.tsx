@@ -48,7 +48,7 @@ describe('ReceiveForm Component (#880)', () => {
   it('shows a connect-wallet prompt instead of an address when disconnected', () => {
     renderWithWallet(<ReceiveForm />, { connected: false, publicKey: undefined });
 
-    expect(screen.getByText(/connect a wallet to receive/i)).toBeInTheDocument();
+    expect(screen.getByText(/connect your wallet to see your receive address/i)).toBeInTheDocument();
     expect(screen.queryByText(ADDRESS)).not.toBeInTheDocument();
   });
 
@@ -65,6 +65,66 @@ describe('ReceiveForm Component (#880)', () => {
 
     await waitFor(() => {
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(ADDRESS);
+    });
+  });
+
+  describe('QR code download (#1108)', () => {
+    it('does not show a download button before the QR code has generated', () => {
+      renderWithWallet(<ReceiveForm />);
+
+      expect(screen.queryByTestId('receive-form-download')).not.toBeInTheDocument();
+    });
+
+    it('shows a download button once the QR code is ready', async () => {
+      renderWithWallet(<ReceiveForm />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('receive-form-download')).toBeInTheDocument();
+      });
+    });
+
+    it('saves the QR data URL as a PNG file when the download button is clicked', async () => {
+      renderWithWallet(<ReceiveForm />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('receive-form-download')).toBeInTheDocument();
+      });
+
+      const clickSpy = jest
+        .spyOn(HTMLAnchorElement.prototype, 'click')
+        .mockImplementation(() => {});
+
+      fireEvent.click(screen.getByTestId('receive-form-download'));
+
+      expect(clickSpy).toHaveBeenCalledTimes(1);
+      clickSpy.mockRestore();
+    });
+
+    it('names the downloaded file after the address and sets a data URL as the href', async () => {
+      renderWithWallet(<ReceiveForm />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('receive-form-download')).toBeInTheDocument();
+      });
+
+      let capturedAnchor: HTMLAnchorElement | null = null;
+      const appendSpy = jest
+        .spyOn(document.body, 'appendChild')
+        .mockImplementation((node) => {
+          capturedAnchor = node as HTMLAnchorElement;
+          return node;
+        });
+      jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+      jest.spyOn(document.body, 'removeChild').mockImplementation((node) => node);
+
+      fireEvent.click(screen.getByTestId('receive-form-download'));
+
+      expect(capturedAnchor).not.toBeNull();
+      expect(capturedAnchor!.download).toBe(`stellar-address-${ADDRESS.slice(0, 8)}.png`);
+      expect(capturedAnchor!.href).toMatch(/^data:/);
+
+      appendSpy.mockRestore();
+      jest.restoreAllMocks();
     });
   });
 
