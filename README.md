@@ -191,6 +191,9 @@ Deployment bundle guide (`nextellar deploy`):
 Network and environment configuration (Horizon/Soroban, testnet/mainnet, NetworkSwitcher):  
 🔗 [docs/network-environment-guide.md](docs/network-environment-guide.md)
 
+Authoring a custom wallet adapter (the `ModuleInterface`, a worked example, and where to register it):  
+🔗 [docs/custom-wallet-adapter-guide.md](docs/custom-wallet-adapter-guide.md)
+
 Soroban contracts overlay guide (`--with-contracts`):  
 🔗 [docs/soroban-contracts-overlay-guide.md](docs/soroban-contracts-overlay-guide.md)
 

@@ -100,6 +100,26 @@ program
     },
   );
 
+// Init subcommand: revisit/reconfigure an existing project's
+// .nextellar/config.json (network, wallets) without re-scaffolding.
+program
+  .command("init")
+  .description("Interactively reconfigure network and wallet settings")
+  .option("-d, --defaults", "skip prompts and keep/apply defaults", false)
+  .action(async (cmdOpts: { defaults?: boolean }) => {
+    try {
+      const { runInit } = await import("../src/lib/init.js");
+      const result = await runInit({ defaults: !!cmdOpts.defaults });
+      if (result) {
+        console.log(pc.green(`✔️  Updated ${result.configPath}`));
+      }
+      await exitWithTelemetry(0);
+    } catch (err: any) {
+      printError(`Failed to run init: ${err?.message || err}`);
+      await exitWithTelemetry(1);
+    }
+  });
+
 // Add subcommand: nextellar add <feature> | nextellar add --list
 program
   .command("add [feature]")
@@ -108,7 +128,10 @@ program
   .option("--force", "overwrite existing files")
   .option("--skip-install", "skip installing npm dependencies")
   .option("--package-manager <manager>", "npm, yarn, or pnpm")
-  .option("--dry-run", "simulate feature addition without writing files or installing packages")
+  .option(
+    "--dry-run",
+    "simulate feature addition without writing files or installing packages",
+  )
   .option("--verbose", "print additional diagnostic output on failure")
   .option("--debug", "alias for --verbose")
   .action(
@@ -263,57 +286,64 @@ program
   )
   .option("--verbose", "print additional diagnostic output on failure")
   .option("--debug", "alias for --verbose")
-  .action(async (cmdOpts: { dryRun?: boolean; sizeThreshold?: string; verbose?: boolean; debug?: boolean }) => {
-    setVerbose(!!(cmdOpts.verbose || cmdOpts.debug));
-    const spinner = cmdOpts.dryRun
-      ? undefined
-      : ora({
-          text: "Packing deployment bundle...",
-          color: "magenta",
-          spinner: "dots",
-        }).start();
+  .action(
+    async (cmdOpts: {
+      dryRun?: boolean;
+      sizeThreshold?: string;
+      verbose?: boolean;
+      debug?: boolean;
+    }) => {
+      setVerbose(!!(cmdOpts.verbose || cmdOpts.debug));
+      const spinner = cmdOpts.dryRun
+        ? undefined
+        : ora({
+            text: "Packing deployment bundle...",
+            color: "magenta",
+            spinner: "dots",
+          }).start();
 
-    const formatBytes = (bytes: number): string => {
-      if (bytes === 0) return "0 B";
-      const units = ["B", "KB", "MB", "GB"];
-      const exponent = Math.min(
-        Math.floor(Math.log(bytes) / Math.log(1024)),
-        units.length - 1,
-      );
-      const value = bytes / 1024 ** exponent;
-      return `${value.toFixed(exponent === 0 ? 0 : 1)} ${units[exponent]}`;
-    };
+      const formatBytes = (bytes: number): string => {
+        if (bytes === 0) return "0 B";
+        const units = ["B", "KB", "MB", "GB"];
+        const exponent = Math.min(
+          Math.floor(Math.log(bytes) / Math.log(1024)),
+          units.length - 1,
+        );
+        const value = bytes / 1024 ** exponent;
+        return `${value.toFixed(exponent === 0 ? 0 : 1)} ${units[exponent]}`;
+      };
 
-    try {
-      const sizeThreshold = cmdOpts.sizeThreshold
-        ? parseInt(cmdOpts.sizeThreshold, 10)
-        : undefined;
-      await runDeploy({
-        cwd: process.cwd(),
-        dryRun: !!cmdOpts.dryRun,
-        sizeThreshold,
-        onProgress: spinner
-          ? (progress: BundleProgress) => {
-              const pct =
-                progress.totalBytes > 0
-                  ? Math.round(
-                      (progress.bytesPacked / progress.totalBytes) * 100,
-                    )
-                  : 0;
-              spinner.text = `Packing deployment bundle... ${pct}% (${progress.filesPacked}/${progress.totalFiles} files, ${formatBytes(progress.bytesPacked)}/${formatBytes(progress.totalBytes)})`;
-            }
-          : undefined,
-      });
-      spinner?.succeed(pc.green("Deployment bundle packed"));
-    } catch (err: any) {
-      spinner?.fail(pc.red("Failed to pack deployment bundle"));
-      printError(err?.message || String(err));
-      logVerboseError(err);
-      await exitWithTelemetry(1);
-    } finally {
-      await flushTelemetry();
-    }
-  });
+      try {
+        const sizeThreshold = cmdOpts.sizeThreshold
+          ? parseInt(cmdOpts.sizeThreshold, 10)
+          : undefined;
+        await runDeploy({
+          cwd: process.cwd(),
+          dryRun: !!cmdOpts.dryRun,
+          sizeThreshold,
+          onProgress: spinner
+            ? (progress: BundleProgress) => {
+                const pct =
+                  progress.totalBytes > 0
+                    ? Math.round(
+                        (progress.bytesPacked / progress.totalBytes) * 100,
+                      )
+                    : 0;
+                spinner.text = `Packing deployment bundle... ${pct}% (${progress.filesPacked}/${progress.totalFiles} files, ${formatBytes(progress.bytesPacked)}/${formatBytes(progress.totalBytes)})`;
+              }
+            : undefined,
+        });
+        spinner?.succeed(pc.green("Deployment bundle packed"));
+      } catch (err: any) {
+        spinner?.fail(pc.red("Failed to pack deployment bundle"));
+        printError(err?.message || String(err));
+        logVerboseError(err);
+        await exitWithTelemetry(1);
+      } finally {
+        await flushTelemetry();
+      }
+    },
+  );
 
 program
   .command("clean")
@@ -523,18 +553,28 @@ program.action(async (projectName, options) => {
   if (!shouldPrompt) {
     console.log(pc.bold("\nScaffolding with the following options:"));
     console.log(`  Project:         ${pc.cyan(finalProjectName)}`);
-    console.log(`  Language:        ${pc.cyan(useTs ? "TypeScript" : "JavaScript")}`);
+    console.log(
+      `  Language:        ${pc.cyan(useTs ? "TypeScript" : "JavaScript")}`,
+    );
     console.log(`  Template:        ${pc.cyan(template)}`);
-    console.log(`  Contracts:       ${pc.cyan(options.withContracts ? "Yes" : "No")}`);
-    console.log(`  Wallets:         ${pc.cyan(finalWallets.length > 0 ? finalWallets.join(", ") : "none")}`);
+    console.log(
+      `  Contracts:       ${pc.cyan(options.withContracts ? "Yes" : "No")}`,
+    );
+    console.log(
+      `  Wallets:         ${pc.cyan(finalWallets.length > 0 ? finalWallets.join(", ") : "none")}`,
+    );
     if (finalHorizonUrl) {
       console.log(`  Horizon URL:     ${pc.cyan(finalHorizonUrl)}`);
     }
     if (finalSorobanUrl) {
       console.log(`  Soroban URL:     ${pc.cyan(finalSorobanUrl)}`);
     }
-    console.log(`  Package manager: ${pc.cyan(finalPackageManager || "auto-detect")}`);
-    console.log(`  Skip install:    ${pc.cyan(finalSkipInstall ? "Yes" : "No")}\n`);
+    console.log(
+      `  Package manager: ${pc.cyan(finalPackageManager || "auto-detect")}`,
+    );
+    console.log(
+      `  Skip install:    ${pc.cyan(finalSkipInstall ? "Yes" : "No")}\n`,
+    );
   }
 
   const MIN_INSTALL_TIMEOUT_MS = 5_000;

@@ -54,6 +54,9 @@ export interface MockWalletState {
   disconnect: () => void;
   refreshBalances: () => Promise<void>;
   switchAccount: (address: string) => Promise<void>;
+  /** See WalletProvider's own WalletContextState (#1072). */
+  walletNetworkPassphrase?: string;
+  networkMismatch?: boolean;
 }
 
 export function defaultWalletState(): MockWalletState {
