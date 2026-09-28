@@ -15,7 +15,7 @@ import {
 // (see `loadWalletKit`) so this file never eagerly pulls in
 // `@creit.tech/stellar-wallets-kit`.
 import type { ISupportedWallet, WalletNetwork } from "@creit.tech/stellar-wallets-kit";
-import { NETWORKS } from '../config/networks';
+import { NETWORKS, NetworkConfig, assertValidNetworkUrl } from '../config/networks';
 import { storage } from '../lib/storage';
 
 // `@creit.tech/stellar-wallets-kit` pulls in every wallet connector module
@@ -25,6 +25,28 @@ import { storage } from '../lib/storage';
 const loadWalletKit = () => import('../lib/stellar-wallet-kit');
 
 const Server = Horizon.Server;
+
+// ── Connection retry backoff (#1070) ────────────────────────────────────────
+// Repeated connection failures (extension not installed, user rejects, RPC
+// unreachable, etc.) back off exponentially instead of retrying eagerly.
+// Same shape as useSorobanEvents' backoff: 1s → 3s → 9s → ... capped at 30s.
+// The counter resets on a successful connect (or an explicit disconnect), so
+// a fresh session always gets an eager first attempt.
+const CONNECT_BACKOFF_BASE_MS = 1_000;
+const CONNECT_BACKOFF_FACTOR = 3;
+const CONNECT_MAX_BACKOFF_MS = 30_000;
+
+function connectBackoffDelayMs(failureCount: number): number {
+  if (failureCount <= 0) return 0;
+  return Math.min(
+    CONNECT_BACKOFF_BASE_MS * Math.pow(CONNECT_BACKOFF_FACTOR, failureCount - 1),
+    CONNECT_MAX_BACKOFF_MS
+  );
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 /**
  * Balance interface for account assets
@@ -45,6 +67,29 @@ export interface PaymentOptions {
   asset?: 'XLM' | { code: string; issuer: string };
   memo?: string;
   secret?: string;
+  /**
+   * Public key of a third party who will cover this transaction's fee via a
+   * CAP-15 fee-bump wrapper. A fee-bump's outer envelope must be signed by
+   * the sponsor's own key, which this wallet has no way to obtain — there is
+   * no sponsor-signing channel here, only their public key. So when set,
+   * sendPayment signs the inner payment as usual but does NOT submit it:
+   * it returns the *unsigned* fee-bump envelope's XDR for the caller to hand
+   * to the sponsor out-of-band (e.g. paste into another wallet) to sign and
+   * submit themselves.
+   */
+  sponsor?: string;
+}
+
+/** Result of a fee-bumped sendPayment call — the sponsor still needs to sign and submit this. */
+export interface UnsignedFeeBumpResult {
+  requiresSponsorSignature: true;
+  feeBumpXdr: string;
+}
+
+export function isUnsignedFeeBumpResult(
+  value: Horizon.HorizonApi.SubmitTransactionResponse | UnsignedFeeBumpResult
+): value is UnsignedFeeBumpResult {
+  return (value as UnsignedFeeBumpResult).requiresSponsorSignature === true;
 }
 
 /**
@@ -69,7 +114,22 @@ interface WalletContextState {
   disconnect: () => void;
   refreshBalances: () => Promise<void>;
   switchAccount: (address: string) => Promise<void>;
+  sendPayment?: (opts: PaymentOptions) => Promise<Horizon.HorizonApi.SubmitTransactionResponse | UnsignedFeeBumpResult>;
   sendPayment?: (opts: PaymentOptions) => Promise<Horizon.HorizonApi.SubmitTransactionResponse>;
+  /**
+   * The network passphrase the connected wallet itself reports, or undefined
+   * if not connected or the wallet couldn't answer getNetwork(). Compare
+   * against WalletConfigContextState.network to detect a mismatch yourself,
+   * or just read networkMismatch below.
+   */
+  walletNetworkPassphrase?: string;
+  /**
+   * True only when a wallet is connected, reported its network, AND that
+   * network's passphrase differs from this app's configured network (#1072).
+   * False (not true) when the wallet's network is simply unknown — an
+   * unknown network is not evidence of a mismatch.
+   */
+  networkMismatch: boolean;
 }
 
 /**
@@ -81,6 +141,33 @@ interface WalletConfigContextState {
   sorobanUrl: string;
   network: string;
   switchNetwork: (networkKey: string) => void;
+  /**
+   * Every selectable network, built-in presets plus any added via
+   * `addCustomNetwork` (issue #1107). `NetworkSwitcher` renders this instead
+   * of the static `NETWORKS` import so a custom entry appears immediately.
+   *
+   * Optional so a `WalletConfigContextState` value built against a provider
+   * version predating issue #1107 (or a hand-rolled test/story mock) still
+   * type-checks — consumers fall back to the static `NETWORKS` import.
+   */
+  networks?: Record<string, NetworkConfig>;
+  /**
+   * Register a custom Horizon/Soroban RPC pair as a selectable network.
+   * Validates both URLs the same way the CLI's `doctor --horizon-url`/
+   * `--soroban-url` does (issue #831) and throws with the same message
+   * shape on failure. Persists across reloads; does not switch to it —
+   * call `switchNetwork(key)` afterwards to activate it.
+   *
+   * Optional for the same backward-compatibility reason as `networks`.
+   */
+  addCustomNetwork?: (key: string, config: Omit<NetworkConfig, 'isCustom'>) => void;
+  /**
+   * Remove a previously-added custom network. A no-op for `testnet`/
+   * `mainnet` or any key that isn't marked `isCustom` — the built-in
+   * presets can't be removed this way. Optional for the same reason as
+   * `networks`/`addCustomNetwork`.
+   */
+  removeCustomNetwork?: (key: string) => void;
 }
 
 /**
@@ -91,7 +178,20 @@ interface WalletProviderProps {
   horizonUrl?: string;
   sorobanUrl?: string;
   network?: string;
+  /**
+   * Opt-in inactivity timeout, in milliseconds. When set, the wallet
+   * automatically disconnects after this long with no user activity
+   * (mouse, keyboard, touch, or scroll input). Disabled (`undefined`) by
+   * default — integrators building security-sensitive apps can opt in,
+   * e.g. `inactivityTimeoutMs={15 * 60 * 1000}` for a 15-minute auto-lock.
+   */
+  inactivityTimeoutMs?: number;
 }
+
+// Activity events that reset the inactivity timer. Deliberately excludes
+// `mousemove`, which fires too often to be a meaningful "the user is still
+// here" signal and would defeat the point of the timeout.
+const ACTIVITY_EVENTS = ['mousedown', 'keydown', 'touchstart', 'scroll'] as const;
 
 // Create contexts
 export const WalletContext = createContext<WalletContextState | undefined>(undefined);
@@ -110,12 +210,23 @@ export const WalletConfigContext = createContext<WalletConfigContextState | unde
  *   <YourApp />
  * </WalletProvider>
  * ```
+ *
+ * @example
+ * ```tsx
+ * // Opt in to an inactivity auto-lock — disconnects after 15 minutes with
+ * // no mouse, keyboard, touch, or scroll activity. Useful for
+ * // security-sensitive apps; disabled by default.
+ * <WalletProvider inactivityTimeoutMs={15 * 60 * 1000}>
+ *   <YourApp />
+ * </WalletProvider>
+ * ```
  */
 export function WalletProvider({
   children,
-  horizonUrl: initialHorizonUrl = process.env.NEXT_PUBLIC_HORIZON_URL || 'https://horizon-testnet.stellar.org',
-  sorobanUrl: initialSorobanUrl = process.env.NEXT_PUBLIC_SOROBAN_URL || 'https://soroban-testnet.stellar.org',
-  network: initialNetwork = (process.env.NEXT_PUBLIC_NETWORK === 'PUBLIC' ? Networks.PUBLIC : Networks.TESTNET)
+  horizonUrl: horizonUrlProp,
+  sorobanUrl: sorobanUrlProp,
+  network: networkPassphraseProp,
+  inactivityTimeoutMs
 }: WalletProviderProps) {
   const [activeNetworkKey, setActiveNetworkKey] = useState<string>('testnet');
   const [connected, setConnected] = useState(false);
@@ -124,20 +235,77 @@ export function WalletProvider({
   const [balances, setBalances] = useState<Balance[]>([]);
   const [accounts, setAccounts] = useState<WalletAccount[]>([]);
   const [currentAccountIndex, setCurrentAccountIndex] = useState(0);
+  // The network passphrase the connected wallet itself reports (via the kit's
+  // getNetwork()), as opposed to activeNetworkPassphrase below, which is the
+  // app's configured network. They can disagree if the wallet extension is
+  // set to a different network than this app (#1072) — e.g. Freighter set to
+  // mainnet while the app is configured for testnet.
+  const [walletNetworkPassphrase, setWalletNetworkPassphrase] = useState<string>();
 
-  // Load saved network on mount
+  // Consecutive connect() failures, used to compute the backoff delay for
+  // the *next* attempt. Not component state — it must not trigger a
+  // re-render, and needs to persist across renders without resetting.
+  const connectFailureCountRef = useRef(0);
+
+  // Load persisted custom networks, then the saved active network — in that
+  // order, since a saved active key may itself be a custom network that
+  // only just became known.
   useEffect(() => {
+    const savedCustom = storage.get('stellar_custom_networks');
+    let loadedCustom: Record<string, NetworkConfig> = {};
+    if (savedCustom) {
+      try {
+        loadedCustom = JSON.parse(savedCustom) as Record<string, NetworkConfig>;
+        setCustomNetworks(loadedCustom);
+      } catch {
+        // Corrupt/foreign localStorage value — ignore rather than throw on mount.
+      }
+    }
+
     const savedNetwork = storage.get('stellar_network');
-    if (savedNetwork && NETWORKS[savedNetwork]) {
+    if (savedNetwork && (NETWORKS[savedNetwork] || loadedCustom[savedNetwork])) {
       setActiveNetworkKey(savedNetwork);
     }
   }, []);
 
-  // Derive active settings from config or props
-  const config = NETWORKS[activeNetworkKey] || NETWORKS.testnet;
-  const activeHorizonUrl = initialHorizonUrl || config.horizonUrl;
-  const activeSorobanUrl = initialSorobanUrl || config.sorobanUrl;
-  const activeNetworkPassphrase = initialNetwork || config.passphrase;
+  // Every selectable network: built-in presets plus custom entries.
+  const networks = { ...NETWORKS, ...customNetworks };
+
+  const addCustomNetwork = useCallback(
+    (key: string, networkConfig: Omit<NetworkConfig, 'isCustom'>) => {
+      if (!key.trim()) {
+        throw new Error('Invalid network key: must not be empty.');
+      }
+      if (NETWORKS[key]) {
+        throw new Error(`Invalid network key: "${key}" is a reserved built-in network name.`);
+      }
+      assertValidNetworkUrl(networkConfig.horizonUrl, 'Horizon URL');
+      assertValidNetworkUrl(networkConfig.sorobanUrl, 'Soroban URL');
+
+      setCustomNetworks((prev) => {
+        const next = { ...prev, [key]: { ...networkConfig, isCustom: true } };
+        storage.set('stellar_custom_networks', JSON.stringify(next));
+        return next;
+      });
+    },
+    []
+  );
+
+  const removeCustomNetwork = useCallback((key: string) => {
+    setCustomNetworks((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      storage.set('stellar_custom_networks', JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  // Derive active settings from the selected network; explicit props override.
+  const config = networks[activeNetworkKey] || NETWORKS.testnet;
+  const activeHorizonUrl = horizonUrlProp ?? config.horizonUrl;
+  const activeSorobanUrl = sorobanUrlProp ?? config.sorobanUrl;
+  const activeNetworkPassphrase = networkPassphraseProp ?? config.passphrase;
 
   const [server, setServer] = useState(() => new Server(activeHorizonUrl));
   const serverRef = useRef(server);
@@ -150,35 +318,79 @@ export function WalletProvider({
   }, [activeHorizonUrl]);
 
   /**
+   * The active account list/index is persisted per wallet extension *and*
+   * per network (#1067): a Freighter account selected on testnet has no
+   * bearing on which account should be active for Albedo on mainnet, so
+   * each combination gets its own storage key rather than one global pair
+   * that the next wallet/network to connect would silently inherit or
+   * clobber. Falls back to `stellar_wallet_id` in storage when no id is
+   * passed explicitly, since some call sites run before (or without ever
+   * having) a fresh id of their own to pass in.
+   */
+  const accountsStorageKey = useCallback(
+    (walletId?: string) => {
+      const scopeWalletId = walletId ?? storage.get('stellar_wallet_id') ?? 'unknown';
+      return `stellar_wallet_accounts:${activeNetworkKey}:${scopeWalletId}`;
+    },
+    [activeNetworkKey]
+  );
+  const accountIndexStorageKey = useCallback(
+    (walletId?: string) => {
+      const scopeWalletId = walletId ?? storage.get('stellar_wallet_id') ?? 'unknown';
+      return `stellar_wallet_current_account_index:${activeNetworkKey}:${scopeWalletId}`;
+    },
+    [activeNetworkKey]
+  );
+
+  /**
    * Helper function to save accounts to storage
    */
-  const saveAccountsToStorage = useCallback((accts: WalletAccount[], currentIndex: number) => {
-    storage.set('stellar_wallet_accounts', JSON.stringify(accts));
-    storage.set('stellar_wallet_current_account_index', currentIndex.toString());
-  }, []);
+  const saveAccountsToStorage = useCallback(
+    (accts: WalletAccount[], currentIndex: number, walletId?: string) => {
+      storage.set(accountsStorageKey(walletId), JSON.stringify(accts));
+      storage.set(accountIndexStorageKey(walletId), currentIndex.toString());
+    },
+    [accountsStorageKey, accountIndexStorageKey]
+  );
 
   /**
    * Helper function to load accounts from storage
    */
-  const loadAccountsFromStorage = useCallback(() => {
-    const saved = storage.get('stellar_wallet_accounts');
-    const savedIndex = storage.get('stellar_wallet_current_account_index');
-    if (saved) {
-      try {
-        const accts = JSON.parse(saved) as WalletAccount[];
-        const index = savedIndex ? parseInt(savedIndex, 10) : 0;
-        return { accounts: accts, index: Math.max(0, Math.min(index, accts.length - 1)) };
-      } catch {
-        return { accounts: [], index: 0 };
+  const loadAccountsFromStorage = useCallback(
+    (walletId?: string) => {
+      const saved = storage.get(accountsStorageKey(walletId));
+      const savedIndex = storage.get(accountIndexStorageKey(walletId));
+      if (saved) {
+        try {
+          const accts = JSON.parse(saved) as WalletAccount[];
+          const index = savedIndex ? parseInt(savedIndex, 10) : 0;
+          return { accounts: accts, index: Math.max(0, Math.min(index, accts.length - 1)) };
+        } catch {
+          return { accounts: [], index: 0 };
+        }
       }
-    }
-    return { accounts: [], index: 0 };
-  }, []);
+      return { accounts: [], index: 0 };
+    },
+    [accountsStorageKey, accountIndexStorageKey]
+  );
 
   /**
-   * Connect to a Stellar wallet using the modal interface
+   * Connect to a Stellar wallet using the modal interface.
+   *
+   * Retries back off exponentially (#1070): if the previous attempt(s)
+   * failed — extension not installed, user rejected, RPC unreachable, etc.
+   * — this call first waits `connectBackoffDelayMs(failureCount)` before
+   * opening the modal again, so a user (or integrator code) hammering
+   * "Connect" after a failure doesn't hit the wallet/network on every
+   * click. A successful connection resets the counter, so the next fresh
+   * attempt is always eager.
    */
   const connect = useCallback(async () => {
+    const backoffDelay = connectBackoffDelayMs(connectFailureCountRef.current);
+    if (backoffDelay > 0) {
+      await sleep(backoffDelay);
+    }
+
     try {
       // Get fresh kit instance (handles dynamic options)
       const { kit, WalletNetwork } = await loadWalletKit();
@@ -192,6 +404,22 @@ export function WalletProvider({
 
           const { address } = await currentKit.getAddress();
           const { name } = option;
+
+          // Reached a real address — the connection succeeded. Reset the
+          // backoff counter so the next connect() (e.g. after a future
+          // disconnect) starts eager again.
+          connectFailureCountRef.current = 0;
+
+          // Not every wallet can answer getNetwork() (some, notably
+          // hardware wallets, throw or omit it) — a failure here must not
+          // fail the whole connection, it just means the mismatch banner
+          // has nothing to compare and stays hidden.
+          try {
+            const { networkPassphrase } = await currentKit.getNetwork();
+            setWalletNetworkPassphrase(networkPassphrase);
+          } catch {
+            setWalletNetworkPassphrase(undefined);
+          }
 
           // Create or update account list
           const newAccount: WalletAccount = {
@@ -220,7 +448,7 @@ export function WalletProvider({
             }
 
             setCurrentAccountIndex(newIndex);
-            saveAccountsToStorage(updatedAccounts, newIndex);
+            saveAccountsToStorage(updatedAccounts, newIndex, option.id);
             return updatedAccounts;
           });
 
@@ -244,6 +472,7 @@ export function WalletProvider({
         },
       });
     } catch (error) {
+      connectFailureCountRef.current += 1;
       console.error('Failed to connect wallet:', error);
       throw error;
     }
@@ -262,17 +491,62 @@ export function WalletProvider({
       setBalances([]);
       setAccounts([]);
       setCurrentAccountIndex(0);
+      setWalletNetworkPassphrase(undefined);
+      // An explicit disconnect is a clean slate — the next connect() should
+      // be eager, not penalized by failures from a previous session.
+      connectFailureCountRef.current = 0;
 
+      // Read the wallet id before clearing it: the accounts/index keys are
+      // scoped by wallet id + network (#1067), so removing them needs the
+      // same id that was used to save them.
+      storage.remove(accountsStorageKey());
+      storage.remove(accountIndexStorageKey());
       storage.remove('stellar_wallet_connected');
       storage.remove('stellar_wallet_id');
       storage.remove('stellar_wallet_address');
       storage.remove('stellar_wallet_name');
-      storage.remove('stellar_wallet_accounts');
-      storage.remove('stellar_wallet_current_account_index');
     } catch (error) {
       console.error('Failed to disconnect wallet:', error);
     }
-  }, []);
+  }, [accountsStorageKey, accountIndexStorageKey]);
+
+  /**
+   * Inactivity auto-lock (opt-in via `inactivityTimeoutMs`).
+   *
+   * Disconnects the wallet after the configured period with no user
+   * activity. The timer only runs while a wallet is connected, and resets
+   * on every tracked activity event; disconnecting stops it entirely.
+   */
+  useEffect(() => {
+    if (!inactivityTimeoutMs || inactivityTimeoutMs <= 0 || !connected) {
+      return;
+    }
+
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    let timeoutId: ReturnType<typeof setTimeout>;
+
+    const resetTimer = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        disconnect();
+      }, inactivityTimeoutMs);
+    };
+
+    resetTimer();
+    ACTIVITY_EVENTS.forEach((event) => {
+      window.addEventListener(event, resetTimer, { passive: true });
+    });
+
+    return () => {
+      clearTimeout(timeoutId);
+      ACTIVITY_EVENTS.forEach((event) => {
+        window.removeEventListener(event, resetTimer);
+      });
+    };
+  }, [inactivityTimeoutMs, connected, disconnect]);
 
   /**
    * Switch to a different account in the accounts list
@@ -312,17 +586,17 @@ export function WalletProvider({
    * Switch the active network.
    */
   const switchNetwork = useCallback((networkKey: string) => {
-    if (!NETWORKS[networkKey]) return;
-    
+    if (!NETWORKS[networkKey] && !customNetworks[networkKey]) return;
+
     // Changing network requires disconnecting the current session
     // since accounts and balances are network-specific.
     if (connected) {
       disconnect();
     }
-    
+
     storage.set('stellar_network', networkKey);
     setActiveNetworkKey(networkKey);
-  }, [connected, disconnect]);
+  }, [connected, disconnect, customNetworks]);
 
   /**
    * Refresh balances for the connected wallet
@@ -346,7 +620,7 @@ export function WalletProvider({
   /**
    * Send a payment transaction
    */
-  const sendPayment = useCallback(async (opts: PaymentOptions): Promise<Horizon.HorizonApi.SubmitTransactionResponse> => {
+  const sendPayment = useCallback(async (opts: PaymentOptions): Promise<Horizon.HorizonApi.SubmitTransactionResponse | UnsignedFeeBumpResult> => {
     if (!publicKey || !connected) {
       throw new Error('Wallet not connected');
     }
@@ -391,6 +665,22 @@ export function WalletProvider({
       }
 
       const signedTransaction = TransactionBuilder.fromXDR(signedTxXdr, activeNetworkPassphrase);
+
+      if (opts.sponsor) {
+        // A fee-bump envelope must itself be signed by the sponsor, which
+        // this wallet has no channel to obtain — only their public key was
+        // supplied. Build the unsigned fee-bump wrapper and hand its XDR
+        // back to the caller; it's the sponsor's own wallet that needs to
+        // sign and submit it from here.
+        const feeBumpTx = TransactionBuilder.buildFeeBumpTransaction(
+          opts.sponsor,
+          BASE_FEE,
+          signedTransaction as import('@stellar/stellar-sdk').Transaction,
+          activeNetworkPassphrase
+        );
+        return { requiresSponsorSignature: true, feeBumpXdr: feeBumpTx.toXDR() };
+      }
+
       const result = await serverRef.current.submitTransaction(signedTransaction);
 
       await refreshBalances();
@@ -422,8 +712,15 @@ export function WalletProvider({
             setWalletName(savedName || 'Unknown');
             setConnected(true);
 
+            try {
+              const { networkPassphrase } = await currentKit.getNetwork();
+              setWalletNetworkPassphrase(networkPassphrase);
+            } catch {
+              setWalletNetworkPassphrase(undefined);
+            }
+
             // Load saved accounts or create new account list
-            const { accounts: savedAccounts, index: savedIndex } = loadAccountsFromStorage();
+            const { accounts: savedAccounts, index: savedIndex } = loadAccountsFromStorage(savedWalletId);
             if (savedAccounts.length > 0) {
               setAccounts(savedAccounts);
               setCurrentAccountIndex(savedIndex);
@@ -437,7 +734,7 @@ export function WalletProvider({
               ];
               setAccounts(newAccounts);
               setCurrentAccountIndex(0);
-              saveAccountsToStorage(newAccounts, 0);
+              saveAccountsToStorage(newAccounts, 0, savedWalletId);
             }
 
             try {
@@ -452,18 +749,23 @@ export function WalletProvider({
             }
           }
         } catch {
+          storage.remove(accountsStorageKey(savedWalletId));
+          storage.remove(accountIndexStorageKey(savedWalletId));
           storage.remove('stellar_wallet_connected');
           storage.remove('stellar_wallet_id');
           storage.remove('stellar_wallet_address');
           storage.remove('stellar_wallet_name');
-          storage.remove('stellar_wallet_accounts');
-          storage.remove('stellar_wallet_current_account_index');
         }
       }
     };
 
     autoReconnect();
-  }, [activeNetworkKey, loadAccountsFromStorage, saveAccountsToStorage]);
+  }, [activeNetworkKey, loadAccountsFromStorage, saveAccountsToStorage, accountsStorageKey, accountIndexStorageKey]);
+
+  const networkMismatch =
+    connected &&
+    !!walletNetworkPassphrase &&
+    walletNetworkPassphrase !== activeNetworkPassphrase;
 
   const walletValue: WalletContextState = {
     connected,
@@ -477,6 +779,8 @@ export function WalletProvider({
     refreshBalances,
     switchAccount,
     sendPayment: connected ? sendPayment : undefined,
+    walletNetworkPassphrase,
+    networkMismatch,
   };
 
   const configValue: WalletConfigContextState = {
@@ -485,6 +789,9 @@ export function WalletProvider({
     sorobanUrl: activeSorobanUrl,
     network: activeNetworkPassphrase,
     switchNetwork,
+    networks,
+    addCustomNetwork,
+    removeCustomNetwork,
   };
 
   return (

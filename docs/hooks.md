@@ -41,6 +41,59 @@ function MyComponent() {
 }
 ```
 
+### `useStellarWallet(horizonUrl, network)`
+
+A standalone wallet hook built directly on Stellar Wallets Kit (Freighter, Albedo, Lobstr, …). Unlike `useWallet()`, it does not need `WalletProvider` — each call owns its own connection state. The connection is persisted to `localStorage` and restored on mount if the kit still reports the same address.
+
+**Signature:**
+```typescript
+function useStellarWallet(horizonUrl?: string, network?: string): StellarWalletState
+```
+
+**Parameters:**
+- `horizonUrl` (string, optional): Horizon server used for balances and payment submission. Defaults to `'https://horizon-testnet.stellar.org'`. Read once on mount; later changes are ignored.
+- `network` (string, optional): Network **passphrase** used to build and sign payments. Defaults to `Networks.TESTNET`.
+
+**Returns:**
+An object containing:
+- `connected` (boolean): True once a wallet has been selected and its address read.
+- `publicKey` (string | undefined): The connected account's address.
+- `walletName` (string | undefined): The selected wallet's display name.
+- `balances` (Balance[]): Raw Horizon balance lines (`balance`, `asset_type`, `asset_code?`, `asset_issuer?`). Empty for an unfunded account.
+- `connect` (`() => Promise<void>`): Opens the Stellar Wallets Kit selection modal; state updates when the user picks a wallet. Rethrows if the kit fails.
+- `disconnect` (`() => void`): Disconnects the kit, clears state and the persisted connection.
+- `refreshBalances` (`() => Promise<void>`): Re-fetches balances for `publicKey`; a no-op while disconnected.
+- `sendPayment` (`((opts: PaymentOptions) => Promise<Horizon.HorizonApi.SubmitTransactionResponse>) | undefined`): Only defined while connected. Builds a payment (`to`, `amount`, optional `asset` — `'XLM'` or `{ code, issuer }` — and `memo`), signs it through the wallet, submits it to Horizon, refreshes balances and resolves with the Horizon response. Throws on failure.
+
+**Example:**
+```tsx
+import { useStellarWallet } from '@/hooks/useStellarWallet';
+
+function QuickPay() {
+  const { connected, publicKey, balances, connect, sendPayment } = useStellarWallet();
+
+  if (!connected) return <button onClick={() => connect()}>Connect Wallet</button>;
+
+  const xlm = balances.find((b) => b.asset_type === 'native');
+
+  const handlePay = async () => {
+    const result = await sendPayment?.({
+      to: 'GDQJUTQYK2MQX2VGDR2FYWLIYAQIEGXTQVTFEMGH2BEWFG4BRUY4XBKT',
+      amount: '5',
+      memo: 'coffee',
+    });
+    console.log('Submitted:', result?.hash);
+  };
+
+  return (
+    <div>
+      <p>{publicKey} — {xlm?.balance ?? '0'} XLM</p>
+      <button onClick={handlePay}>Send 5 XLM</button>
+    </div>
+  );
+}
+```
+
 ---
 
 ## Balance Hooks
@@ -290,6 +343,152 @@ function ContractEvents({ contractId }) {
         <li key={idx}>Event Topic: {evt.topic}</li>
       ))}
     </ul>
+  );
+}
+```
+
+### `useSorobanContract(opts)`
+
+Simulates, builds and (dev-only) submits calls to a Soroban smart contract, encoding plain JavaScript arguments to XDR `ScVal`s and decoding return values back. No provider is required.
+
+**Signature:**
+```typescript
+function useSorobanContract(opts: SorobanContractOptions): SorobanContractReturn
+```
+
+**Parameters:**
+- `opts.contractId` (string): StrKey contract address (`C…`, 56 characters). Validated on every render — an invalid or empty ID (e.g. an unset env var) **throws during render**.
+- `opts.sorobanRpc` (string, optional): Soroban RPC URL. Defaults to `'https://soroban-testnet.stellar.org'`.
+- `opts.network` (`'TESTNET' | 'PUBLIC'`, optional): Selects the network passphrase. Defaults to `'TESTNET'`.
+
+Contract arguments are `TypedArg` values: plain JS values are auto-detected (`boolean` → bool, `bigint` → i128, `number` → i32, 56-char `G…`/`C…` string → address, other `string` → string, `Uint8Array` → bytes, array → vec, object → map), or pass `{ value, type }` to force a type (`'u32'`, `'u64'`, `'u128'`, `'symbol'`, `'bytes'`, `'enum'`, …).
+
+**Returns:**
+An object containing:
+- `callFunction` (`(name: string, args?: TypedArg[]) => Promise<unknown>`): Read-only call via simulation; resolves with the decoded return value (`null` if none). If the footprint has expired it resolves with `{ requiresRestore: true, restorePreamble, transactionData }` and sets `error`. Throws on a simulation error.
+- `simulateContractCall` (`(name: string, args?: TypedArg[]) => Promise<SimulateContractCallResult>`): Resolves with `{ result, minResourceFee, latestLedger }` — the decoded return value, the minimum resource fee in stroops (string) and the simulation ledger — for showing a preview before submitting. Throws `Simulation failed: …` on error.
+- `buildInvokeXDR` (`(name: string, args?: TypedArg[]) => Promise<string>`): Resolves with the unsigned invocation transaction XDR for a wallet to sign. It is built against a throwaway source account with a flat 100-stroop fee.
+- `submitInvokeWithSecret` (`(xdr: string, secret: string) => Promise<rpc.Api.SendTransactionResponse>`): **Development only.** Signs `xdr` with `secret` and sends it via RPC `sendTransaction`, resolving with the send response (it does not poll for the final status).
+- `loading` (boolean): True while any of the calls above is in flight.
+- `error` (Error | null | undefined): Error from the most recent call; cleared when the next call starts.
+
+**Example:**
+```tsx
+import { useState } from 'react';
+import {
+  useSorobanContract,
+  type SimulateContractCallResult,
+} from '@/hooks/useSorobanContract';
+
+function Transfer({ from, to }: { from: string; to: string }) {
+  const { simulateContractCall, buildInvokeXDR, loading, error } = useSorobanContract({
+    contractId: process.env.NEXT_PUBLIC_CONTRACT_ID!,
+  });
+  const [preview, setPreview] = useState<SimulateContractCallResult>();
+
+  const args = [from, to, { value: '1000000', type: 'i128' as const }];
+
+  const handlePreview = async () => {
+    setPreview(await simulateContractCall('transfer', args));
+  };
+
+  const handleConfirm = async () => {
+    const xdr = await buildInvokeXDR('transfer', args);
+    // Hand `xdr` to your wallet adapter for signing and submission.
+  };
+
+  return (
+    <div>
+      <button onClick={handlePreview} disabled={loading}>Preview</button>
+      {preview && (
+        <p>
+          Fee: {preview.minResourceFee} stroops (ledger #{preview.latestLedger})
+          <button onClick={handleConfirm}>Confirm</button>
+        </p>
+      )}
+      {error && <p>{error.message}</p>}
+    </div>
+  );
+}
+```
+
+---
+
+## SEP Hooks
+
+### `useSep38Quote(options?)`
+
+Requests indicative (non-binding) prices and firm (binding) quotes from a [SEP-38](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0038.md) anchor quote server. Discover the quote server first with `discoverSep38QuoteServer(homeDomain)` (`@/lib/sep38`), which resolves `ANCHOR_QUOTE_SERVER` from the domain's `stellar.toml`.
+
+Does not fetch on mount, and never fetches automatically as parameters change — a quote is only requested when `getIndicativePrice`/`getFirmQuote` is called, since anchor quote requests can be rate-limited and a firm quote should never be requested unintentionally.
+
+**Signature:**
+```typescript
+function useSep38Quote(options?: UseSep38QuoteOptions): UseSep38QuoteReturn
+```
+
+**Returns:**
+An object containing:
+- `getIndicativePrice(params)`: Requests `GET /price`. Returns a `Sep38IndicativePrice` (`kind: 'indicative'`) — informational only, never binding.
+- `getFirmQuote(params)`: Requests `POST /quote` (requires a SEP-10 `authToken`). Returns a `Sep38FirmQuote` (`kind: 'firm'`) with an `id` and an `expiresAt` taken as-is from the anchor — never fabricated or extended client-side.
+- `quote` (`Sep38IndicativePrice | Sep38FirmQuote | undefined`): The most recently resolved result. Check `quote.kind` before treating it as executable.
+- `loading` (boolean), `error` (Error | null).
+- `isExpired` (boolean): True once a firm quote's `expiresAt` has passed. Always `false` for an indicative price.
+- `reset()`: Clears `quote` and `error`.
+
+**Example:**
+```tsx
+import { useSep38Quote } from '@/hooks/useSep38Quote';
+import { discoverSep38QuoteServer } from '@/lib/sep38';
+
+async function getPrice() {
+  const quoteServer = await discoverSep38QuoteServer('anchor.example.com');
+  const { getIndicativePrice, quote, loading, error } = useSep38Quote();
+
+  await getIndicativePrice({
+    quoteServer,
+    sellAsset: 'iso4217:USD',
+    buyAsset: 'stellar:XLM:GISSUER...',
+    sellAmount: '100',
+    context: 'sep6',
+  });
+}
+```
+
+---
+
+## Utility Hooks
+
+### `useClipboard(options)`
+
+Copies text to the clipboard and exposes a timed `copied` flag for "Copied!" feedback. Used by `CopyButton`; no provider is required.
+
+**Signature:**
+```typescript
+function useClipboard(options?: UseClipboardOptions): UseClipboardResult
+```
+
+**Parameters:**
+- `options.resetDelayMs` (number, optional): How long `copied` stays `true` after a successful copy, in milliseconds. Defaults to `2000`.
+
+**Returns:**
+An object containing:
+- `copied` (boolean): True for `resetDelayMs` after the most recent successful copy. Copying again restarts the timer.
+- `error` (Error | null): Set when the last attempt failed — the Clipboard API is unavailable (e.g. an insecure context) or the write was rejected. Cleared by the next successful copy.
+- `copy` (`(text: string) => Promise<boolean>`): Writes `text` to the clipboard and resolves `true` on success, `false` otherwise. An empty string resolves `false` without touching the clipboard.
+
+**Example:**
+```tsx
+import { useClipboard } from '@/hooks/useClipboard';
+
+function CopyTxHash({ hash }: { hash: string }) {
+  const { copied, error, copy } = useClipboard({ resetDelayMs: 1500 });
+
+  return (
+    <div>
+      <button onClick={() => copy(hash)}>{copied ? 'Copied!' : 'Copy hash'}</button>
+      {error && <p role="alert">{error.message}</p>}
+    </div>
   );
 }
 ```

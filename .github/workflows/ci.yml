@@ -133,6 +133,47 @@ jobs:
       # Pack size thresholds (~2× clean main): max 5 MB tarball, 25 MB unpacked, 1000 files
       - run: node scripts/check-pack-size.mjs
 
+  lighthouse-default:
+    name: Lighthouse CI — default scaffold
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+
+      # Scaffolds a real default-template app the same way an end user would
+      # (npx nextellar), installs and builds it for production, then runs
+      # Lighthouse CI (performance/accessibility/best-practices/SEO) against
+      # its production server via `npm start`. See .lighthouserc.json for
+      # the budget thresholds and docs/lighthouse-ci.md for how to run this
+      # locally and what to do when a score regresses.
+      - name: Scaffold default app
+        run: node dist/bin/nextellar.js lhci-app --defaults --skip-install --template default
+
+      - name: Install scaffolded app dependencies
+        working-directory: lhci-app
+        run: npm install
+
+      - name: Build scaffolded app
+        working-directory: lhci-app
+        run: npm run build
+
+      - name: Copy Lighthouse CI config
+        run: cp .lighthouserc.json lhci-app/.lighthouserc.json
+
+      - name: Run Lighthouse CI
+        working-directory: lhci-app
+        run: npx --yes @lhci/cli@0.15.x autorun --config=.lighthouserc.json
+        env:
+          LHCI_BUILD_CONTEXT__CURRENT_HASH: ${{ github.sha }}
+
   coverage:
     name: Test coverage report
     runs-on: ubuntu-latest
