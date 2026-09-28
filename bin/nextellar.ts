@@ -5,9 +5,10 @@ import { fileURLToPath } from "url";
 import fs from "fs-extra";
 import pc from "picocolors";
 import gradient from "gradient-string";
+import ora from "ora";
 import { scaffold } from "../src/lib/scaffold.js";
 import { upgrade } from "../src/lib/upgrade.js";
-import { runDeploy } from "../src/lib/deploy.js";
+import { runDeploy, type BundleProgress } from "../src/lib/deploy.js";
 import { runClean } from "../src/lib/clean.js";
 import {
   displaySuccess,
@@ -31,6 +32,8 @@ import {
   setTelemetryEnabled,
   telemetryConfigPath,
 } from "../src/lib/telemetry.js";
+import { setVerbose, logVerboseError } from "../src/lib/verbose.js";
+import { maybeNotifyUpdate } from "../src/lib/updateNotifier.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -139,6 +142,22 @@ program
       await exitWithTelemetry(exitCode);
     } catch (err: any) {
       printError(`Failed to preview templates: ${err?.message || err}`);
+// Init subcommand: revisit/reconfigure an existing project's
+// .nextellar/config.json (network, wallets) without re-scaffolding.
+program
+  .command("init")
+  .description("Interactively reconfigure network and wallet settings")
+  .option("-d, --defaults", "skip prompts and keep/apply defaults", false)
+  .action(async (cmdOpts: { defaults?: boolean }) => {
+    try {
+      const { runInit } = await import("../src/lib/init.js");
+      const result = await runInit({ defaults: !!cmdOpts.defaults });
+      if (result) {
+        console.log(pc.green(`✔️  Updated ${result.configPath}`));
+      }
+      await exitWithTelemetry(0);
+    } catch (err: any) {
+      printError(`Failed to run init: ${err?.message || err}`);
       await exitWithTelemetry(1);
     }
   });
@@ -151,6 +170,12 @@ program
   .option("--force", "overwrite existing files")
   .option("--skip-install", "skip installing npm dependencies")
   .option("--package-manager <manager>", "npm, yarn, or pnpm")
+  .option(
+    "--dry-run",
+    "simulate feature addition without writing files or installing packages",
+  )
+  .option("--verbose", "print additional diagnostic output on failure")
+  .option("--debug", "alias for --verbose")
   .action(
     async (
       feature: string | undefined,
@@ -159,8 +184,12 @@ program
         force?: boolean;
         skipInstall?: boolean;
         packageManager?: string;
+        dryRun?: boolean;
+        verbose?: boolean;
+        debug?: boolean;
       },
     ) => {
+      setVerbose(!!(cmdOpts.verbose || cmdOpts.debug));
       try {
         const { runAdd } = await import("../src/lib/add.js");
         const { listFeatures } = await import("../src/lib/features.js");
@@ -197,6 +226,7 @@ program
           force: cmdOpts.force,
           skipInstall: cmdOpts.skipInstall,
           packageManager: cmdOpts.packageManager,
+          dryRun: cmdOpts.dryRun,
         });
         if (!result.success) {
           printError(result.message ?? "Add failed.");
@@ -204,6 +234,7 @@ program
         }
       } catch (err: any) {
         printError(`Add failed: ${err?.message || err}`);
+        logVerboseError(err);
         await exitWithTelemetry(1);
       } finally {
         await flushTelemetry();
@@ -264,7 +295,10 @@ program
   .option("--dry-run", "Show what would change without applying it", false)
   .option("--check", "Dry preview with changelog display", false)
   .option("--yes", "Apply changes without prompting", false)
+  .option("--verbose", "print additional diagnostic output on failure")
+  .option("--debug", "alias for --verbose")
   .action(async (options) => {
+    setVerbose(!!(options.verbose || options.debug));
     try {
       await upgrade({
         dryRun: options.dryRun,
@@ -273,6 +307,7 @@ program
       });
     } catch (err: any) {
       printError(err.message);
+      logVerboseError(err);
       await exitWithTelemetry(1);
     } finally {
       await flushTelemetry();
@@ -291,23 +326,66 @@ program
     "bundle size threshold in bytes (default: 50MB)",
     "52428800",
   )
-  .action(async (cmdOpts: { dryRun?: boolean; sizeThreshold?: string }) => {
-    try {
-      const sizeThreshold = cmdOpts.sizeThreshold
-        ? parseInt(cmdOpts.sizeThreshold, 10)
-        : undefined;
-      await runDeploy({
-        cwd: process.cwd(),
-        dryRun: !!cmdOpts.dryRun,
-        sizeThreshold,
-      });
-    } catch (err: any) {
-      printError(err?.message || String(err));
-      await exitWithTelemetry(1);
-    } finally {
-      await flushTelemetry();
-    }
-  });
+  .option("--verbose", "print additional diagnostic output on failure")
+  .option("--debug", "alias for --verbose")
+  .action(
+    async (cmdOpts: {
+      dryRun?: boolean;
+      sizeThreshold?: string;
+      verbose?: boolean;
+      debug?: boolean;
+    }) => {
+      setVerbose(!!(cmdOpts.verbose || cmdOpts.debug));
+      const spinner = cmdOpts.dryRun
+        ? undefined
+        : ora({
+            text: "Packing deployment bundle...",
+            color: "magenta",
+            spinner: "dots",
+          }).start();
+
+      const formatBytes = (bytes: number): string => {
+        if (bytes === 0) return "0 B";
+        const units = ["B", "KB", "MB", "GB"];
+        const exponent = Math.min(
+          Math.floor(Math.log(bytes) / Math.log(1024)),
+          units.length - 1,
+        );
+        const value = bytes / 1024 ** exponent;
+        return `${value.toFixed(exponent === 0 ? 0 : 1)} ${units[exponent]}`;
+      };
+
+      try {
+        const sizeThreshold = cmdOpts.sizeThreshold
+          ? parseInt(cmdOpts.sizeThreshold, 10)
+          : undefined;
+        await runDeploy({
+          cwd: process.cwd(),
+          dryRun: !!cmdOpts.dryRun,
+          sizeThreshold,
+          onProgress: spinner
+            ? (progress: BundleProgress) => {
+                const pct =
+                  progress.totalBytes > 0
+                    ? Math.round(
+                        (progress.bytesPacked / progress.totalBytes) * 100,
+                      )
+                    : 0;
+                spinner.text = `Packing deployment bundle... ${pct}% (${progress.filesPacked}/${progress.totalFiles} files, ${formatBytes(progress.bytesPacked)}/${formatBytes(progress.totalBytes)})`;
+              }
+            : undefined,
+        });
+        spinner?.succeed(pc.green("Deployment bundle packed"));
+      } catch (err: any) {
+        spinner?.fail(pc.red("Failed to pack deployment bundle"));
+        printError(err?.message || String(err));
+        logVerboseError(err);
+        await exitWithTelemetry(1);
+      } finally {
+        await flushTelemetry();
+      }
+    },
+  );
 
 program
   .command("clean")
@@ -317,6 +395,7 @@ program
       await runClean({ cwd: process.cwd() });
     } catch (err: any) {
       console.error(`\n❌ Error: ${err?.message || err}`);
+      logVerboseError(err);
       await exitWithTelemetry(1);
     } finally {
       await flushTelemetry();
@@ -373,9 +452,12 @@ program
     "timeout in ms for package install (default: 1200000 / 20 minutes)",
     "1200000",
   )
-  .option("--no-telemetry", "disable telemetry for this invocation");
+  .option("--no-telemetry", "disable telemetry for this invocation")
+  .option("--verbose", "print additional diagnostic output on failure")
+  .option("--debug", "alias for --verbose");
 
 program.action(async (projectName, options) => {
+  setVerbose(!!(options.verbose || options.debug));
   // --yes is an alias for --defaults; normalize once so every downstream
   // check only has to look at options.defaults.
   options.defaults = options.defaults || options.yes;
@@ -503,6 +585,40 @@ program.action(async (projectName, options) => {
     finalWallets = walletsFlagProvided ? finalWallets : defaultWallets;
   }
 
+  // Non-interactive runs (--yes/--defaults, or any run where prompting was
+  // skipped) never showed the user what was about to be scaffolded until
+  // after the fact — the banner above only prints in a TTY and only shows
+  // the pre-prompt options, not what actually got resolved. Print a summary
+  // of the final, resolved options before any files are written, regardless
+  // of TTY/interactivity, so --yes/--defaults runs get the same visibility
+  // an interactive run gets from the prompts themselves.
+  if (!shouldPrompt) {
+    console.log(pc.bold("\nScaffolding with the following options:"));
+    console.log(`  Project:         ${pc.cyan(finalProjectName)}`);
+    console.log(
+      `  Language:        ${pc.cyan(useTs ? "TypeScript" : "JavaScript")}`,
+    );
+    console.log(`  Template:        ${pc.cyan(template)}`);
+    console.log(
+      `  Contracts:       ${pc.cyan(options.withContracts ? "Yes" : "No")}`,
+    );
+    console.log(
+      `  Wallets:         ${pc.cyan(finalWallets.length > 0 ? finalWallets.join(", ") : "none")}`,
+    );
+    if (finalHorizonUrl) {
+      console.log(`  Horizon URL:     ${pc.cyan(finalHorizonUrl)}`);
+    }
+    if (finalSorobanUrl) {
+      console.log(`  Soroban URL:     ${pc.cyan(finalSorobanUrl)}`);
+    }
+    console.log(
+      `  Package manager: ${pc.cyan(finalPackageManager || "auto-detect")}`,
+    );
+    console.log(
+      `  Skip install:    ${pc.cyan(finalSkipInstall ? "Yes" : "No")}\n`,
+    );
+  }
+
   const MIN_INSTALL_TIMEOUT_MS = 5_000;
   const MAX_INSTALL_TIMEOUT_MS = 3_600_000;
   const rawInstallTimeout = String(options.installTimeout).trim();
@@ -521,6 +637,10 @@ program.action(async (projectName, options) => {
 
   try {
     await maybeShowTelemetryNotice({
+      noTelemetryFlag: options.telemetry === false,
+    });
+    await maybeNotifyUpdate({
+      currentVersion: pkg.version,
       noTelemetryFlag: options.telemetry === false,
     });
 
@@ -550,6 +670,7 @@ program.action(async (projectName, options) => {
     await displaySuccess(finalProjectName, pkgManager, finalSkipInstall);
   } catch (err: any) {
     printError(err.message);
+    logVerboseError(err);
     await exitWithTelemetry(1);
   } finally {
     await flushTelemetry();

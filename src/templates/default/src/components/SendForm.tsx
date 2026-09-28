@@ -2,34 +2,46 @@
 
 import { useState } from 'react';
 import { StrKey } from '@stellar/stellar-sdk';
-import { useWallet } from '../contexts';
+import { useWallet, isUnsignedFeeBumpResult } from '../contexts';
+import { useStellarBalances } from '../hooks/useStellarBalances';
 import TransactionStatusBadge from './TransactionStatusBadge';
 
-type FormState = 'idle' | 'submitting' | 'success' | 'error';
+type FormState = 'idle' | 'submitting' | 'success' | 'error' | 'awaiting_sponsor';
 
 /**
  * Send Form
  *
- * A payment form for the connected wallet: destination address, amount, and
- * an optional memo. Validates locally before ever calling `sendPayment` so a
- * malformed address or non-numeric amount never reaches the wallet adapter.
+ * A payment form for the connected wallet: destination address, asset selector,
+ * amount, optional memo, and optional fee-bump sponsor key.
  *
- * Submission goes through `useWallet().sendPayment`, which is undefined
- * until a wallet adapter actually implements it — the form disables itself
- * with an explanatory message in that case rather than throwing.
+ * A fee-bump's outer envelope must be signed by the sponsor's own key, which
+ * this form has no channel to obtain (only their public key is collected) —
+ * so when a sponsor is set, submitting signs and builds the fee-bump
+ * transaction but does not submit it. The resulting XDR is shown for the
+ * sponsor to sign and submit themselves (e.g. paste into their own wallet).
  */
 export default function SendForm() {
-  const { connected, sendPayment } = useWallet();
+  const { connected, publicKey, sendPayment } = useWallet();
+  const { balances } = useStellarBalances(publicKey || undefined);
   const [to, setTo] = useState('');
+  const [selectedAsset, setSelectedAsset] = useState<string>('XLM');
   const [amount, setAmount] = useState('');
   const [memo, setMemo] = useState('');
+  const [sponsor, setSponsor] = useState('');
   const [state, setState] = useState<FormState>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [feeBumpXdr, setFeeBumpXdr] = useState<string | null>(null);
 
   const addressError =
     to.length > 0 && !StrKey.isValidEd25519PublicKey(to)
       ? 'Enter a valid Stellar public key (starts with G).'
       : null;
+
+  const sponsorError =
+    sponsor.length > 0 && !StrKey.isValidEd25519PublicKey(sponsor)
+      ? 'Enter a valid sponsor public key (starts with G).'
+      : null;
+
   const amountError =
     amount.length > 0 && (!Number.isFinite(Number(amount)) || Number(amount) <= 0)
       ? 'Enter an amount greater than 0.'
@@ -41,21 +53,55 @@ export default function SendForm() {
     to.length > 0 &&
     amount.length > 0 &&
     !addressError &&
+    !sponsorError &&
     !amountError &&
     state !== 'submitting';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!sendPayment || addressError || amountError) return;
+    if (!sendPayment || addressError || sponsorError || amountError) return;
 
     setState('submitting');
     setError(null);
+    setFeeBumpXdr(null);
     try {
-      await sendPayment({ to, amount, memo: memo || undefined });
-      setState('success');
-      setTo('');
-      setAmount('');
-      setMemo('');
+      const assetParam =
+        selectedAsset === 'XLM'
+          ? 'XLM'
+          : (() => {
+              const matched = balances.find(
+                (b) => b.asset_code === selectedAsset || `${b.asset_code}:${b.asset_issuer}` === selectedAsset
+              );
+              return matched && matched.asset_code && matched.asset_issuer
+                ? { code: matched.asset_code, issuer: matched.asset_issuer }
+                : 'XLM';
+            })();
+
+      const result = await sendPayment({
+      // NOTE: the sponsor input above is validated but not yet wired into
+      // sendPayment — PaymentOptions has no `sponsor` field. A fee-bump send
+      // needs the sponsor's own signature on the outer envelope, which this
+      // wallet has no channel to obtain from just a public key; building
+      // that flow (return an unsigned fee-bump XDR for the sponsor to
+      // co-sign out-of-band) is out of scope for this change. Tracked
+      // separately rather than silently dropped here.
+      await sendPayment({
+        to,
+        amount,
+        asset: assetParam,
+        memo: memo || undefined,
+      });
+
+      if (isUnsignedFeeBumpResult(result)) {
+        setFeeBumpXdr(result.feeBumpXdr);
+        setState('awaiting_sponsor');
+      } else {
+        setState('success');
+        setTo('');
+        setAmount('');
+        setMemo('');
+        setSponsor('');
+      }
     } catch (err) {
       setState('error');
       setError(err instanceof Error ? err.message : 'Payment failed.');
@@ -71,8 +117,22 @@ export default function SendForm() {
         <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Send Payment</h3>
         {state !== 'idle' && (
           <TransactionStatusBadge
-            status={state === 'submitting' ? 'pending' : state === 'success' ? 'success' : 'failed'}
-            label={state === 'submitting' ? 'Submitting' : state === 'success' ? 'Sent' : 'Failed'}
+            status={
+              state === 'submitting' || state === 'awaiting_sponsor'
+                ? 'pending'
+                : state === 'success'
+                  ? 'success'
+                  : 'failed'
+            }
+            label={
+              state === 'submitting'
+                ? 'Submitting'
+                : state === 'awaiting_sponsor'
+                  ? 'Awaiting sponsor'
+                  : state === 'success'
+                    ? 'Sent'
+                    : 'Failed'
+            }
           />
         )}
       </div>
@@ -92,7 +152,6 @@ export default function SendForm() {
           aria-describedby="send-form-to-error"
           className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
         />
-        {/* Persistent aria-live region: always in the DOM so AT reliably announces injected text */}
         <p
           id="send-form-to-error"
           aria-live="assertive"
@@ -103,9 +162,33 @@ export default function SendForm() {
         </p>
       </div>
 
+      {balances && balances.length > 1 && (
+        <div>
+          <label htmlFor="send-form-asset" className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
+            Asset
+          </label>
+          <select
+            id="send-form-asset"
+            value={selectedAsset}
+            onChange={(e) => setSelectedAsset(e.target.value)}
+            disabled={!connected || state === 'submitting'}
+            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+          >
+            <option value="XLM">XLM (Native)</option>
+            {balances
+              .filter((b) => b.asset_type !== 'native' && b.asset_code)
+              .map((b) => (
+                <option key={`${b.asset_code}:${b.asset_issuer}`} value={b.asset_code}>
+                  {b.asset_code} ({parseFloat(b.balance).toFixed(2)})
+                </option>
+              ))}
+          </select>
+        </div>
+      )}
+
       <div>
         <label htmlFor="send-form-amount" className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
-          Amount (XLM)
+          Amount ({selectedAsset})
         </label>
         <input
           id="send-form-amount"
@@ -119,7 +202,6 @@ export default function SendForm() {
           aria-describedby="send-form-amount-error"
           className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
         />
-        {/* Persistent aria-live region: always in the DOM so AT reliably announces injected text */}
         <p
           id="send-form-amount-error"
           aria-live="assertive"
@@ -144,6 +226,31 @@ export default function SendForm() {
         />
       </div>
 
+      <div>
+        <label htmlFor="send-form-sponsor" className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
+          Fee Sponsor (optional fee-bump)
+        </label>
+        <input
+          id="send-form-sponsor"
+          type="text"
+          value={sponsor}
+          onChange={(e) => setSponsor(e.target.value)}
+          placeholder="GSPONSOR...1234"
+          disabled={!connected || state === 'submitting'}
+          aria-invalid={!!sponsorError}
+          aria-describedby="send-form-sponsor-error"
+          className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+        />
+        <p
+          id="send-form-sponsor-error"
+          aria-live="assertive"
+          aria-atomic="true"
+          className="mt-1 min-h-[1rem] text-xs text-red-600 dark:text-red-400"
+        >
+          {sponsorError ?? ''}
+        </p>
+      </div>
+
       {!connected && (
         <p className="text-xs text-gray-500 dark:text-gray-400">Connect a wallet to send a payment.</p>
       )}
@@ -152,7 +259,6 @@ export default function SendForm() {
           The connected wallet adapter does not support sending payments.
         </p>
       )}
-      {/* Persistent aria-live region for submission-level errors */}
       <p
         aria-live="assertive"
         aria-atomic="true"
@@ -161,13 +267,37 @@ export default function SendForm() {
         {error ?? ''}
       </p>
 
+      {state === 'awaiting_sponsor' && feeBumpXdr && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-3 dark:border-amber-700 dark:bg-amber-950/40"
+        >
+          <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
+            This transaction is signed and ready, but needs the fee sponsor&apos;s
+            signature before it can be submitted. This wallet has no way to sign
+            on the sponsor&apos;s behalf — copy the XDR below and have the sponsor
+            sign and submit it from their own wallet.
+          </p>
+          <textarea
+            readOnly
+            value={feeBumpXdr}
+            aria-label="Unsigned fee-bump transaction XDR"
+            rows={4}
+            className="w-full rounded border border-amber-300 bg-white px-2 py-1.5 font-mono text-[11px] text-gray-800 dark:border-amber-700 dark:bg-gray-900 dark:text-gray-200"
+            onFocus={(e) => e.currentTarget.select()}
+          />
+        </div>
+      )}
+
       <button
         type="submit"
         disabled={!canSubmit}
         className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-blue-500 dark:hover:bg-blue-600"
       >
-        {state === 'submitting' ? 'Sending…' : 'Send'}
+        {state === 'submitting' ? 'Sending…' : sponsor ? 'Send with Fee-Bump' : 'Send'}
       </button>
     </form>
   );
 }
+
