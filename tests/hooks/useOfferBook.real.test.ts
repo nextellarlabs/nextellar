@@ -28,22 +28,14 @@ import {
   flush,
   advanceAndFlush,
 } from "../helpers/fake-timers.js";
+import {
+  HORIZON_TESTNET_URL as HORIZON_URL,
+  USDC,
+  BTC,
+} from "../helpers/fixtures";
 
 const { useOfferBook } =
   await import("../../src/templates/default/src/hooks/useOfferBook.js");
-
-// ── Fixtures ────────────────────────────────────────────────────────────────
-
-const HORIZON_URL = "https://horizon-testnet.stellar.org";
-
-const USDC = {
-  code: "USDC",
-  issuer: "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
-};
-const BTC = {
-  code: "BTC",
-  issuer: "GDXTJEK4JZNSTNQAWA53RZNS2GIKTDRPEUWDXELFMKU52XNECNVDVUTD",
-};
 
 const BIDS = [
   { price: "0.5000000", amount: "100.0000000" },

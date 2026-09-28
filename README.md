@@ -1,6 +1,7 @@
 # Nextellar
 
 [![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/nextellarlabs/nextellar/ci.yml?branch=main&label=CI&style=flat-square)](https://github.com/nextellarlabs/nextellar/actions/workflows/ci.yml)
+[![Coverage Status](https://img.shields.io/badge/coverage-95%25-brightgreen.svg?style=flat-square)](https://github.com/nextellarlabs/nextellar)
 [![Dependency Audit](https://img.shields.io/github/actions/workflow/status/nextellarlabs/nextellar/audit.yml?branch=main&label=Security%20Audit&style=flat-square)](https://github.com/nextellarlabs/nextellar/actions/workflows/audit.yml)
 [![npm Version](https://img.shields.io/npm/v/nextellar.svg?style=flat-square)](https://www.npmjs.com/package/nextellar)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
@@ -93,7 +94,9 @@ Options:
 | Command | Description |
 | --- | --- |
 | `nextellar add [feature]` | Add a Stellar feature to an existing project (`--list` to see all, `--force` to overwrite, `--skip-install`, `--package-manager`) |
+| `nextellar templates [name]` | Preview each template's file tree and description without scaffolding (name to preview just one, `--json` for machine-readable output) |
 | `nextellar doctor` | Run environment diagnostics (`--json` for CI, `--fix` to auto-remediate safe issues) |
+| `nextellar status` | Show a scaffolded project's health score: outdated deps, missing env vars, telemetry status, git init (`--json` for CI) |
 | `nextellar upgrade` | Upgrade an existing project to the latest template (`--dry-run` to preview, `--check` for a changelog preview, `--yes` to skip prompts) |
 | `nextellar deploy` | Validate and prepare a deployment bundle for Nextellar Cloud (`--dry-run` to preview) |
 | `nextellar clean` | Remove `.nextellar/` build artifacts |
@@ -162,6 +165,7 @@ The following components and tools are planned but **not yet included** in scaff
 | `<BalanceDisplay>` component | Installable via `nextellar add balance-display` | — |
 | `<SendForm>` component | Installable via `nextellar add send-form` | — |
 | `<TransactionList>` component | Installable via `nextellar add transaction-list` | — |
+| `<ContractCallForm>` / `<ContractCallPreview>` components | Installable via `nextellar add contract-call` | — |
 | `<ReceiveForm>` component | Planned | — |
 | `<TransactionStatusBadge>` component | Planned | — |
 | Full `shadcn/ui` integration | Templates ship inline shadcn/ui-inspired components; full setup is manual | — |
@@ -189,11 +193,23 @@ Deployment bundle guide (`nextellar deploy`):
 Network and environment configuration (Horizon/Soroban, testnet/mainnet, NetworkSwitcher):  
 🔗 [docs/network-environment-guide.md](docs/network-environment-guide.md)
 
+Authoring a custom wallet adapter (the `ModuleInterface`, a worked example, and where to register it):  
+🔗 [docs/custom-wallet-adapter-guide.md](docs/custom-wallet-adapter-guide.md)
+
 Soroban contracts overlay guide (`--with-contracts`):  
 🔗 [docs/soroban-contracts-overlay-guide.md](docs/soroban-contracts-overlay-guide.md)
 
+Anchor discovery & KYC fields (SEP-1 / SEP-9 / SEP-38):  
+🔗 [docs/anchor-discovery-and-kyc.md](docs/anchor-discovery-and-kyc.md)
+
+Web authentication & payment request URIs (SEP-7 / SEP-45):  
+🔗 [docs/web-auth-and-payments.md](docs/web-auth-and-payments.md)
+
 Doctor diagnostic & troubleshooting guide:  
 🔗 [docs/troubleshooting.md](docs/troubleshooting.md)
+
+Testing guide for generated apps (Storybook interaction tests, and adding Jest/Vitest if you need it):  
+🔗 [docs/testing-guide.md](docs/testing-guide.md)
 
 ---
 
