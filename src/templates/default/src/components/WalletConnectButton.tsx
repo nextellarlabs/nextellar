@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useWallet } from '../contexts';
+import { useStellarBalances } from '../hooks/useStellarBalances';
 import AccountSwitcher from './AccountSwitcher';
 
 // Simple inline SVG icons
@@ -18,6 +19,23 @@ const LoaderIcon = () => (
   </svg>
 );
 
+const RefreshIcon = ({ spinning = false }: { spinning?: boolean }) => (
+  <svg
+    className={`w-4 h-4 ${spinning ? 'animate-spin' : ''}`}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+    aria-hidden="true"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+    />
+  </svg>
+);
+
 interface WalletConnectButtonProps {
   theme?: 'light' | 'dark';
 }
@@ -31,8 +49,12 @@ interface WalletConnectButtonProps {
  * Follows the same design system as the main CTA buttons.
  */
 export default function WalletConnectButton({ theme = 'light' }: WalletConnectButtonProps) {
-  const { connected, connect, disconnect, walletName, accounts } = useWallet();
+  const { connected, connect, disconnect, walletName, accounts, publicKey } = useWallet();
   const [isLoading, setIsLoading] = useState(false);
+  const {
+    loading: isRefreshing,
+    refresh: refreshBalances,
+  } = useStellarBalances(connected ? publicKey : null);
   const actionLabel = connected
     ? `Disconnect ${walletName ?? 'wallet'}`
     : 'Connect Stellar wallet';
@@ -83,6 +105,24 @@ export default function WalletConnectButton({ theme = 'light' }: WalletConnectBu
         </span>
       </button>
       
+      {connected && (
+        <button
+          type="button"
+          onClick={() => refreshBalances()}
+          disabled={isRefreshing}
+          aria-label={isRefreshing ? 'Refreshing balances' : 'Refresh balances'}
+          aria-busy={isRefreshing}
+          title="Refresh balances"
+          className={`p-2 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
+            theme === 'light'
+              ? 'text-gray-700 hover:bg-gray-100 focus-visible:ring-gray-900 focus-visible:ring-offset-white'
+              : 'text-gray-200 hover:bg-white/10 focus-visible:ring-white focus-visible:ring-offset-gray-950'
+          } ${isRefreshing ? 'opacity-75 cursor-not-allowed' : ''}`}
+        >
+          <RefreshIcon spinning={isRefreshing} />
+        </button>
+      )}
+
       {connected && accounts.length > 0 && <AccountSwitcher />}
     </div>
   );

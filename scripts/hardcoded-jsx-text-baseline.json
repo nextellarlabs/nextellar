@@ -1,0 +1,380 @@
+{
+  "src/templates/default/src/components/AccountSwitcher.tsx": [
+    {
+      "line": 87,
+      "text": "Available Accounts (",
+      "kind": "jsx-text"
+    }
+  ],
+  "src/templates/default/src/components/BalanceDisplay.tsx": [
+    {
+      "line": 89,
+      "text": "Connect wallet to view balances",
+      "kind": "prop:title"
+    },
+    {
+      "line": 112,
+      "text": "Failed to load balances",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 121,
+      "text": "Retry",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 134,
+      "text": "No balances yet",
+      "kind": "prop:title"
+    },
+    {
+      "line": 153,
+      "text": "Balances",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 157,
+      "text": "Refresh balances",
+      "kind": "prop:aria-label"
+    },
+    {
+      "line": 164,
+      "text": "Refresh",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 170,
+      "text": "Native",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 173,
+      "text": "XLM",
+      "kind": "jsx-text"
+    }
+  ],
+  "src/templates/default/src/components/ContractCallForm.tsx": [
+    {
+      "line": 155,
+      "text": "Call Contract Function",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 164,
+      "text": "Function name",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 174,
+      "text": "e.g. transfer",
+      "kind": "prop:placeholder"
+    },
+    {
+      "line": 187,
+      "text": "Arguments",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 189,
+      "text": "(comma-separated, optional)",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 200,
+      "text": "e.g. GABC…, 1000, true",
+      "kind": "prop:placeholder"
+    },
+    {
+      "line": 206,
+      "text": "Strings, integers, and booleans are auto-detected. For advanced types\n          (u128, bytes, etc.) use the",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 208,
+      "text": "useSorobanContract",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 208,
+      "text": "hook directly.",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 240,
+      "text": "Building transaction…",
+      "kind": "jsx-text"
+    }
+  ],
+  "src/templates/default/src/components/ContractCallPreview.tsx": [
+    {
+      "line": 160,
+      "text": "Simulating contract call…",
+      "kind": "prop:aria-label"
+    },
+    {
+      "line": 165,
+      "text": "Simulating transaction…",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 194,
+      "text": "Simulation failed",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 208,
+      "text": "Go back",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 224,
+      "text": "Simulation preview",
+      "kind": "prop:aria-label"
+    },
+    {
+      "line": 228,
+      "text": "Simulation Preview",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 234,
+      "text": "Estimated fee",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 238,
+      "text": "stroops",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 241,
+      "text": "XLM)",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 248,
+      "text": "Return value",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 259,
+      "text": "Simulated at ledger",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 275,
+      "text": "Cancel",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 284,
+      "text": "Confirm &amp; Submit",
+      "kind": "jsx-text"
+    }
+  ],
+  "src/templates/default/src/components/EmptyState.stories.tsx": [
+    {
+      "line": 45,
+      "text": "Connect Wallet",
+      "kind": "jsx-text"
+    }
+  ],
+  "src/templates/default/src/components/ErrorBoundary.stories.tsx": [
+    {
+      "line": 25,
+      "text": "Everything is fine — this is the app rendering normally.",
+      "kind": "jsx-text"
+    }
+  ],
+  "src/templates/default/src/components/ErrorBoundary.tsx": [
+    {
+      "line": 58,
+      "text": "Something went wrong",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 61,
+      "text": "The app hit an unexpected error while rendering. You can try again\n              to recover.",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 71,
+      "text": "Try Again",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 91,
+      "text": "Error Details",
+      "kind": "jsx-text"
+    }
+  ],
+  "src/templates/default/src/components/LoadingBoundary.stories.tsx": [
+    {
+      "line": 25,
+      "text": "Content has loaded.",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 53,
+      "text": "Fetching from Horizon…",
+      "kind": "jsx-text"
+    }
+  ],
+  "src/templates/default/src/components/NetworkSwitcher.tsx": [
+    {
+      "line": 61,
+      "text": "Network",
+      "kind": "jsx-text"
+    }
+  ],
+  "src/templates/default/src/components/ReceiveForm.tsx": [
+    {
+      "line": 127,
+      "text": "Receive Stellar Assets",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 134,
+      "text": "QR code of Stellar address",
+      "kind": "prop:aria-label"
+    },
+    {
+      "line": 153,
+      "text": "Loading QR code",
+      "kind": "prop:aria-label"
+    },
+    {
+      "line": 180,
+      "text": "Only send Stellar (XLM) and supported assets to this address.",
+      "kind": "jsx-text"
+    }
+  ],
+  "src/templates/default/src/components/SendForm.tsx": [
+    {
+      "line": 110,
+      "text": "Send Payment",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 135,
+      "text": "To",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 142,
+      "text": "GABC...1234",
+      "kind": "prop:placeholder"
+    },
+    {
+      "line": 161,
+      "text": "Asset",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 170,
+      "text": "XLM (Native)",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 184,
+      "text": "Amount (",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 210,
+      "text": "Memo (optional)",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 224,
+      "text": "Fee Sponsor (optional fee-bump)",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 231,
+      "text": "GSPONSOR...1234",
+      "kind": "prop:placeholder"
+    },
+    {
+      "line": 248,
+      "text": "Connect a wallet to send a payment.",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 252,
+      "text": "The connected wallet adapter does not support sending payments.",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 270,
+      "text": "This transaction is signed and ready, but needs the fee sponsor&apos;s\n            signature before it can be submitted. This wallet has no way to sign\n            on the sponsor&apos;s behalf — copy the XDR below and have the sponsor\n            sign and submit it from their own wallet.",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 278,
+      "text": "Unsigned fee-bump transaction XDR",
+      "kind": "prop:aria-label"
+    }
+  ],
+  "src/templates/default/src/components/ThemeToggle.tsx": [
+    {
+      "line": 29,
+      "text": "Theme",
+      "kind": "prop:aria-label"
+    }
+  ],
+  "src/templates/default/src/components/TransactionList.tsx": [
+    {
+      "line": 275,
+      "text": "Failed",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 353,
+      "text": "Failed to load transactions",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 363,
+      "text": "Retry",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 401,
+      "text": "Retry",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 411,
+      "text": "Export transactions to CSV",
+      "kind": "prop:aria-label"
+    },
+    {
+      "line": 414,
+      "text": "Export CSV",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 421,
+      "text": "Transaction history",
+      "kind": "prop:aria-label"
+    },
+    {
+      "line": 466,
+      "text": "Loading...",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 471,
+      "text": "Load More",
+      "kind": "jsx-text"
+    }
+  ],
+  "src/templates/default/src/components/WalletConnectButton.tsx": [
+    {
+      "line": 115,
+      "text": "Refresh balances",
+      "kind": "prop:title"
+    }
+  ]
+}

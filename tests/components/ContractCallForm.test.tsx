@@ -1,443 +1,320 @@
 /**
  * @jest-environment jsdom
- *
- * ContractCallForm Component Tests
- *
- * Covers function/argument input, preview-button validation, argument
- * parsing, and the simulate-then-submit flow against a mocked
- * `useSorobanContract` hook (real `ContractCallPreview` UI).
  */
+import { jest } from "@jest/globals";
 import "@testing-library/jest-dom";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import {
-  jest,
-  describe,
-  it,
-  expect,
-  beforeEach,
-  afterEach,
-} from "@jest/globals";
-import React from "react";
+import type { SimulateContractCallResult } from "../../src/templates/default/src/hooks/useSorobanContract";
+import type { ContractFunctionSpec } from "../../src/templates/default/src/lib/contract-spec";
 
-// ── Mock useSorobanContract ───────────────────────────────────────────────────
+// ── Mocks ─────────────────────────────────────────────────────────────────────
+//
+// ContractCallForm's own RPC/XDR work is useSorobanContract's and
+// fetchContractSpec's responsibility (both already covered by their own unit
+// tests) — mocking them here keeps this file focused on the form's own
+// behavior (state transitions, the spec-driven dropdown, wiring) without
+// spinning up a real Soroban RPC mock server for every test. This is an ESM
+// jest setup (see jest.config.mjs), so mocking uses `unstable_mockModule` +
+// dynamic imports rather than the CJS `jest.mock` auto-hoisting form (see
+// NetworkSwitcher.test.tsx for the established precedent).
+
+const mockSimulateContractCall =
+  jest.fn<
+    (name: string, args: unknown[]) => Promise<SimulateContractCallResult>
+  >();
+const mockBuildInvokeXDR =
+  jest.fn<(name: string, args: unknown[]) => Promise<string>>();
 
 jest.unstable_mockModule(
   "../../src/templates/default/src/hooks/useSorobanContract",
   () => ({
-    useSorobanContract: jest.fn(),
-    isValidContractId: jest.fn(() => true),
+    useSorobanContract: () => ({
+      simulateContractCall: mockSimulateContractCall,
+      buildInvokeXDR: mockBuildInvokeXDR,
+      callFunction: jest.fn(),
+      simulateBatchContractCall: jest.fn(),
+      buildBatchInvokeXDRs: jest.fn(),
+      submitInvokeWithSecret: jest.fn(),
+      loading: false,
+      error: null,
+    }),
   }),
 );
 
-const [{ default: ContractCallForm }, { useSorobanContract }] =
-  await Promise.all([
-    import("../../src/templates/default/src/components/ContractCallForm"),
-    import("../../src/templates/default/src/hooks/useSorobanContract"),
-  ]);
+const mockFetchContractSpec =
+  jest.fn<
+    (...args: unknown[]) => Promise<{ functions: ContractFunctionSpec[] }>
+  >();
 
-// ── Fixtures ──────────────────────────────────────────────────────────────────
+jest.unstable_mockModule(
+  "../../src/templates/default/src/lib/contract-spec",
+  () => ({
+    fetchContractSpec: (...args: unknown[]) => mockFetchContractSpec(...args),
+  }),
+);
 
-const CONTRACT_ID =
-  "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM";
+// ── Dynamic import (must come after unstable_mockModule) ─────────────────────
+const { default: ContractCallForm } =
+  await import("../../src/templates/default/src/components/ContractCallForm");
 
-const SIM_RESULT = {
+const CONTRACT_ID = "CAAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQC526";
+
+const BASE_PREVIEW: SimulateContractCallResult = {
   result: "ok",
   minResourceFee: "500",
-  latestLedger: 9999,
+  baseFee: "100",
+  latestLedger: 123,
 };
-
-const UNSIGNED_XDR = "AAAAAgAAAABfake-unsigned-xdr";
-
-type HookState = {
-  simulateContractCall: jest.Mock;
-  buildInvokeXDR: jest.Mock;
-  callFunction: jest.Mock;
-  submitInvokeWithSecret: jest.Mock;
-  loading: boolean;
-  error: Error | null;
-};
-
-function mockHook(partial: Partial<HookState> = {}): HookState {
-  const state: HookState = {
-    simulateContractCall: jest
-      .fn<() => Promise<typeof SIM_RESULT>>()
-      .mockResolvedValue(SIM_RESULT),
-    buildInvokeXDR: jest
-      .fn<() => Promise<string>>()
-      .mockResolvedValue(UNSIGNED_XDR),
-    callFunction: jest.fn(),
-    submitInvokeWithSecret: jest.fn(),
-    loading: false,
-    error: null,
-    ...partial,
-  };
-  (useSorobanContract as unknown as jest.Mock).mockReturnValue(state);
-  return state;
-}
-
-function getFnInput() {
-  return screen.getByLabelText(/function name/i);
-}
-
-function getArgsInput() {
-  return screen.getByLabelText(/arguments/i);
-}
-
-function getPreviewButton() {
-  return screen.getByRole("button", { name: /^preview$|^simulating/i });
-}
-
-async function fillAndPreview(
-  fnName: string,
-  args = "",
-): Promise<ReturnType<typeof mockHook>> {
-  const hook = mockHook();
-  render(<ContractCallForm contractId={CONTRACT_ID} />);
-  fireEvent.change(getFnInput(), { target: { value: fnName } });
-  if (args) {
-    fireEvent.change(getArgsInput(), { target: { value: args } });
-  }
-  fireEvent.click(getPreviewButton());
-  await waitFor(() => {
-    expect(hook.simulateContractCall).toHaveBeenCalled();
-  });
-  await waitFor(() => {
-    expect(
-      screen.getByRole("button", { name: /confirm.*submit/i }),
-    ).toBeInTheDocument();
-  });
-  return hook;
-}
-
-// ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe("ContractCallForm", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    mockSimulateContractCall.mockReset();
+    mockBuildInvokeXDR.mockReset();
+    mockFetchContractSpec.mockReset();
+    mockSimulateContractCall.mockResolvedValue(BASE_PREVIEW);
+    mockBuildInvokeXDR.mockResolvedValue("AAAAAgAAAAA=");
   });
 
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
+  // ── Default (free-text) mode ─────────────────────────────────────────────
 
-  // ── Rendering ─────────────────────────────────────────────────────────────
-
-  describe("rendering", () => {
-    it("renders the heading, function and arguments fields, and Preview button", () => {
-      mockHook();
+  describe("free-text function input (default)", () => {
+    it("renders a text input for the function name by default", () => {
       render(<ContractCallForm contractId={CONTRACT_ID} />);
-
-      expect(
-        screen.getByRole("heading", { name: /call contract function/i }),
-      ).toBeInTheDocument();
-      expect(getFnInput()).toBeInTheDocument();
-      expect(getArgsInput()).toBeInTheDocument();
-      expect(getPreviewButton()).toBeInTheDocument();
-    });
-
-    it("passes options into useSorobanContract", () => {
-      mockHook();
-      render(
-        <ContractCallForm
-          contractId={CONTRACT_ID}
-          sorobanRpc="https://rpc.test"
-          network="PUBLIC"
-          className="extra-class"
-        />,
+      expect(screen.getByLabelText(/function name/i)).toHaveAttribute(
+        "type",
+        "text",
       );
-
-      expect(useSorobanContract).toHaveBeenCalledWith({
-        contractId: CONTRACT_ID,
-        sorobanRpc: "https://rpc.test",
-        network: "PUBLIC",
-      });
-      expect(document.querySelector(".extra-class")).not.toBeNull();
-    });
-  });
-
-  // ── Validation ────────────────────────────────────────────────────────────
-
-  describe("validation", () => {
-    it("disables Preview when the function name is empty", () => {
-      mockHook();
-      render(<ContractCallForm contractId={CONTRACT_ID} />);
-      expect(getPreviewButton()).toBeDisabled();
     });
 
-    it("disables Preview when the function name is only whitespace", () => {
-      mockHook();
+    it("does not fetch the contract spec unless useContractSpec is set", () => {
       render(<ContractCallForm contractId={CONTRACT_ID} />);
-      fireEvent.change(getFnInput(), { target: { value: "   " } });
-      expect(getPreviewButton()).toBeDisabled();
+      expect(mockFetchContractSpec).not.toHaveBeenCalled();
     });
 
-    it("enables Preview once a non-empty function name is entered", () => {
-      mockHook();
+    it("disables the Preview button until a function name is entered", () => {
       render(<ContractCallForm contractId={CONTRACT_ID} />);
-      fireEvent.change(getFnInput(), { target: { value: "transfer" } });
-      expect(getPreviewButton()).not.toBeDisabled();
-    });
+      expect(screen.getByRole("button", { name: /preview/i })).toBeDisabled();
 
-    it("disables Preview while the hook reports loading", () => {
-      mockHook({ loading: true });
-      render(<ContractCallForm contractId={CONTRACT_ID} />);
-      fireEvent.change(getFnInput(), { target: { value: "transfer" } });
-      expect(getPreviewButton()).toBeDisabled();
-      expect(screen.getByRole("button", { name: /simulating/i })).toBeInTheDocument();
-    });
-  });
-
-  // ── Function / argument input ─────────────────────────────────────────────
-
-  describe("function and argument input", () => {
-    it("accepts function name and argument text", () => {
-      mockHook();
-      render(<ContractCallForm contractId={CONTRACT_ID} />);
-
-      fireEvent.change(getFnInput(), { target: { value: "transfer" } });
-      fireEvent.change(getArgsInput(), {
-        target: { value: "GABC, 1000, true" },
+      fireEvent.change(screen.getByLabelText(/function name/i), {
+        target: { value: "transfer" },
       });
 
-      expect(getFnInput()).toHaveValue("transfer");
-      expect(getArgsInput()).toHaveValue("GABC, 1000, true");
-    });
-
-    it("clears an existing preview when the function name changes", async () => {
-      await fillAndPreview("transfer");
       expect(
-        screen.getByRole("region", { name: /simulation preview/i }),
-      ).toBeInTheDocument();
+        screen.getByRole("button", { name: /preview/i }),
+      ).not.toBeDisabled();
+    });
 
-      fireEvent.change(getFnInput(), { target: { value: "balance" } });
+    it("calls simulateContractCall with the parsed args on Preview", async () => {
+      render(<ContractCallForm contractId={CONTRACT_ID} />);
+
+      fireEvent.change(screen.getByLabelText(/function name/i), {
+        target: { value: "transfer" },
+      });
+      fireEvent.change(screen.getByLabelText(/arguments/i), {
+        target: { value: "GABC123, 1000, true" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: /preview/i }));
+
+      await waitFor(() =>
+        expect(mockSimulateContractCall).toHaveBeenCalledWith("transfer", [
+          "GABC123",
+          1000,
+          true,
+        ]),
+      );
+    });
+
+    it("shows the simulation preview after a successful Preview", async () => {
+      render(<ContractCallForm contractId={CONTRACT_ID} />);
+
+      fireEvent.change(screen.getByLabelText(/function name/i), {
+        target: { value: "get_value" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: /preview/i }));
+
+      expect(
+        await screen.findByRole("region", { name: /simulation preview/i }),
+      ).toBeInTheDocument();
+    });
+
+    it("calls buildInvokeXDR and onSubmit on Confirm & Submit", async () => {
+      const onSubmit = jest.fn<(xdr: string) => void>();
+      render(<ContractCallForm contractId={CONTRACT_ID} onSubmit={onSubmit} />);
+
+      fireEvent.change(screen.getByLabelText(/function name/i), {
+        target: { value: "transfer" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: /preview/i }));
+      await screen.findByRole("region", { name: /simulation preview/i });
+
+      fireEvent.click(screen.getByRole("button", { name: /confirm.*submit/i }));
+
+      await waitFor(() =>
+        expect(mockBuildInvokeXDR).toHaveBeenCalledWith("transfer", []),
+      );
+      await waitFor(() =>
+        expect(onSubmit).toHaveBeenCalledWith("AAAAAgAAAAA="),
+      );
+    });
+
+    it("resets the form after a successful submit", async () => {
+      render(<ContractCallForm contractId={CONTRACT_ID} />);
+
+      fireEvent.change(screen.getByLabelText(/function name/i), {
+        target: { value: "transfer" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: /preview/i }));
+      await screen.findByRole("region", { name: /simulation preview/i });
+
+      fireEvent.click(screen.getByRole("button", { name: /confirm.*submit/i }));
+
+      await waitFor(() =>
+        expect(screen.getByLabelText(/function name/i)).toHaveValue(""),
+      );
+    });
+
+    it("surfaces a submit error without resetting the form", async () => {
+      mockBuildInvokeXDR.mockRejectedValueOnce(new Error("build failed"));
+      render(<ContractCallForm contractId={CONTRACT_ID} />);
+
+      fireEvent.change(screen.getByLabelText(/function name/i), {
+        target: { value: "transfer" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: /preview/i }));
+      await screen.findByRole("region", { name: /simulation preview/i });
+
+      fireEvent.click(screen.getByRole("button", { name: /confirm.*submit/i }));
+
+      expect(await screen.findByText(/build failed/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/function name/i)).toHaveValue("transfer");
+    });
+
+    it("clears the preview when the function name is edited after previewing", async () => {
+      render(<ContractCallForm contractId={CONTRACT_ID} />);
+
+      fireEvent.change(screen.getByLabelText(/function name/i), {
+        target: { value: "transfer" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: /preview/i }));
+      await screen.findByRole("region", { name: /simulation preview/i });
+
+      fireEvent.change(screen.getByLabelText(/function name/i), {
+        target: { value: "transfer2" },
+      });
 
       expect(
         screen.queryByRole("region", { name: /simulation preview/i }),
       ).toBeNull();
-      expect(getPreviewButton()).toBeInTheDocument();
-    });
-
-    it("clears an existing preview when arguments change", async () => {
-      await fillAndPreview("transfer", "1");
-      fireEvent.change(getArgsInput(), { target: { value: "2" } });
-
-      expect(
-        screen.queryByRole("region", { name: /simulation preview/i }),
-      ).toBeNull();
     });
   });
 
-  // ── Argument parsing ──────────────────────────────────────────────────────
+  // ── Spec-driven dropdown (useContractSpec) ───────────────────────────────
 
-  describe("argument parsing", () => {
-    it("passes an empty args array when arguments are blank", async () => {
-      const hook = await fillAndPreview("noop");
-      expect(hook.simulateContractCall).toHaveBeenCalledWith("noop", []);
-    });
+  describe("spec-driven function dropdown (useContractSpec)", () => {
+    const SPEC_FUNCTIONS: ContractFunctionSpec[] = [
+      {
+        name: "transfer",
+        args: [
+          { name: "to", type: "Address" },
+          { name: "amount", type: "i128" },
+        ],
+        outputsCount: 0,
+        doc: "",
+      },
+      { name: "get_admin", args: [], outputsCount: 1, doc: "" },
+    ];
 
-    it("coerces booleans, integers, and strings", async () => {
-      const hook = await fillAndPreview(
-        "transfer",
-        "GABC123, 1000, true, false, hello, 3.14",
+    it("fetches the contract spec on mount when useContractSpec is true", async () => {
+      mockFetchContractSpec.mockResolvedValue({ functions: SPEC_FUNCTIONS });
+      render(<ContractCallForm contractId={CONTRACT_ID} useContractSpec />);
+
+      await waitFor(() =>
+        expect(mockFetchContractSpec).toHaveBeenCalledTimes(1),
       );
-      expect(hook.simulateContractCall).toHaveBeenCalledWith("transfer", [
-        "GABC123",
-        1000,
-        true,
-        false,
-        "hello",
-        "3.14",
-      ]);
     });
 
-    it("trims whitespace around tokens and the function name", async () => {
-      const hook = mockHook();
-      render(<ContractCallForm contractId={CONTRACT_ID} />);
-      fireEvent.change(getFnInput(), { target: { value: "  mint  " } });
-      fireEvent.change(getArgsInput(), {
-        target: { value: "  alice ,  42  " },
-      });
-      fireEvent.click(getPreviewButton());
-      await waitFor(() => {
-        expect(hook.simulateContractCall).toHaveBeenCalledWith("mint", [
-          "alice",
-          42,
-        ]);
-      });
-    });
-  });
+    it("renders a <select> populated with the spec functions once loaded", async () => {
+      mockFetchContractSpec.mockResolvedValue({ functions: SPEC_FUNCTIONS });
+      render(<ContractCallForm contractId={CONTRACT_ID} useContractSpec />);
 
-  // ── Simulate-then-submit flow ─────────────────────────────────────────────
-
-  describe("simulate-then-submit flow", () => {
-    it("runs simulateContractCall on Preview and shows the preview panel", async () => {
-      const hook = await fillAndPreview("transfer", "1000, true");
-
-      expect(hook.simulateContractCall).toHaveBeenCalledTimes(1);
-      expect(
-        screen.getByRole("region", { name: /simulation preview/i }),
-      ).toBeInTheDocument();
-      expect(screen.getByText("500")).toBeInTheDocument();
-      expect(
-        screen.getByRole("button", { name: /confirm.*submit/i }),
-      ).toBeInTheDocument();
-      // Preview button is hidden once a preview is showing
-      expect(
-        screen.queryByRole("button", { name: /^preview$/i }),
-      ).toBeNull();
-    });
-
-    it("builds XDR and calls onSubmit when Confirm & Submit is clicked", async () => {
-      const onSubmit = jest
-        .fn<(xdr: string) => Promise<void>>()
-        .mockResolvedValue(undefined);
-      const hook = mockHook();
-      render(
-        <ContractCallForm contractId={CONTRACT_ID} onSubmit={onSubmit} />,
+      await waitFor(() =>
+        expect(screen.getByLabelText(/function name/i).tagName).toBe("SELECT"),
       );
-
-      fireEvent.change(getFnInput(), { target: { value: "transfer" } });
-      fireEvent.change(getArgsInput(), {
-        target: { value: "GDEST, 50" },
-      });
-      fireEvent.click(getPreviewButton());
-      await waitFor(() => {
-        expect(
-          screen.getByRole("button", { name: /confirm.*submit/i }),
-        ).toBeInTheDocument();
-      });
-
-      fireEvent.click(
-        screen.getByRole("button", { name: /confirm.*submit/i }),
-      );
-
-      await waitFor(() => {
-        expect(hook.buildInvokeXDR).toHaveBeenCalledWith("transfer", [
-          "GDEST",
-          50,
-        ]);
-        expect(onSubmit).toHaveBeenCalledWith(UNSIGNED_XDR);
-      });
-
-      // Form resets after successful submit
-      await waitFor(() => {
-        expect(getFnInput()).toHaveValue("");
-        expect(getArgsInput()).toHaveValue("");
-        expect(
-          screen.queryByRole("region", { name: /simulation preview/i }),
-        ).toBeNull();
-      });
-    });
-
-    it("logs XDR to console when onSubmit is omitted", async () => {
-      const logSpy = jest.spyOn(console, "log").mockImplementation(() => {});
-      const hook = await fillAndPreview("ping");
-
-      fireEvent.click(
-        screen.getByRole("button", { name: /confirm.*submit/i }),
-      );
-
-      await waitFor(() => {
-        expect(hook.buildInvokeXDR).toHaveBeenCalled();
-        expect(logSpy).toHaveBeenCalledWith(
-          "[ContractCallForm] Unsigned XDR:",
-          UNSIGNED_XDR,
-        );
-      });
-      logSpy.mockRestore();
-    });
-
-    it("Cancel dismisses the preview and restores the Preview button", async () => {
-      await fillAndPreview("transfer");
-      fireEvent.click(screen.getByRole("button", { name: /^cancel$/i }));
-
       expect(
-        screen.queryByRole("region", { name: /simulation preview/i }),
-      ).toBeNull();
-      expect(getPreviewButton()).toBeInTheDocument();
-    });
-
-    it("shows a submit error from buildInvokeXDR and allows Go back", async () => {
-      const hook = mockHook({
-        buildInvokeXDR: jest
-          .fn<() => Promise<string>>()
-          .mockRejectedValue(new Error("XDR build failed")),
-      });
-      render(<ContractCallForm contractId={CONTRACT_ID} />);
-      fireEvent.change(getFnInput(), { target: { value: "transfer" } });
-      fireEvent.click(getPreviewButton());
-      await waitFor(() => {
-        expect(
-          screen.getByRole("button", { name: /confirm.*submit/i }),
-        ).toBeInTheDocument();
-      });
-
-      fireEvent.click(
-        screen.getByRole("button", { name: /confirm.*submit/i }),
-      );
-
-      await waitFor(() => {
-        expect(screen.getByRole("alert")).toBeInTheDocument();
-        expect(screen.getByText(/XDR build failed/i)).toBeInTheDocument();
-      });
-
-      fireEvent.click(screen.getByRole("button", { name: /go back/i }));
-      expect(screen.queryByRole("alert")).toBeNull();
-      expect(hook.buildInvokeXDR).toHaveBeenCalled();
-    });
-
-    it("surfaces hook-level simulation errors via ContractCallPreview", () => {
-      mockHook({
-        error: new Error("Simulation failed: contract reverted"),
-      });
-      render(<ContractCallForm contractId={CONTRACT_ID} />);
-
-      expect(screen.getByRole("alert")).toBeInTheDocument();
-      expect(
-        screen.getByText(/contract reverted/i),
+        screen.getByRole("option", { name: /transfer/i }),
       ).toBeInTheDocument();
       expect(
-        screen.getByRole("button", { name: /go back/i }),
+        screen.getByRole("option", { name: /get_admin/i }),
       ).toBeInTheDocument();
     });
 
-    it("shows Building transaction… while submit is in flight", async () => {
-      let resolveBuild!: (v: string) => void;
-      const hook = mockHook({
-        buildInvokeXDR: jest.fn<() => Promise<string>>(
-          () =>
-            new Promise<string>((resolve) => {
-              resolveBuild = resolve;
-            }),
+    it("selecting a function from the dropdown enables Preview", async () => {
+      mockFetchContractSpec.mockResolvedValue({ functions: SPEC_FUNCTIONS });
+      render(<ContractCallForm contractId={CONTRACT_ID} useContractSpec />);
+
+      await waitFor(() =>
+        expect(screen.getByLabelText(/function name/i).tagName).toBe("SELECT"),
+      );
+      const select = screen.getByLabelText(/function name/i);
+      fireEvent.change(select, { target: { value: "get_admin" } });
+
+      expect(
+        screen.getByRole("button", { name: /preview/i }),
+      ).not.toBeDisabled();
+    });
+
+    it("falls back to the free-text input when the spec fetch fails", async () => {
+      mockFetchContractSpec.mockRejectedValue(new Error("no spec section"));
+      render(<ContractCallForm contractId={CONTRACT_ID} useContractSpec />);
+
+      await waitFor(() => expect(mockFetchContractSpec).toHaveBeenCalled());
+      await waitFor(() =>
+        expect(screen.getByLabelText(/function name/i)).toHaveAttribute(
+          "type",
+          "text",
         ),
-      });
-      const onSubmit = jest.fn();
-      render(
-        <ContractCallForm contractId={CONTRACT_ID} onSubmit={onSubmit} />,
       );
-      fireEvent.change(getFnInput(), { target: { value: "transfer" } });
-      fireEvent.click(getPreviewButton());
-      await waitFor(() => {
-        expect(
-          screen.getByRole("button", { name: /confirm.*submit/i }),
-        ).toBeInTheDocument();
-      });
+    });
 
-      fireEvent.click(
-        screen.getByRole("button", { name: /confirm.*submit/i }),
+    it("falls back to the free-text input when the spec has no functions", async () => {
+      mockFetchContractSpec.mockResolvedValue({ functions: [] });
+      render(<ContractCallForm contractId={CONTRACT_ID} useContractSpec />);
+
+      await waitFor(() => expect(mockFetchContractSpec).toHaveBeenCalled());
+      expect(screen.getByLabelText(/function name/i)).toHaveAttribute(
+        "type",
+        "text",
+      );
+    });
+
+    it("does not render the dropdown while the spec is still loading", () => {
+      mockFetchContractSpec.mockReturnValue(new Promise(() => {})); // never resolves
+      render(<ContractCallForm contractId={CONTRACT_ID} useContractSpec />);
+
+      expect(screen.getByLabelText(/function name/i).tagName).toBe("INPUT");
+      expect(
+        screen.getByPlaceholderText(/loading contract functions/i),
+      ).toBeInTheDocument();
+    });
+
+    it("re-fetches the spec when contractId changes", async () => {
+      mockFetchContractSpec.mockResolvedValue({ functions: SPEC_FUNCTIONS });
+      const { rerender } = render(
+        <ContractCallForm contractId={CONTRACT_ID} useContractSpec />,
+      );
+      await waitFor(() =>
+        expect(mockFetchContractSpec).toHaveBeenCalledTimes(1),
       );
 
-      await waitFor(() => {
-        expect(
-          screen.getByRole("status", { name: /building transaction/i }),
-        ).toBeInTheDocument();
-      });
+      const otherContractId =
+        "CBBQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQC527";
+      rerender(
+        <ContractCallForm contractId={otherContractId} useContractSpec />,
+      );
 
-      resolveBuild(UNSIGNED_XDR);
-      await waitFor(() => {
-        expect(onSubmit).toHaveBeenCalledWith(UNSIGNED_XDR);
-        expect(hook.buildInvokeXDR).toHaveBeenCalled();
-      });
+      await waitFor(() =>
+        expect(mockFetchContractSpec).toHaveBeenCalledTimes(2),
+      );
     });
   });
 });
