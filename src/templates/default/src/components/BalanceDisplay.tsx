@@ -18,6 +18,18 @@ export interface BalanceDisplayProps {
   horizonUrl?: string;
   /** Extra classes merged onto the component root, for layout composition. */
   className?: string;
+  /**
+   * Optional price-feed lookup, called per balance with its asset code
+   * ("XLM" for native) and issuer (undefined for native). Returns the
+   * asset's price in fiat units, or `null`/`undefined` if no price is
+   * available for that asset — the fiat line is simply omitted in that case
+   * rather than showing a misleading "$0.00". Not called at all when the
+   * prop is omitted, so this stays fully optional and has no cost for
+   * consumers who don't need it.
+   */
+  getFiatPrice?: (asset: { code: string; issuer?: string }) => number | null | undefined;
+  /** ISO 4217 currency code used to format the fiat-equivalent line. Defaults to "USD". */
+  fiatCurrency?: string;
 }
 
 /** The native asset has no code or issuer of its own — Horizon reports it as 'native'. */
@@ -42,6 +54,23 @@ function formatBalance(raw: string): string {
   });
 }
 
+/** Renders a balance's fiat equivalent (e.g. "≈ $12.34"), or null if no price is available. */
+function formatFiatEquivalent(
+  balanceRaw: string,
+  price: number | null | undefined,
+  currency: string,
+): string | null {
+  if (price == null || !Number.isFinite(price)) return null;
+  const amount = Number(balanceRaw);
+  if (!Number.isFinite(amount)) return null;
+
+  const formatted = (amount * price).toLocaleString(undefined, {
+    style: 'currency',
+    currency,
+  });
+  return `≈ ${formatted}`;
+}
+
 /**
  * Balance Display
  *
@@ -64,6 +93,9 @@ function formatBalance(raw: string): string {
  *
  * // A specific account, refreshed every 10 seconds.
  * <BalanceDisplay publicKey={address} pollIntervalMs={10_000} />
+ *
+ * // With a fiat-equivalent line under each balance.
+ * <BalanceDisplay getFiatPrice={({ code }) => prices[code]} fiatCurrency="EUR" />
  * ```
  */
 export default function BalanceDisplay({
@@ -71,6 +103,8 @@ export default function BalanceDisplay({
   pollIntervalMs,
   horizonUrl,
   className = '',
+  getFiatPrice,
+  fiatCurrency = 'USD',
 }: BalanceDisplayProps) {
   const { connected, publicKey: walletPublicKey } = useWallet();
   const address = publicKey ?? walletPublicKey;
@@ -172,31 +206,53 @@ export default function BalanceDisplay({
             {formatBalance(native.balance)}{' '}
             <span className="text-base font-medium text-gray-600 dark:text-gray-400">XLM</span>
           </p>
+          {(() => {
+            const fiat = formatFiatEquivalent(
+              native.balance,
+              getFiatPrice?.({ code: 'XLM' }),
+              fiatCurrency,
+            );
+            return fiat ? (
+              <p className="mt-0.5 text-xs tabular-nums text-gray-500 dark:text-gray-400">{fiat}</p>
+            ) : null;
+          })()}
         </div>
       )}
 
       {assets.length > 0 && (
         <ul role="list" className="mt-4 divide-y divide-gray-100 dark:divide-gray-800">
-          {assets.map((balance) => (
-            <li
-              key={`${balance.asset_code}-${balance.asset_issuer}`}
-              className="flex items-center justify-between gap-4 py-3"
-            >
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-gray-900 dark:text-white">
-                  {assetCode(balance)}
-                </p>
-                {balance.asset_issuer && (
-                  <p className="truncate text-xs text-gray-600 dark:text-gray-400">
-                    {`${balance.asset_issuer.slice(0, 4)}...${balance.asset_issuer.slice(-4)}`}
+          {assets.map((balance) => {
+            const fiat = formatFiatEquivalent(
+              balance.balance,
+              getFiatPrice?.({ code: assetCode(balance), issuer: balance.asset_issuer }),
+              fiatCurrency,
+            );
+            return (
+              <li
+                key={`${balance.asset_code}-${balance.asset_issuer}`}
+                className="flex items-center justify-between gap-4 py-3"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-gray-900 dark:text-white">
+                    {assetCode(balance)}
                   </p>
-                )}
-              </div>
-              <p className="shrink-0 text-sm font-medium tabular-nums text-gray-900 dark:text-white">
-                {formatBalance(balance.balance)}
-              </p>
-            </li>
-          ))}
+                  {balance.asset_issuer && (
+                    <p className="truncate text-xs text-gray-600 dark:text-gray-400">
+                      {`${balance.asset_issuer.slice(0, 4)}...${balance.asset_issuer.slice(-4)}`}
+                    </p>
+                  )}
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-sm font-medium tabular-nums text-gray-900 dark:text-white">
+                    {formatBalance(balance.balance)}
+                  </p>
+                  {fiat && (
+                    <p className="text-xs tabular-nums text-gray-500 dark:text-gray-400">{fiat}</p>
+                  )}
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
 

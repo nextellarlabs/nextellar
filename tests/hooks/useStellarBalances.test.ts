@@ -10,6 +10,7 @@
  */
 import { jest } from "@jest/globals";
 import { renderHook, act, waitFor } from "@testing-library/react";
+import { USDC_TESTNET_ISSUER as ISSUER } from "../helpers/fixtures";
 
 // Virtual mock for Stellar SDK since it's not a dependency of the main CLI.
 // This repo runs Jest under real ESM (--experimental-vm-modules), so the
@@ -29,7 +30,6 @@ const { useStellarBalances } =
 const Horizon = (await import("@stellar/stellar-sdk")).Horizon;
 
 const ADDRESS = "GAKAESXZZO3PJPEI5FNXGFOIANZJU7NAMNU753SGVSY7GF2KK55DALUQ";
-const ISSUER = "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5";
 
 type BalanceShape = {
   asset_type: string;
