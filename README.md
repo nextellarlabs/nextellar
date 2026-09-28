@@ -94,7 +94,9 @@ Options:
 | Command | Description |
 | --- | --- |
 | `nextellar add [feature]` | Add a Stellar feature to an existing project (`--list` to see all, `--force` to overwrite, `--skip-install`, `--package-manager`) |
+| `nextellar templates [name]` | Preview each template's file tree and description without scaffolding (name to preview just one, `--json` for machine-readable output) |
 | `nextellar doctor` | Run environment diagnostics (`--json` for CI, `--fix` to auto-remediate safe issues) |
+| `nextellar status` | Show a scaffolded project's health score: outdated deps, missing env vars, telemetry status, git init (`--json` for CI) |
 | `nextellar upgrade` | Upgrade an existing project to the latest template (`--dry-run` to preview, `--check` for a changelog preview, `--yes` to skip prompts) |
 | `nextellar deploy` | Validate and prepare a deployment bundle for Nextellar Cloud (`--dry-run` to preview) |
 | `nextellar clean` | Remove `.nextellar/` build artifacts |

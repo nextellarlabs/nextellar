@@ -16,6 +16,77 @@ const STELLAR_PKGS = [
   "@creit.tech/stellar-wallets-kit",
 ];
 
+/**
+ * Renders a minimal unified line-diff between two file contents, colorized
+ * via picocolors (which already honors NO_COLOR and non-TTY output on its
+ * own, so no separate color-support check is needed here).
+ *
+ * This is a plain LCS-based line diff rather than a pulled-in dependency:
+ * `diff` is only present transitively (via ts-node, a devDependency) so
+ * depending on it directly would be relying on an implementation detail
+ * that could disappear on a lockfile bump.
+ */
+function diffLines(oldContent: string, newContent: string): string[] {
+  const a = oldContent.split("\n");
+  const b = newContent.split("\n");
+
+  // Standard LCS table, then backtrack to emit a unified add/remove diff.
+  const lcs: number[][] = Array.from({ length: a.length + 1 }, () =>
+    new Array(b.length + 1).fill(0),
+  );
+  for (let i = a.length - 1; i >= 0; i--) {
+    for (let j = b.length - 1; j >= 0; j--) {
+      lcs[i][j] =
+        a[i] === b[j]
+          ? lcs[i + 1][j + 1] + 1
+          : Math.max(lcs[i + 1][j], lcs[i][j + 1]);
+    }
+  }
+
+  const out: string[] = [];
+  let i = 0;
+  let j = 0;
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) {
+      out.push(pc.dim(`  ${a[i]}`));
+      i++;
+      j++;
+    } else if (lcs[i + 1][j] >= lcs[i][j + 1]) {
+      out.push(pc.red(`- ${a[i]}`));
+      i++;
+    } else {
+      out.push(pc.green(`+ ${b[j]}`));
+      j++;
+    }
+  }
+  while (i < a.length) {
+    out.push(pc.red(`- ${a[i]}`));
+    i++;
+  }
+  while (j < b.length) {
+    out.push(pc.green(`+ ${b[j]}`));
+    j++;
+  }
+  return out;
+}
+
+/**
+ * Renders a colorized, truncated line-diff for one changed file, capped at
+ * `maxLines` so a large rewrite doesn't flood the terminal.
+ */
+function renderFileDiff(
+  oldContent: string,
+  newContent: string,
+  maxLines = 20,
+): string[] {
+  const lines = diffLines(oldContent, newContent);
+  if (lines.length <= maxLines) return lines;
+  const shown = lines.slice(0, maxLines);
+  const omitted = lines.length - maxLines;
+  shown.push(pc.dim(`  … ${omitted} more line(s) not shown`));
+  return shown;
+}
+
 /** Compares dotted version strings numerically; non-numeric parts sort as 0. */
 function compareVersions(a: string, b: string): number {
   const pa = a.split(".").map((p) => parseInt(p, 10) || 0);
@@ -28,9 +99,7 @@ function compareVersions(a: string, b: string): number {
 }
 
 function findTemplateDir(templateName: string) {
-  const base = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-  );
+  const base = path.resolve(path.dirname(fileURLToPath(import.meta.url)));
   // src/lib/upgrade.ts, dist/src/lib/upgrade.js and a bundled dist/templates
   // all resolve the template from a different depth.
   const candidates = [
@@ -38,7 +107,10 @@ function findTemplateDir(templateName: string) {
     path.resolve(base, "../../templates", templateName),
     path.resolve(base, "../../../src/templates", templateName),
   ];
-  return candidates.find((candidate) => fs.existsSync(candidate)) ?? candidates[candidates.length - 1];
+  return (
+    candidates.find((candidate) => fs.existsSync(candidate)) ??
+    candidates[candidates.length - 1]
+  );
 }
 
 export async function upgrade(opts: UpgradeOptions = {}) {
@@ -57,7 +129,10 @@ export async function upgrade(opts: UpgradeOptions = {}) {
   const currentVersion = projectConfig.nextellarVersion || "unknown";
 
   const myPkg = await fs.readJson(
-    path.join(path.dirname(fileURLToPath(import.meta.url)), "../../package.json"),
+    path.join(
+      path.dirname(fileURLToPath(import.meta.url)),
+      "../../package.json",
+    ),
   );
   const cliVersion: string = myPkg.version || "0.0.0";
 
@@ -66,7 +141,10 @@ export async function upgrade(opts: UpgradeOptions = {}) {
   console.log(`${currentVersion} -> ${cliVersion}`);
   console.log("");
 
-  if (currentVersion !== "unknown" && compareVersions(cliVersion, currentVersion) < 0) {
+  if (
+    currentVersion !== "unknown" &&
+    compareVersions(cliVersion, currentVersion) < 0
+  ) {
     console.log(
       pc.red(
         `⚠️  Installed Nextellar CLI (${cliVersion}) is older than this project (${currentVersion}).`,
@@ -79,7 +157,9 @@ export async function upgrade(opts: UpgradeOptions = {}) {
       console.log(pc.yellow("Re-run with --yes to proceed anyway."));
       return;
     }
-    console.log(pc.yellow("--yes specified; proceeding despite the downgrade."));
+    console.log(
+      pc.yellow("--yes specified; proceeding despite the downgrade."),
+    );
   }
 
   const templateDir = findTemplateDir(templateName);
@@ -104,7 +184,12 @@ export async function upgrade(opts: UpgradeOptions = {}) {
   }
 
   // Compare and collect diffs
-  const changes: { file: string; projectFile: string; templateFile: string; status: "added" | "updated" }[] = [];
+  const changes: {
+    file: string;
+    projectFile: string;
+    templateFile: string;
+    status: "added" | "updated";
+  }[] = [];
   let unchangedCount = 0;
   for (const rel of candidates) {
     const templateFile = path.join(templateSrc, rel);
@@ -131,8 +216,14 @@ export async function upgrade(opts: UpgradeOptions = {}) {
   if ((await fs.pathExists(projPkgPath)) && (await fs.pathExists(tplPkgPath))) {
     const projPkg = await fs.readJson(projPkgPath);
     const tplPkg = await fs.readJson(tplPkgPath);
-    const tplDeps = { ...(tplPkg.dependencies || {}), ...(tplPkg.devDependencies || {}) };
-    const projDeps = { ...(projPkg.dependencies || {}), ...(projPkg.devDependencies || {}) };
+    const tplDeps = {
+      ...(tplPkg.dependencies || {}),
+      ...(tplPkg.devDependencies || {}),
+    };
+    const projDeps = {
+      ...(projPkg.dependencies || {}),
+      ...(projPkg.devDependencies || {}),
+    };
     for (const pkg of STELLAR_PKGS) {
       if (tplDeps[pkg] && projDeps[pkg] && tplDeps[pkg] !== projDeps[pkg]) {
         pkgChanges[pkg] = { from: projDeps[pkg], to: tplDeps[pkg] };
@@ -158,7 +249,8 @@ export async function upgrade(opts: UpgradeOptions = {}) {
     console.log(pc.yellow("Updated:"));
     for (const c of updated) console.log(` - ${c.file}`);
   }
-  for (const [k, v] of Object.entries(pkgChanges)) console.log(` - package.json: ${k} ${v.from || "(new)"} → ${v.to}`);
+  for (const [k, v] of Object.entries(pkgChanges))
+    console.log(` - package.json: ${k} ${v.from || "(new)"} → ${v.to}`);
   console.log(pc.dim(`Unchanged: ${unchangedCount} file(s)`));
 
   // Display changelog summary
@@ -171,13 +263,24 @@ export async function upgrade(opts: UpgradeOptions = {}) {
         console.log(` + ${pc.green(c.file)} (new file)`);
       } else {
         console.log(` ~ ${pc.yellow(c.file)} (modified)`);
+        const [oldContent, newContent] = await Promise.all([
+          fs.readFile(c.projectFile, "utf8"),
+          fs.readFile(c.templateFile, "utf8"),
+        ]);
+        for (const line of renderFileDiff(oldContent, newContent)) {
+          console.log(`   ${line}`);
+        }
       }
     }
   }
 
   if (opts.check) {
     console.log("");
-    console.log(pc.magenta("--check specified; dry preview only. No files were modified."));
+    console.log(
+      pc.magenta(
+        "--check specified; dry preview only. No files were modified.",
+      ),
+    );
     return;
   }
 
@@ -227,8 +330,10 @@ export async function upgrade(opts: UpgradeOptions = {}) {
     const projPkg = await fs.readJson(projPkgPath);
     for (const [pkg, v] of Object.entries(pkgChanges)) {
       if (v.to) {
-        if (projPkg.dependencies && pkg in projPkg.dependencies) projPkg.dependencies[pkg] = v.to;
-        else if (projPkg.devDependencies && pkg in projPkg.devDependencies) projPkg.devDependencies[pkg] = v.to;
+        if (projPkg.dependencies && pkg in projPkg.dependencies)
+          projPkg.dependencies[pkg] = v.to;
+        else if (projPkg.devDependencies && pkg in projPkg.devDependencies)
+          projPkg.devDependencies[pkg] = v.to;
         else if (!projPkg.dependencies) projPkg.dependencies = { [pkg]: v.to };
       }
     }
@@ -243,7 +348,9 @@ export async function upgrade(opts: UpgradeOptions = {}) {
   projectConfig.updatedAt = new Date().toISOString();
   await fs.writeJson(configPath, projectConfig, { spaces: 2 });
 
-  console.log(pc.green("✔️  Upgrade complete. Backups saved to .nextellar/backups/" + ts));
+  console.log(
+    pc.green("✔️  Upgrade complete. Backups saved to .nextellar/backups/" + ts),
+  );
 }
 
 export default upgrade;
