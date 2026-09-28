@@ -668,8 +668,8 @@ export function useSorobanContract(
           throw simErr;
         }
 
-        if ("restorePreamble" in simulation && (simulation as Record<string, unknown>).restorePreamble) {
-          const preamble = (simulation as Record<string, any>).restorePreamble;
+        if ("restorePreamble" in simulation && (simulation as unknown as Record<string, unknown>).restorePreamble) {
+          const preamble = (simulation as unknown as Record<string, any>).restorePreamble;
           const restoreErr = new Error(
             `Footprint expired; restore transaction required. Min resource fee: ${preamble?.minResourceFee ?? "100"}`
           );
