@@ -14,23 +14,67 @@ export default function AccountSwitcher() {
   const { connected, accounts, currentAccountIndex, switchAccount, publicKey } = useWallet();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  const closeAndRestoreFocus = () => {
+    setIsOpen(false);
+    triggerRef.current?.focus();
+  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        // A click outside dismisses without restoring focus to the trigger —
+        // the user's attention (and click) already moved elsewhere.
         setIsOpen(false);
       }
     };
 
+    // Focus trap (issue #1140): while the menu is open, Tab/Shift+Tab cycle
+    // only through its own focusable elements instead of escaping into the
+    // rest of the page, and Escape closes the menu and returns focus to the
+    // trigger button that opened it.
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setIsOpen(false);
+        closeAndRestoreFocus();
+        return;
+      }
+
+      if (event.key !== 'Tab' || !menuRef.current) return;
+
+      const focusable = menuRef.current.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+
+      if (event.shiftKey) {
+        if (active === first || !menuRef.current.contains(active)) {
+          event.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (active === last || !menuRef.current.contains(active)) {
+          event.preventDefault();
+          first.focus();
+        }
       }
     };
 
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
       document.addEventListener('keydown', handleKeyDown);
+
+      // Move focus into the menu on open, matching standard menu/dialog
+      // behavior — the trigger click alone leaves focus on the trigger.
+      const firstItem = menuRef.current?.querySelector<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      firstItem?.focus();
     }
 
     return () => {
@@ -49,12 +93,13 @@ export default function AccountSwitcher() {
     if (address !== publicKey) {
       await switchAccount(address);
     }
-    setIsOpen(false);
+    closeAndRestoreFocus();
   };
 
   return (
     <div ref={dropdownRef} className="relative inline-block">
       <button
+        ref={triggerRef}
         onClick={() => setIsOpen(!isOpen)}
         className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors text-sm font-medium text-gray-900 dark:text-white"
         title={currentAccount?.address}
@@ -78,6 +123,7 @@ export default function AccountSwitcher() {
 
       {isOpen && (
         <div
+          ref={menuRef}
           id="account-switcher-menu"
           role="menu"
           className="absolute top-full left-0 mt-2 w-64 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50"

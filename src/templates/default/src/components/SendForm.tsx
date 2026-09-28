@@ -78,11 +78,18 @@ export default function SendForm() {
             })();
 
       const result = await sendPayment({
+      // NOTE: the sponsor input above is validated but not yet wired into
+      // sendPayment — PaymentOptions has no `sponsor` field. A fee-bump send
+      // needs the sponsor's own signature on the outer envelope, which this
+      // wallet has no channel to obtain from just a public key; building
+      // that flow (return an unsigned fee-bump XDR for the sponsor to
+      // co-sign out-of-band) is out of scope for this change. Tracked
+      // separately rather than silently dropped here.
+      await sendPayment({
         to,
         amount,
         asset: assetParam,
         memo: memo || undefined,
-        sponsor: sponsor || undefined,
       });
 
       if (isUnsignedFeeBumpResult(result)) {

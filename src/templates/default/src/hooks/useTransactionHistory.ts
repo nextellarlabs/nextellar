@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Horizon } from '@stellar/stellar-sdk';
 import { useWalletConfig } from '../contexts';
+import { useHorizonStreaming } from './useHorizonStreaming';
 
 /**
  * Operation item type - initially loose, can be refined later for specific operation types
@@ -16,6 +17,8 @@ export interface UseTransactionHistoryOptions {
   horizonUrl?: string;
   pageSize?: number;
   type?: 'payments' | 'operations';
+  /** When true, subscribe to Horizon SSE and refresh on live events (#949). */
+  enableStreaming?: boolean;
 }
 
 /**
@@ -100,7 +103,8 @@ export function useTransactionHistory(
   const { 
     horizonUrl = providerConfig?.horizonUrl ?? DEFAULT_HORIZON_URL, 
     pageSize = DEFAULT_PAGE_SIZE,
-    type = DEFAULT_TYPE
+    type = DEFAULT_TYPE,
+    enableStreaming = false,
   } = options;
   
   // State management
@@ -269,6 +273,12 @@ export function useTransactionHistory(
       isRequestInFlightRef.current = false;
     }
   }, [publicKey, fetchTransactionHistory, pageSize]);
+
+  useHorizonStreaming(publicKey, refresh, {
+    horizonUrl,
+    enabled: enableStreaming,
+    streamType: type === 'payments' ? 'payments' : 'operations',
+  });
 
   /**
    * Fetch the next page of transaction history

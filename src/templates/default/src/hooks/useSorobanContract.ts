@@ -9,6 +9,7 @@ import {
   Contract,
   Account,
   StrKey,
+  BASE_FEE,
 } from "@stellar/stellar-sdk";
 
 /**
@@ -47,10 +48,44 @@ export interface SimulateContractCallResult {
   result: unknown;
   /**
    * Minimum resource fee (in stroops) that the network requires for this
-   * transaction, as reported by the Soroban RPC.
+   * transaction, as reported by the Soroban RPC. This covers Soroban-specific
+   * costs (CPU/memory instructions, ledger reads/writes) and is on top of
+   * `baseFee`.
    */
   minResourceFee: string;
+  /**
+   * Classic per-operation base fee (in stroops) used to build the simulated
+   * transaction — the same "inclusion fee" component that applies to every
+   * Stellar transaction, Soroban or not. Currently fixed at the network's
+   * `BASE_FEE` (100 stroops); surfaced here so callers can show the full fee
+   * picture (`baseFee + minResourceFee`) rather than just the resource
+   * component.
+   */
+  baseFee: string;
   /** The ledger number at which the simulation was performed */
+  latestLedger: number;
+}
+
+/**
+ * A single contract-function invocation, used to describe one call of a
+ * batch (see {@link SorobanContractReturn.simulateBatchContractCall} and
+ * {@link SorobanContractReturn.buildBatchInvokeXDRs} for why a "batch" is a
+ * set of independent calls rather than one multi-operation transaction).
+ */
+export interface ContractCallSpec {
+  /** Contract function name. */
+  name: string;
+  /** Arguments; each may be a plain JS value or `{ value, type }` for disambiguation. */
+  args: TypedArg[];
+}
+
+/** Result of one call within a `simulateBatchContractCall` batch. */
+export interface BatchCallResult {
+  /** Decoded return value from that call's simulation. */
+  result: unknown;
+  /** Minimum resource fee (in stroops) for that call's own transaction. */
+  minResourceFee: string;
+  /** The ledger number at which that call's simulation was performed. */
   latestLedger: number;
 }
 
@@ -64,6 +99,41 @@ export interface SorobanContractReturn {
     args: TypedArg[]
   ) => Promise<SimulateContractCallResult>;
   buildInvokeXDR: (name: string, args: TypedArg[]) => Promise<string>;
+  /**
+   * Simulate several independent contract calls "as a batch" — concurrently,
+   * against the same contract — and return each one's decoded result.
+   *
+   * **Not** a single atomic multi-operation transaction: the Soroban
+   * protocol hard-caps a transaction containing a host-function invocation
+   * (`InvokeHostFunctionOp`) at **exactly one operation**, and rejects any
+   * transaction mixing it with other operations — enforced by stellar-core's
+   * `validateSorobanOpsConsistency` at validation time (`txMALFORMED`), not
+   * merely an RPC/simulation restriction. See `buildBatchInvokeXDRs` for the
+   * corresponding submission-ready builder and its caveats.
+   */
+  simulateBatchContractCall: (calls: ContractCallSpec[]) => Promise<BatchCallResult[]>;
+  /**
+   * Build one unsigned invocation XDR **per call** in `calls`, sharing a
+   * single source account loaded once so their sequence numbers are
+   * consecutive and ready to sign and submit back-to-back (each call is its
+   * own transaction — see `simulateBatchContractCall`'s doc for why one
+   * multi-operation transaction isn't possible here). Submission is still
+   * the caller's responsibility (e.g. via a wallet adapter or
+   * `submitInvokeWithSecret`, called once per returned XDR, in order); this
+   * does **not** submit anything itself, and the batch is not atomic — a
+   * later call can succeed even if an earlier one in the same batch failed.
+   *
+   * @param calls - Ordered list of `{ name, args }` calls, all against `contractId`
+   * @param sourceAccount - Public key of the account whose sequence number
+   *   the batch's transactions consume, in order. Required because building
+   *   valid consecutive-sequence-number transactions needs a real starting
+   *   sequence number — the dummy-account trick `buildInvokeXDR` uses for a
+   *   single simulate-only transaction doesn't extend to a submittable batch.
+   */
+  buildBatchInvokeXDRs: (
+    calls: ContractCallSpec[],
+    sourceAccount: string
+  ) => Promise<string[]>;
   submitInvokeWithSecret: (
     xdr: string,
     secret: string
@@ -580,7 +650,7 @@ export function useSorobanContract(
         const operation = contract.call(name, ...args.map(toXdrValue));
 
         const txBuilder = new TransactionBuilder(dummyAccount, {
-          fee: "100",
+          fee: BASE_FEE,
           networkPassphrase,
         })
           .addOperation(operation)
@@ -669,7 +739,7 @@ export function useSorobanContract(
         const operation = contract.call(name, ...args.map(toXdrValue));
 
         const txBuilder = new TransactionBuilder(dummyAccount, {
-          fee: "100",
+          fee: BASE_FEE,
           networkPassphrase,
         })
           .addOperation(operation)
@@ -698,7 +768,7 @@ export function useSorobanContract(
             : 0;
 
         setError(null);
-        return { result: decodedResult, minResourceFee, latestLedger };
+        return { result: decodedResult, minResourceFee, baseFee: BASE_FEE, latestLedger };
       } catch (err) {
         const error = err as Error;
         setError(error);
@@ -737,7 +807,7 @@ export function useSorobanContract(
         const operation = contract.call(name, ...args.map(toXdrValue));
 
         const txBuilder = new TransactionBuilder(dummyAccount, {
-          fee: "100",
+          fee: BASE_FEE,
           networkPassphrase,
         })
           .addOperation(operation)
@@ -755,6 +825,193 @@ export function useSorobanContract(
       }
     },
     [contractId, networkPassphrase, toXdrValue]
+  );
+
+  // ── Batch helpers ──────────────────────────────────────────────────────────
+  //
+  // IMPORTANT: Soroban's protocol hard-caps a transaction containing a
+  // host-function invocation at *exactly one operation*, and rejects any
+  // transaction mixing it with other operations (classic or Soroban) —
+  // enforced by stellar-core's `validateSorobanOpsConsistency` at
+  // transaction-validation time (txMALFORMED), independent of and in
+  // addition to what the RPC's simulateTransaction/prepareTransaction docs
+  // already say ("should include exactly one operation"). So there is no
+  // such thing as "one transaction, multiple contract-call operations" for
+  // Soroban — the two helpers below batch at the *call* level instead: they
+  // build/simulate several independent single-operation transactions
+  // together, which is the closest real equivalent.
+
+  /**
+   * Build a single-operation invocation transaction for one call, using a
+   * caller-supplied `Account` (so sequence numbers can be chained across a
+   * batch) or a dummy one (for simulate-only use). Shared by
+   * `simulateBatchContractCall` and `buildBatchInvokeXDRs`.
+   */
+  const buildSingleCallTransaction = useCallback(
+    (name: string, args: TypedArg[], sourceAccount: Account) => {
+      const contract = new Contract(contractId);
+      const operation = contract.call(name, ...args.map(toXdrValue));
+
+      return new TransactionBuilder(sourceAccount, {
+        fee: BASE_FEE,
+        networkPassphrase,
+      })
+        .addOperation(operation)
+        .setTimeout(30)
+        .build();
+    },
+    [contractId, networkPassphrase, toXdrValue]
+  );
+
+  /**
+   * Simulate a batch of independent contract calls concurrently and return
+   * each one's decoded result.
+   *
+   * Each call is simulated in its **own** transaction (see the note above
+   * this section for why one multi-operation transaction isn't possible),
+   * run in parallel via `Promise.all` — this batches the client-side
+   * round-trips, not the on-chain transaction itself. Calls are fully
+   * independent: none can see another's result, and one call failing
+   * rejects the whole batch (fail-fast, matching `Promise.all` semantics) —
+   * use `Promise.allSettled` yourself around individual `simulateContractCall`
+   * calls instead if you need partial-failure tolerance.
+   *
+   * @param calls - List of `{ name, args }` calls, all against `contractId`
+   * @returns One `BatchCallResult` per call, in the same order as `calls`
+   * @throws If `calls` is empty, or if any call's simulation fails
+   *
+   * @example
+   * ```tsx
+   * const results = await simulateBatchContractCall([
+   *   { name: 'balance', args: [{ value: 'GABC...', type: 'address' }] },
+   *   { name: 'balance', args: [{ value: 'GDEF...', type: 'address' }] },
+   * ]);
+   * console.log(results.map((r) => r.result));
+   * ```
+   */
+  const simulateBatchContractCall = useCallback(
+    async (calls: ContractCallSpec[]): Promise<BatchCallResult[]> => {
+      if (calls.length === 0) {
+        throw new Error("simulateBatchContractCall requires at least one call");
+      }
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const results = await Promise.all(
+          calls.map(async ({ name, args }) => {
+            const dummyKeypair = Keypair.random();
+            const dummyAccount = new Account(dummyKeypair.publicKey(), "0");
+            const transaction = buildSingleCallTransaction(name, args, dummyAccount);
+            const simulation = await rpcServer.simulateTransaction(transaction);
+
+            if ("error" in simulation && simulation.error) {
+              throw new Error(
+                `Simulation failed for "${name}": ${simulation.error}`
+              );
+            }
+
+            const result =
+              "result" in simulation && simulation.result?.retval
+                ? fromXdrValue(simulation.result.retval)
+                : null;
+
+            const minResourceFee =
+              "minResourceFee" in simulation
+                ? String(simulation.minResourceFee)
+                : "0";
+
+            const latestLedger =
+              "latestLedger" in simulation
+                ? Number(simulation.latestLedger)
+                : 0;
+
+            return { result, minResourceFee, latestLedger };
+          })
+        );
+
+        setError(null);
+        return results;
+      } catch (err) {
+        const error = err as Error;
+        setError(error);
+        throw error;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [buildSingleCallTransaction, rpcServer, fromXdrValue]
+  );
+
+  /**
+   * Build one unsigned invocation XDR per call in `calls`, with consecutive
+   * sequence numbers off a single fetched `sourceAccount` — ready to sign
+   * and submit **in order**, back-to-back, as a batch of transactions (see
+   * the note above this section for why they can't be one transaction).
+   *
+   * This does not sign or submit anything: sign each returned XDR (e.g. via
+   * `submitInvokeWithSecret`, once per XDR, in the returned order — signing
+   * later ones out of order will fail since each spends the previous
+   * transaction's sequence number) or hand them to a wallet adapter.
+   *
+   * @param calls - Ordered list of `{ name, args }` calls, all against `contractId`
+   * @param sourceAccount - Public key of the account whose current sequence
+   *   number the batch's transactions consume, starting from `seq + 1`.
+   * @returns Unsigned XDR strings, one per call, in the same order as `calls`
+   * @throws If `calls` is empty, or if `sourceAccount` can't be loaded
+   *
+   * @example
+   * ```tsx
+   * const xdrs = await buildBatchInvokeXDRs(
+   *   [
+   *     { name: 'transfer', args: [{ value: 'GABC...', type: 'address' }, 100] },
+   *     { name: 'transfer', args: [{ value: 'GDEF...', type: 'address' }, 200] },
+   *   ],
+   *   walletPublicKey,
+   * );
+   * for (const xdr of xdrs) {
+   *   const signed = await wallet.signTransaction(xdr);
+   *   await submitInvokeWithSecret(signed, secret); // or your wallet's submit flow
+   * }
+   * ```
+   */
+  const buildBatchInvokeXDRs = useCallback(
+    async (calls: ContractCallSpec[], sourceAccount: string): Promise<string[]> => {
+      if (calls.length === 0) {
+        throw new Error("buildBatchInvokeXDRs requires at least one call");
+      }
+      if (!isValidContractId(contractId)) {
+        const err = new Error(`Invalid Soroban contract ID: "${contractId}". Must be a valid StrKey-encoded contract address (56 characters, starting with "C"). Did you forget to set your contract ID in .env.local?`);
+        setError(err);
+        throw err;
+      }
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const account = await rpcServer.getAccount(sourceAccount);
+
+        const xdrs = calls.map(({ name, args }) => {
+          const transaction = buildSingleCallTransaction(name, args, account);
+          // Each built transaction already incremented `account`'s internal
+          // sequence number (TransactionBuilder does this as a side effect),
+          // so the next iteration's transaction picks up the next sequence.
+          return transaction.toXDR();
+        });
+
+        setError(null);
+        return xdrs;
+      } catch (err) {
+        const error = err as Error;
+        setError(error);
+        throw error;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [contractId, rpcServer, buildSingleCallTransaction]
   );
 
   // ── submitInvokeWithSecret ─────────────────────────────────────────────────
@@ -800,6 +1057,8 @@ export function useSorobanContract(
     callFunction,
     simulateContractCall,
     buildInvokeXDR,
+    simulateBatchContractCall,
+    buildBatchInvokeXDRs,
     submitInvokeWithSecret,
     loading,
     error,

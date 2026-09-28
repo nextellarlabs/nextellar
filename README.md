@@ -163,6 +163,7 @@ The following components and tools are planned but **not yet included** in scaff
 | `<BalanceDisplay>` component | Installable via `nextellar add balance-display` | — |
 | `<SendForm>` component | Installable via `nextellar add send-form` | — |
 | `<TransactionList>` component | Installable via `nextellar add transaction-list` | — |
+| `<ContractCallForm>` / `<ContractCallPreview>` components | Installable via `nextellar add contract-call` | — |
 | `<ReceiveForm>` component | Planned | — |
 | `<TransactionStatusBadge>` component | Planned | — |
 | Full `shadcn/ui` integration | Templates ship inline shadcn/ui-inspired components; full setup is manual | — |
@@ -190,11 +191,23 @@ Deployment bundle guide (`nextellar deploy`):
 Network and environment configuration (Horizon/Soroban, testnet/mainnet, NetworkSwitcher):  
 🔗 [docs/network-environment-guide.md](docs/network-environment-guide.md)
 
+Authoring a custom wallet adapter (the `ModuleInterface`, a worked example, and where to register it):  
+🔗 [docs/custom-wallet-adapter-guide.md](docs/custom-wallet-adapter-guide.md)
+
 Soroban contracts overlay guide (`--with-contracts`):  
 🔗 [docs/soroban-contracts-overlay-guide.md](docs/soroban-contracts-overlay-guide.md)
 
+Anchor discovery & KYC fields (SEP-1 / SEP-9 / SEP-38):  
+🔗 [docs/anchor-discovery-and-kyc.md](docs/anchor-discovery-and-kyc.md)
+
+Web authentication & payment request URIs (SEP-7 / SEP-45):  
+🔗 [docs/web-auth-and-payments.md](docs/web-auth-and-payments.md)
+
 Doctor diagnostic & troubleshooting guide:  
 🔗 [docs/troubleshooting.md](docs/troubleshooting.md)
+
+Testing guide for generated apps (Storybook interaction tests, and adding Jest/Vitest if you need it):  
+🔗 [docs/testing-guide.md](docs/testing-guide.md)
 
 ---
 

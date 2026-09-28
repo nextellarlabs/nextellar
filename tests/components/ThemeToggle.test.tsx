@@ -9,7 +9,7 @@
  */
 import "@testing-library/jest-dom";
 import React from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import ThemeToggle from "../../src/templates/default/src/components/ThemeToggle";
 import { ThemeProvider } from "../../src/templates/default/src/contexts/ThemeProvider";
 
@@ -53,6 +53,55 @@ function stubPrefersDark(matches: boolean) {
       dispatchEvent: () => false,
     }),
   });
+}
+
+/**
+ * A `matchMedia` stub that actually records its `change` listener(s), so a
+ * test can simulate the OS preference flipping while the app is open by
+ * calling the returned `fireChange` — the live-update path #1109 covers,
+ * as opposed to `stubPrefersDark`'s fixed-at-mount-time value above.
+ */
+function stubPrefersDarkLive(initialMatches: boolean) {
+  let matches = initialMatches;
+  const listeners = new Set<(event: MediaQueryListEvent) => void>();
+
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    writable: true,
+    value: (query: string) => ({
+      get matches() {
+        return matches;
+      },
+      media: query,
+      onchange: null,
+      addEventListener: (
+        _event: "change",
+        listener: (event: MediaQueryListEvent) => void,
+      ) => {
+        listeners.add(listener);
+      },
+      removeEventListener: (
+        _event: "change",
+        listener: (event: MediaQueryListEvent) => void,
+      ) => {
+        listeners.delete(listener);
+      },
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    }),
+  });
+
+  return {
+    fireChange(nextMatches: boolean) {
+      matches = nextMatches;
+      const event = { matches: nextMatches } as MediaQueryListEvent;
+      act(() => {
+        listeners.forEach((listener) => listener(event));
+      });
+    },
+    listenerCount: () => listeners.size,
+  };
 }
 
 beforeEach(() => {
@@ -106,6 +155,59 @@ describe("ThemeToggle", () => {
 
       expectChecked("System");
       expect(htmlIsDark()).toBe(true);
+    });
+  });
+
+  describe("live OS preference sync (#1109)", () => {
+    it("updates the resolved theme when the OS preference changes while on System, without a manual toggle", () => {
+      const stub = stubPrefersDarkLive(false);
+      renderToggle();
+
+      expectChecked("System");
+      expect(htmlIsDark()).toBe(false);
+
+      stub.fireChange(true);
+
+      expect(htmlIsDark()).toBe(true);
+      // Still "System" - a live OS change is not a manual choice.
+      expectChecked("System");
+    });
+
+    it("flips back to light when the OS preference changes back, still on System", () => {
+      const stub = stubPrefersDarkLive(true);
+      renderToggle();
+
+      expect(htmlIsDark()).toBe(true);
+
+      stub.fireChange(false);
+
+      expect(htmlIsDark()).toBe(false);
+      expectChecked("System");
+    });
+
+    it("does not react to an OS preference change after the user made an explicit choice", () => {
+      const stub = stubPrefersDarkLive(false);
+      renderToggle();
+
+      fireEvent.click(option("Light"));
+      expect(htmlIsDark()).toBe(false);
+
+      stub.fireChange(true);
+
+      // A manual "Light" choice must not be overridden by a live OS change.
+      expect(htmlIsDark()).toBe(false);
+      expectChecked("Light");
+    });
+
+    it("registers exactly one change listener while on System, and removes it when switching away", () => {
+      const stub = stubPrefersDarkLive(false);
+      renderToggle();
+
+      expect(stub.listenerCount()).toBe(1);
+
+      fireEvent.click(option("Dark"));
+
+      expect(stub.listenerCount()).toBe(0);
     });
   });
 
