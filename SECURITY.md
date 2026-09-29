@@ -339,6 +339,8 @@ In addition to dependency vulnerabilities, CI scans every push to `main` and eve
 
 **Local prevention:** the pre-commit hook (see [CONTRIBUTING.md](./CONTRIBUTING.md)) does not run a secret scan — it only lints and formats staged files. Avoid staging real credentials at all; use `.env.local` (already gitignored) for anything sensitive during local development.
 
+For step-by-step procedures on rotating leaked or expiring wallet keys, RPC endpoints, and anchor API credentials, see [Secret Rotation Guidance](./docs/secret-rotation.md).
+
 ## References
 
 - [npm audit documentation](https://docs.npmjs.com/auditing-package-contents-for-security-vulnerabilities)

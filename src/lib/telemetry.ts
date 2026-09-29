@@ -151,11 +151,13 @@ export async function maybeShowTelemetryNotice(options?: {
     return;
   }
 
-  console.log("\nNextellar collects anonymous usage data to improve the tool.");
   console.log(
-    "You can disable this with --no-telemetry or NEXTELLAR_TELEMETRY_DISABLED=1|true|yes|on",
+    "\nNextellar collects anonymous usage data (CLI version, OS, template selection, package manager) to improve the tool."
   );
-  console.log("Learn more: https://nextellar.dev/telemetry\n");
+  console.log(
+    "You can disable telemetry at any time using `nextellar telemetry disable`, --no-telemetry, or NEXTELLAR_TELEMETRY_DISABLED=1"
+  );
+  console.log("Learn more: docs/telemetry.md or https://nextellar.dev/telemetry\n");
 
   await writeTelemetryConfig({
     ...config,
