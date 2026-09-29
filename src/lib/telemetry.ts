@@ -44,7 +44,9 @@ interface TelemetryEvent {
  * var, etc.) into `trackScaffoldEvent`, it is dropped before anything leaves
  * the process. Adding a new field here requires a deliberate, reviewed change.
  */
-export const ALLOWED_PROPERTY_KEYS: ReadonlyArray<keyof ScaffoldTelemetryProperties> = [
+export const ALLOWED_PROPERTY_KEYS: ReadonlyArray<
+  keyof ScaffoldTelemetryProperties
+> = [
   "template",
   "language",
   "network",
@@ -64,13 +66,13 @@ export const ALLOWED_PROPERTY_KEYS: ReadonlyArray<keyof ScaffoldTelemetryPropert
  * stripped. Order follows ALLOWED_PROPERTY_KEYS so payloads are stable.
  */
 function sanitizeProperties(
-  properties: ScaffoldTelemetryProperties
+  properties: ScaffoldTelemetryProperties,
 ): ScaffoldTelemetryProperties {
   const clean: Record<string, unknown> = {};
   for (const key of ALLOWED_PROPERTY_KEYS) {
-    clean[key] = (properties as Record<string, unknown>)[key];
+    clean[key] = (properties as unknown as Record<string, unknown>)[key];
   }
-  return clean as ScaffoldTelemetryProperties;
+  return clean as unknown as ScaffoldTelemetryProperties;
 }
 
 const TELEMETRY_TIMEOUT_MS = 3000;
@@ -238,7 +240,9 @@ export async function flushTelemetry(): Promise<void> {
 
   try {
     await Promise.race([
-      Promise.allSettled(Array.from(pendingTelemetryRequests)).then(() => undefined),
+      Promise.allSettled(Array.from(pendingTelemetryRequests)).then(
+        () => undefined,
+      ),
       timeoutPromise,
     ]);
   } catch {
@@ -248,7 +252,7 @@ export async function flushTelemetry(): Promise<void> {
 
 export async function trackScaffoldEvent(
   properties: ScaffoldTelemetryProperties,
-  options?: { noTelemetryFlag?: boolean }
+  options?: { noTelemetryFlag?: boolean },
 ): Promise<void> {
   if (shouldSkipTelemetry(options?.noTelemetryFlag)) {
     return;

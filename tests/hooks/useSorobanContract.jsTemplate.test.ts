@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  *
  * Targets the js-template copy of useSorobanContract (plain JS, no types).
- * jest.config.mjs compiles templates/js-*/src/**\/*.js to CJS specifically
+ * jest.config.mjs compiles templates/js-*.../src/** / *.js to CJS specifically
  * so this file's `.js` hook module loads under Jest — see the
  * `collectCoverageFrom`-adjacent comment there for why that transform
  * exists. The TypeScript default-template hook has its own coverage in
@@ -10,7 +10,6 @@
  */
 import { jest } from "@jest/globals";
 import { renderHook, act, waitFor } from "@testing-library/react";
-import * as StellarSDK from "@stellar/stellar-sdk";
 
 // ── Module mocking (must be top-level awaited before any dynamic imports) ─────
 //
@@ -29,12 +28,36 @@ const mockRpcServerConstructor = jest.fn(() => ({
 // Minimal xdr stubs
 const mockXdr = {
   ScVal: {
-    scvString: (s: string) => ({ switch: () => ({ name: "scvString" }), str: () => ({ toString: () => s }), _tag: "string", _val: s }),
-    scvI32: (n: number) => ({ switch: () => ({ name: "scvI32" }), i32: () => n, _tag: "i32", _val: n }),
-    scvBool: (b: boolean) => ({ switch: () => ({ name: "scvBool" }), b: () => b, _tag: "bool", _val: b }),
-    scvVec: (items: unknown[]) => ({ switch: () => ({ name: "scvVec" }), vec: () => items }),
-    scvMap: (entries: unknown[]) => ({ switch: () => ({ name: "scvMap" }), map: () => entries }),
-    scvSymbol: (s: string) => ({ switch: () => ({ name: "scvSymbol" }), sym: () => ({ toString: () => s }) }),
+    scvString: (s: string) => ({
+      switch: () => ({ name: "scvString" }),
+      str: () => ({ toString: () => s }),
+      _tag: "string",
+      _val: s,
+    }),
+    scvI32: (n: number) => ({
+      switch: () => ({ name: "scvI32" }),
+      i32: () => n,
+      _tag: "i32",
+      _val: n,
+    }),
+    scvBool: (b: boolean) => ({
+      switch: () => ({ name: "scvBool" }),
+      b: () => b,
+      _tag: "bool",
+      _val: b,
+    }),
+    scvVec: (items: unknown[]) => ({
+      switch: () => ({ name: "scvVec" }),
+      vec: () => items,
+    }),
+    scvMap: (entries: unknown[]) => ({
+      switch: () => ({ name: "scvMap" }),
+      map: () => entries,
+    }),
+    scvSymbol: (s: string) => ({
+      switch: () => ({ name: "scvSymbol" }),
+      sym: () => ({ toString: () => s }),
+    }),
   },
   ScValType: {
     scvString: () => ({ name: "scvString" }),
@@ -75,7 +98,9 @@ const mockTxBuilder = {
 };
 const mockTransactionBuilderConstructor = jest.fn(() => mockTxBuilder);
 // fromXDR is a static method
-(mockTransactionBuilderConstructor as unknown as Record<string, unknown>).fromXDR = jest.fn(() => mockTransaction);
+(
+  mockTransactionBuilderConstructor as unknown as Record<string, unknown>
+).fromXDR = jest.fn(() => mockTransaction);
 
 const mockKeypair = { publicKey: jest.fn(() => "GDUMMY_KEY") };
 const mockKeypairRandom = jest.fn(() => mockKeypair);
@@ -92,25 +117,32 @@ await jest.unstable_mockModule("@stellar/stellar-sdk", () => ({
     })),
   },
   Contract: mockContractConstructor,
-  Account: jest.fn(() => ({ accountId: () => "GDUMMY", sequenceNumber: () => "0" })),
+  Account: jest.fn(() => ({
+    accountId: () => "GDUMMY",
+    sequenceNumber: () => "0",
+  })),
   TransactionBuilder: mockTransactionBuilderConstructor,
-  Networks: { TESTNET: "Test SDF Network ; September 2015", PUBLIC: "Public Global Stellar Network ; September 2015" },
+  Networks: {
+    TESTNET: "Test SDF Network ; September 2015",
+    PUBLIC: "Public Global Stellar Network ; September 2015",
+  },
   Keypair: { random: mockKeypairRandom, fromSecret: mockKeypairFromSecret },
   StrKey: {
-    isValidContract: jest.fn((id: string) => id.startsWith("C") && id.length === 56),
+    isValidContract: jest.fn(
+      (id: string) => id.startsWith("C") && id.length === 56,
+    ),
   },
 }));
 
 // Import the hook AFTER mocking the SDK
-const { useSorobanContract } = await import(
-  "../../src/templates/js-template/src/hooks/useSorobanContract.js"
-);
+const { useSorobanContract } =
+  await import("../../src/templates/js-template/src/hooks/useSorobanContract.js");
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const SOROBAN_RPC_URL = "https://soroban-testnet.stellar.org";
-const VALID_CONTRACT_ID = "CAAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQC526";
-const VALID_ACCOUNT_ADDRESS = "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN";
+const VALID_CONTRACT_ID =
+  "CAAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQC526";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -148,7 +180,9 @@ describe("useSorobanContract (js-template)", () => {
     mockTxBuilder.setTimeout.mockReturnThis();
     mockTxBuilder.build.mockReturnValue(mockTransaction);
     mockTransactionBuilderConstructor.mockImplementation(() => mockTxBuilder);
-    (mockTransactionBuilderConstructor as unknown as Record<string, unknown>).fromXDR = jest.fn(() => mockTransaction);
+    (
+      mockTransactionBuilderConstructor as unknown as Record<string, unknown>
+    ).fromXDR = jest.fn(() => mockTransaction);
   });
 
   // ── callFunction ─────────────────────────────────────────────────────────
@@ -159,7 +193,10 @@ describe("useSorobanContract (js-template)", () => {
     });
 
     const { result } = renderHook(() =>
-      useSorobanContract({ contractId: VALID_CONTRACT_ID, sorobanRpc: SOROBAN_RPC_URL })
+      useSorobanContract({
+        contractId: VALID_CONTRACT_ID,
+        sorobanRpc: SOROBAN_RPC_URL,
+      }),
     );
 
     let output: unknown;
@@ -176,7 +213,10 @@ describe("useSorobanContract (js-template)", () => {
     });
 
     const { result } = renderHook(() =>
-      useSorobanContract({ contractId: VALID_CONTRACT_ID, sorobanRpc: SOROBAN_RPC_URL })
+      useSorobanContract({
+        contractId: VALID_CONTRACT_ID,
+        sorobanRpc: SOROBAN_RPC_URL,
+      }),
     );
 
     await act(async () => {
@@ -198,7 +238,10 @@ describe("useSorobanContract (js-template)", () => {
     });
 
     const { result } = renderHook(() =>
-      useSorobanContract({ contractId: VALID_CONTRACT_ID, sorobanRpc: SOROBAN_RPC_URL })
+      useSorobanContract({
+        contractId: VALID_CONTRACT_ID,
+        sorobanRpc: SOROBAN_RPC_URL,
+      }),
     );
 
     let output: unknown;
@@ -215,7 +258,10 @@ describe("useSorobanContract (js-template)", () => {
     });
 
     const { result } = renderHook(() =>
-      useSorobanContract({ contractId: VALID_CONTRACT_ID, sorobanRpc: SOROBAN_RPC_URL })
+      useSorobanContract({
+        contractId: VALID_CONTRACT_ID,
+        sorobanRpc: SOROBAN_RPC_URL,
+      }),
     );
 
     let output: unknown;
@@ -228,7 +274,10 @@ describe("useSorobanContract (js-template)", () => {
 
   it("buildInvokeXDR returns a non-empty base64 string", async () => {
     const { result } = renderHook(() =>
-      useSorobanContract({ contractId: VALID_CONTRACT_ID, sorobanRpc: SOROBAN_RPC_URL })
+      useSorobanContract({
+        contractId: VALID_CONTRACT_ID,
+        sorobanRpc: SOROBAN_RPC_URL,
+      }),
     );
 
     let txXdr = "";
@@ -243,8 +292,11 @@ describe("useSorobanContract (js-template)", () => {
   it("invalid contract ID throws immediately", () => {
     expect(() =>
       renderHook(() =>
-        useSorobanContract({ contractId: "invalid-contract-id", sorobanRpc: SOROBAN_RPC_URL })
-      )
+        useSorobanContract({
+          contractId: "invalid-contract-id",
+          sorobanRpc: SOROBAN_RPC_URL,
+        }),
+      ),
     ).toThrow(/Invalid Soroban contract ID/);
   });
 
@@ -252,7 +304,10 @@ describe("useSorobanContract (js-template)", () => {
     mockSimulateTransaction.mockRejectedValue(new Error("RPC unavailable"));
 
     const { result } = renderHook(() =>
-      useSorobanContract({ contractId: VALID_CONTRACT_ID, sorobanRpc: SOROBAN_RPC_URL })
+      useSorobanContract({
+        contractId: VALID_CONTRACT_ID,
+        sorobanRpc: SOROBAN_RPC_URL,
+      }),
     );
 
     let thrown: Error | undefined;
@@ -274,7 +329,10 @@ describe("useSorobanContract (js-template)", () => {
     });
 
     const { result } = renderHook(() =>
-      useSorobanContract({ contractId: VALID_CONTRACT_ID, sorobanRpc: SOROBAN_RPC_URL })
+      useSorobanContract({
+        contractId: VALID_CONTRACT_ID,
+        sorobanRpc: SOROBAN_RPC_URL,
+      }),
     );
 
     let thrown: Error | undefined;
@@ -300,10 +358,15 @@ describe("useSorobanContract (js-template)", () => {
     });
 
     const { result } = renderHook(() =>
-      useSorobanContract({ contractId: VALID_CONTRACT_ID, sorobanRpc: SOROBAN_RPC_URL })
+      useSorobanContract({
+        contractId: VALID_CONTRACT_ID,
+        sorobanRpc: SOROBAN_RPC_URL,
+      }),
     );
 
-    let preview: { result: unknown; minResourceFee: string; latestLedger: number } | undefined;
+    let preview:
+      | { result: unknown; minResourceFee: string; latestLedger: number }
+      | undefined;
     await act(async () => {
       preview = await result.current.simulateContractCall("get_value", []);
     });
@@ -321,10 +384,15 @@ describe("useSorobanContract (js-template)", () => {
     });
 
     const { result } = renderHook(() =>
-      useSorobanContract({ contractId: VALID_CONTRACT_ID, sorobanRpc: SOROBAN_RPC_URL })
+      useSorobanContract({
+        contractId: VALID_CONTRACT_ID,
+        sorobanRpc: SOROBAN_RPC_URL,
+      }),
     );
 
-    let preview: { result: unknown; minResourceFee: string; latestLedger: number } | undefined;
+    let preview:
+      | { result: unknown; minResourceFee: string; latestLedger: number }
+      | undefined;
     await act(async () => {
       preview = await result.current.simulateContractCall("no_return", []);
     });
@@ -332,11 +400,16 @@ describe("useSorobanContract (js-template)", () => {
     expect(preview!.result).toBeNull();
     expect(preview!.minResourceFee).toBe("200");
     expect(preview!.latestLedger).toBe(1234);
+  });
+
   it("invalid contract ID is surfaced", () => {
     expect(() =>
       renderHook(() =>
-        useSorobanContract({ contractId: "invalid-contract-id", sorobanRpc: SOROBAN_RPC_URL })
-      )
+        useSorobanContract({
+          contractId: "invalid-contract-id",
+          sorobanRpc: SOROBAN_RPC_URL,
+        }),
+      ),
     ).toThrow(/Invalid Soroban contract ID/);
   });
 
@@ -346,7 +419,10 @@ describe("useSorobanContract (js-template)", () => {
     });
 
     const { result } = renderHook(() =>
-      useSorobanContract({ contractId: VALID_CONTRACT_ID, sorobanRpc: SOROBAN_RPC_URL })
+      useSorobanContract({
+        contractId: VALID_CONTRACT_ID,
+        sorobanRpc: SOROBAN_RPC_URL,
+      }),
     );
 
     let thrown: Error | undefined;
@@ -371,7 +447,10 @@ describe("useSorobanContract (js-template)", () => {
     mockSimulateTransaction.mockReturnValue(pending);
 
     const { result } = renderHook(() =>
-      useSorobanContract({ contractId: VALID_CONTRACT_ID, sorobanRpc: SOROBAN_RPC_URL })
+      useSorobanContract({
+        contractId: VALID_CONTRACT_ID,
+        sorobanRpc: SOROBAN_RPC_URL,
+      }),
     );
 
     // Start the call without awaiting
@@ -398,7 +477,10 @@ describe("useSorobanContract (js-template)", () => {
 
   it("simulateContractCall is exposed on the hook return value", () => {
     const { result } = renderHook(() =>
-      useSorobanContract({ contractId: VALID_CONTRACT_ID, sorobanRpc: SOROBAN_RPC_URL })
+      useSorobanContract({
+        contractId: VALID_CONTRACT_ID,
+        sorobanRpc: SOROBAN_RPC_URL,
+      }),
     );
 
     expect(typeof result.current.simulateContractCall).toBe("function");
@@ -414,7 +496,10 @@ describe("useSorobanContract (js-template)", () => {
     } as never);
 
     const { result } = renderHook(() =>
-      useSorobanContract({ contractId: VALID_CONTRACT_ID, sorobanRpc: SOROBAN_RPC_URL })
+      useSorobanContract({
+        contractId: VALID_CONTRACT_ID,
+        sorobanRpc: SOROBAN_RPC_URL,
+      }),
     );
 
     let res: any;
@@ -426,7 +511,7 @@ describe("useSorobanContract (js-template)", () => {
       expect.objectContaining({
         requiresRestore: true,
         restorePreamble: expect.objectContaining({ minResourceFee: "500" }),
-      })
+      }),
     );
     expect(result.current.error?.message).toContain("Footprint expired");
   });
