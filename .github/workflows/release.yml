@@ -65,6 +65,15 @@ jobs:
           fi
           echo "Package size $PACKAGE_SIZE is within limit"
 
+      - name: Generate Software Bill of Materials (SBOM)
+        run: npx @cyclonedx/cyclonedx-npm --output-file bom.json
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ github.ref_name }}
+          path: bom.json
+
       - name: Create tarball
         if: ${{ inputs.dry-run }}
         run: npm pack
