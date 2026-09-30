@@ -1,4 +1,5 @@
 {
+  "schemaVersion": 1,
   "nextellarVersion": "{{NEXTELLAR_VERSION}}",
   "template": "{{TEMPLATE_NAME}}",
   "createdAt": "{{TIMESTAMP}}"
