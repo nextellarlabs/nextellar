@@ -19,6 +19,16 @@ type FormState = 'idle' | 'submitting' | 'success' | 'error' | 'awaiting_sponsor
  * so when a sponsor is set, submitting signs and builds the fee-bump
  * transaction but does not submit it. The resulting XDR is shown for the
  * sponsor to sign and submit themselves (e.g. paste into their own wallet).
+ *
+ * Keyboard operability (#1138): every control is a native element reached in
+ * DOM order (To → Asset → Amount → Memo → Fee Sponsor → submit), so Tab
+ * traverses the form and Shift+Tab reverses it with no traps; Enter in any
+ * text field submits via the browser's implicit-form-submission contract; the
+ * asset selector is a native `<select>` so arrow keys choose an option; the
+ * submit button is the form's default button, activatable with both Enter
+ * and Space; validation errors are announced (role="alert") and never hold
+ * focus; and the read-only fee-bump XDR textarea is tab-reachable so the
+ * sponsor can select and copy the envelope without a pointer.
  */
 export default function SendForm() {
   const { connected, publicKey, sendPayment } = useWallet();
@@ -78,18 +88,11 @@ export default function SendForm() {
             })();
 
       const result = await sendPayment({
-      // NOTE: the sponsor input above is validated but not yet wired into
-      // sendPayment — PaymentOptions has no `sponsor` field. A fee-bump send
-      // needs the sponsor's own signature on the outer envelope, which this
-      // wallet has no channel to obtain from just a public key; building
-      // that flow (return an unsigned fee-bump XDR for the sponsor to
-      // co-sign out-of-band) is out of scope for this change. Tracked
-      // separately rather than silently dropped here.
-      await sendPayment({
         to,
         amount,
         asset: assetParam,
         memo: memo || undefined,
+        sponsor: sponsor || undefined,
       });
 
       if (isUnsignedFeeBumpResult(result)) {
@@ -128,7 +131,7 @@ export default function SendForm() {
               state === 'submitting'
                 ? 'Submitting'
                 : state === 'awaiting_sponsor'
-                  ? 'Awaiting sponsor'
+                  ? 'Awaiting sponsor signature'
                   : state === 'success'
                     ? 'Sent'
                     : 'Failed'
@@ -148,18 +151,19 @@ export default function SendForm() {
           onChange={(e) => setTo(e.target.value)}
           placeholder="GABC...1234"
           disabled={!connected || state === 'submitting'}
-          aria-invalid={!!addressError}
-          aria-describedby="send-form-to-error"
+          aria-invalid={addressError ? true : undefined}
+          aria-describedby={addressError ? 'send-form-to-error' : undefined}
           className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
         />
-        <p
-          id="send-form-to-error"
-          aria-live="assertive"
-          aria-atomic="true"
-          className="mt-1 min-h-[1rem] text-xs text-red-600 dark:text-red-400"
-        >
-          {addressError ?? ''}
-        </p>
+        {addressError && (
+          <p
+            id="send-form-to-error"
+            role="alert"
+            className="mt-1 text-xs text-red-600 dark:text-red-400"
+          >
+            {addressError}
+          </p>
+        )}
       </div>
 
       {balances && balances.length > 1 && (
@@ -198,18 +202,19 @@ export default function SendForm() {
           onChange={(e) => setAmount(e.target.value)}
           placeholder="0.00"
           disabled={!connected || state === 'submitting'}
-          aria-invalid={!!amountError}
-          aria-describedby="send-form-amount-error"
+          aria-invalid={amountError ? true : undefined}
+          aria-describedby={amountError ? 'send-form-amount-error' : undefined}
           className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
         />
-        <p
-          id="send-form-amount-error"
-          aria-live="assertive"
-          aria-atomic="true"
-          className="mt-1 min-h-[1rem] text-xs text-red-600 dark:text-red-400"
-        >
-          {amountError ?? ''}
-        </p>
+        {amountError && (
+          <p
+            id="send-form-amount-error"
+            role="alert"
+            className="mt-1 text-xs text-red-600 dark:text-red-400"
+          >
+            {amountError}
+          </p>
+        )}
       </div>
 
       <div>
@@ -237,18 +242,19 @@ export default function SendForm() {
           onChange={(e) => setSponsor(e.target.value)}
           placeholder="GSPONSOR...1234"
           disabled={!connected || state === 'submitting'}
-          aria-invalid={!!sponsorError}
-          aria-describedby="send-form-sponsor-error"
+          aria-invalid={sponsorError ? true : undefined}
+          aria-describedby={sponsorError ? 'send-form-sponsor-error' : undefined}
           className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
         />
-        <p
-          id="send-form-sponsor-error"
-          aria-live="assertive"
-          aria-atomic="true"
-          className="mt-1 min-h-[1rem] text-xs text-red-600 dark:text-red-400"
-        >
-          {sponsorError ?? ''}
-        </p>
+        {sponsorError && (
+          <p
+            id="send-form-sponsor-error"
+            role="alert"
+            className="mt-1 text-xs text-red-600 dark:text-red-400"
+          >
+            {sponsorError}
+          </p>
+        )}
       </div>
 
       {!connected && (
@@ -259,13 +265,11 @@ export default function SendForm() {
           The connected wallet adapter does not support sending payments.
         </p>
       )}
-      <p
-        aria-live="assertive"
-        aria-atomic="true"
-        className="min-h-[1rem] text-xs text-red-600 dark:text-red-400"
-      >
-        {error ?? ''}
-      </p>
+      {error && (
+        <p role="alert" className="text-xs text-red-600 dark:text-red-400">
+          {error}
+        </p>
+      )}
 
       {state === 'awaiting_sponsor' && feeBumpXdr && (
         <div
@@ -300,4 +304,3 @@ export default function SendForm() {
     </form>
   );
 }
-
