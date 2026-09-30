@@ -247,6 +247,23 @@ describe("TransactionList Component", () => {
       });
       expect(loadMoreBtn).toBeDisabled();
     });
+
+    it("announces pagination loading and when all transactions are loaded", () => {
+      const items = [makePaymentRecord({ id: "op-0", isReceived: true })];
+      mockHookReturn({ items: items as any[], hasMore: true, loading: true });
+
+      const { rerender } = renderList();
+      const status = screen.getByText("Loading more transactions.");
+      expect(status).toHaveAttribute("aria-live", "polite");
+
+      mockHookReturn({ items: items as any[], hasMore: false, loading: false });
+      rerender(React.createElement(TransactionList));
+
+      expect(screen.getByText("All transactions loaded.")).toHaveAttribute(
+        "aria-live",
+        "polite",
+      );
+    });
   });
 
   // ── 3. Empty state ──────────────────────────────────────────────────────
