@@ -121,6 +121,27 @@ describe("BalanceDisplay", () => {
     expect(screen.getByText(/123\.456789/)).toBeInTheDocument();
   });
 
+  it("renders a zero balance (0.0000000) as a real value, distinct from loading, error and empty states", () => {
+    mockWallet();
+    mockBalances({
+      balances: [{ asset_type: "native", balance: "0.0000000" }],
+    });
+
+    render(<BalanceDisplay />);
+
+    // Formatted as a value, not blank or NaN, alongside its asset code.
+    expect(screen.getByText(/^0\.00$/)).toBeInTheDocument();
+    expect(screen.getByText("XLM")).toBeInTheDocument();
+
+    // None of the non-data states are shown.
+    expect(
+      screen.queryByRole("status", { name: /loading balances/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByText(/no balances yet/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/NaN/)).not.toBeInTheDocument();
+  });
+
   it("renders a credit asset with its code and a truncated issuer", () => {
     mockWallet();
     const issuer = "GDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234";
