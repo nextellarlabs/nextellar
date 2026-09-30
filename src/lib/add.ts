@@ -11,6 +11,7 @@ import {
 } from "./features.js";
 import { detectPackageManager } from "./install.js";
 import { printError } from "./feedback.js";
+import { recordAuditEvent } from "./audit-log.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -371,6 +372,16 @@ export async function runAdd(
   lines.push("  • Wrap your app with WalletProvider (if you added wallet) in layout.tsx");
   lines.push("  • Import hooks and components from src/hooks and src/components");
   console.log(lines.join("\n"));
+
+  if (!dryRun) {
+    await recordAuditEvent(cwd, "add", {
+      feature: rawId,
+      template: template.name,
+      filesAdded: allCopied,
+      filesSkipped: allSkipped,
+      force,
+    });
+  }
 
   return { success: true };
 }

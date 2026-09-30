@@ -4,6 +4,7 @@ import pc from "picocolors";
 import readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { fileURLToPath } from "url";
+import { recordAuditEvent } from "./audit-log.js";
 
 interface UpgradeOptions {
   dryRun?: boolean;
@@ -347,6 +348,15 @@ export async function upgrade(opts: UpgradeOptions = {}) {
   projectConfig.nextellarVersion = cliVersion;
   projectConfig.updatedAt = new Date().toISOString();
   await fs.writeJson(configPath, projectConfig, { spaces: 2 });
+
+  await recordAuditEvent(cwd, "upgrade", {
+    template: templateName,
+    fromVersion: currentVersion,
+    toVersion: cliVersion,
+    filesChanged: changes.map((c) => c.file),
+    packagesChanged: pkgChanges,
+    backupDir: path.relative(cwd, backupDir),
+  });
 
   console.log(
     pc.green("✔️  Upgrade complete. Backups saved to .nextellar/backups/" + ts),
