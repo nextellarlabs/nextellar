@@ -10,6 +10,7 @@ import {
   text,
 } from "@clack/prompts";
 import { isValidUrl } from "./validate.js";
+import { PROJECT_CONFIG_SCHEMA_VERSION, validateProjectConfig } from "./project-config.js";
 
 export interface InitOptions {
   /** Project root (default: process.cwd()) */
@@ -64,6 +65,7 @@ export async function runInit(
   }
 
   const existing = await fs.readJson(configPath).catch(() => ({}));
+  if (existing.schemaVersion !== undefined) validateProjectConfig(existing);
 
   let horizonUrl: string;
   let sorobanUrl: string;
@@ -152,7 +154,13 @@ export async function runInit(
     outro(pc.dim("Updating .nextellar/config.json..."));
   }
 
-  const updated = { ...existing, horizonUrl, sorobanUrl, wallets };
+  const updated = {
+    ...existing,
+    schemaVersion: PROJECT_CONFIG_SCHEMA_VERSION,
+    horizonUrl,
+    sorobanUrl,
+    wallets,
+  };
   await fs.writeJson(configPath, updated, { spaces: 2 });
 
   return { configPath, horizonUrl, sorobanUrl, wallets };

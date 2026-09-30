@@ -1,7 +1,9 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { AlertCircle, Coins, RefreshCw, Wallet } from 'lucide-react';
 import { useWallet } from '../contexts';
+import { resolveAssetMetadata, type AssetMetadata } from '../lib/asset-metadata';
 import { useStellarBalances, type Balance } from '../hooks/useStellarBalances';
 import { SkeletonList } from './Skeleton';
 import EmptyState from './EmptyState';
@@ -30,6 +32,8 @@ export interface BalanceDisplayProps {
   getFiatPrice?: (asset: { code: string; issuer?: string }) => number | null | undefined;
   /** ISO 4217 currency code used to format the fiat-equivalent line. Defaults to "USD". */
   fiatCurrency?: string;
+  /** Optional SEP-1 issuer domains, keyed by issuer public key. */
+  assetDomains?: Record<string, string>;
 }
 
 /** The native asset has no code or issuer of its own — Horizon reports it as 'native'. */
@@ -105,6 +109,7 @@ export default function BalanceDisplay({
   className = '',
   getFiatPrice,
   fiatCurrency = 'USD',
+  assetDomains = {},
 }: BalanceDisplayProps) {
   const { connected, publicKey: walletPublicKey } = useWallet();
   const address = publicKey ?? walletPublicKey;
@@ -113,6 +118,19 @@ export default function BalanceDisplay({
     ...(horizonUrl ? { horizonUrl } : {}),
     pollIntervalMs,
   });
+  const [metadata, setMetadata] = useState<Record<string, AssetMetadata>>({});
+
+  useEffect(() => {
+    let active = true;
+    const assets = balances.filter((b) => b.asset_code && b.asset_issuer && assetDomains[b.asset_issuer]);
+    Promise.all(assets.map(async (asset) => {
+      const result = await resolveAssetMetadata(asset.asset_code!, asset.asset_issuer!, assetDomains[asset.asset_issuer!]);
+      return [`${asset.asset_code}:${asset.asset_issuer}`, result] as const;
+    })).then((entries) => {
+      if (active) setMetadata((current) => ({ ...current, ...Object.fromEntries(entries) }));
+    });
+    return () => { active = false; };
+  }, [balances, assetDomains]);
 
   // No account to query at all — distinct from "queried and found nothing".
   if (!address) {
@@ -222,6 +240,7 @@ export default function BalanceDisplay({
       {assets.length > 0 && (
         <ul role="list" className="mt-4 divide-y divide-gray-100 dark:divide-gray-800">
           {assets.map((balance) => {
+            const assetInfo = metadata[`${balance.asset_code}:${balance.asset_issuer}`];
             const fiat = formatFiatEquivalent(
               balance.balance,
               getFiatPrice?.({ code: assetCode(balance), issuer: balance.asset_issuer }),
@@ -234,7 +253,8 @@ export default function BalanceDisplay({
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-gray-900 dark:text-white">
-                    {assetCode(balance)}
+                    {assetInfo?.name ?? assetCode(balance)}
+                    {assetInfo?.image && <img src={assetInfo.image} alt="" className="ml-2 inline-block h-5 w-5 rounded-full" />}
                   </p>
                   {balance.asset_issuer && (
                     <p className="truncate text-xs text-gray-600 dark:text-gray-400">

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { AlertCircle } from 'lucide-react';
 import { useWallet } from '../contexts';
 import { useStellarBalances } from '../hooks/useStellarBalances';
 import AccountSwitcher from './AccountSwitcher';
@@ -51,16 +52,18 @@ interface WalletConnectButtonProps {
 export default function WalletConnectButton({ theme = 'light' }: WalletConnectButtonProps) {
   const { connected, connect, disconnect, walletName, accounts, publicKey } = useWallet();
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const {
     loading: isRefreshing,
     refresh: refreshBalances,
   } = useStellarBalances(connected ? publicKey : null);
   const actionLabel = connected
     ? `Disconnect ${walletName ?? 'wallet'}`
-    : 'Connect Stellar wallet';
+    : 'Connect Wallet';
 
   const handleClick = async () => {
     setIsLoading(true);
+    setError(null);
     try {
       if (connected) {
         await disconnect();
@@ -68,6 +71,8 @@ export default function WalletConnectButton({ theme = 'light' }: WalletConnectBu
         await connect();
       }
     } catch (error) {
+      const message = error instanceof Error ? error.message : 'Wallet operation failed';
+      setError(message);
       console.error('Wallet operation failed:', error);
     } finally {
       setIsLoading(false);
@@ -86,12 +91,13 @@ export default function WalletConnectButton({ theme = 'light' }: WalletConnectBu
   };
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex flex-col items-start gap-2">
+      <div className="flex items-center gap-3">
       <button 
         type="button"
         onClick={handleClick}
         disabled={isLoading}
-        aria-label={isLoading ? `${actionLabel} in progress` : actionLabel}
+        aria-label={isLoading ? (connected ? 'Disconnecting...' : 'Connecting...') : actionLabel}
         aria-busy={isLoading}
         className={`px-8 py-3 font-medium rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
           theme === 'light' 
@@ -124,6 +130,16 @@ export default function WalletConnectButton({ theme = 'light' }: WalletConnectBu
       )}
 
       {connected && accounts.length > 0 && <AccountSwitcher />}
+      </div>
+      {error && (
+        <div role="alert" className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
+          <AlertCircle className="h-4 w-4" aria-hidden="true" />
+          <span>{error}</span>
+          <button type="button" onClick={handleClick} disabled={isLoading} className="underline font-medium">
+            Retry
+          </button>
+        </div>
+      )}
     </div>
   );
 }
