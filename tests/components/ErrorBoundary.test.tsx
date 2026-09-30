@@ -100,5 +100,44 @@ describe.each(loaded)(
         screen.getByRole("button", { name: "Hide Details" }),
       ).toBeInTheDocument();
     });
+
+    it("contains a child error in the inner boundary without triggering the outer one", () => {
+      render(
+        <ErrorBoundary>
+          <div>outer content</div>
+          <ErrorBoundary>
+            <Boom />
+          </ErrorBoundary>
+        </ErrorBoundary>,
+      );
+
+      // Only the inner boundary fell back; the outer one kept rendering.
+      expect(screen.getAllByText("Something went wrong")).toHaveLength(1);
+      expect(screen.getByText("outer content")).toBeInTheDocument();
+    });
+
+    it("re-renders the children when Try Again is clicked after the error is fixed", () => {
+      let shouldThrow = true;
+      function Flaky(): React.ReactElement {
+        if (shouldThrow) throw new Error("boom");
+        return <div>recovered child</div>;
+      }
+
+      render(
+        <ErrorBoundary>
+          <Flaky />
+        </ErrorBoundary>,
+      );
+
+      expect(screen.getByText("Something went wrong")).toBeInTheDocument();
+
+      shouldThrow = false;
+      fireEvent.click(screen.getByRole("button", { name: "Try Again" }));
+
+      expect(screen.getByText("recovered child")).toBeInTheDocument();
+      expect(
+        screen.queryByText("Something went wrong"),
+      ).not.toBeInTheDocument();
+    });
   },
 );
