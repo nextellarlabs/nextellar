@@ -54,6 +54,19 @@ Not collected:
 - API keys
 - user identity
 
+## Data Retention and Deletion
+
+- Telemetry events are retained for 90 days from the time they are received, then permanently deleted.
+- Data is stored solely to compute aggregate usage trends (e.g. template popularity, package manager share); it is never sold or shared with third parties.
+- Because events carry only a random `anonymousId` and no user identity, individual deletion requests cannot be matched to a specific person. To stop all future collection, disable telemetry with `nextellar telemetry disable`, `--no-telemetry`, or `NEXTELLAR_TELEMETRY_DISABLED=1`.
+- Anyone with residual concerns about previously submitted data can contact the maintainers at the address listed on https://nextellar.dev/telemetry to request early deletion of events tied to a specific `anonymousId`.
+
+## Local Audit Log
+
+- `nextellar add` and `nextellar upgrade` append a local, JSON-Lines audit entry to `.nextellar/audit.log` inside the project for every action that actually changes files (timestamp, feature/template, files added/changed, and — for upgrades — the backup directory).
+- This log stays on disk in the project; it is never sent to Nextellar's servers and is unrelated to the scaffold telemetry payload described above.
+- It shares the same opt-out switch as telemetry: when telemetry is disabled (the default, or via `nextellar telemetry disable`, `--no-telemetry`, or `NEXTELLAR_TELEMETRY_DISABLED=1`), no audit log entries are written. Enable telemetry (`nextellar telemetry enable`) to start recording the local audit trail.
+
 ## Reliability and Performance
 
 - Telemetry is non-blocking and fire-and-forget.
