@@ -19,6 +19,7 @@ import {
   afterEach,
 } from "@jest/globals";
 import React from "react";
+import { assertValidNetworkUrl } from "../../src/templates/default/src/config/networks";
 
 // ── Mock the wallet contexts module ───────────────────────────────────────────
 // NetworkSwitcher imports from '../contexts/WalletProvider', which jest.config.mjs
@@ -318,6 +319,46 @@ describe("NetworkSwitcher", () => {
       expect(switchNetwork).not.toHaveBeenCalled();
     });
 
+    it("rejects a non-http(s) Soroban RPC URL entered in the form and does not switch", () => {
+      const switchNetwork = jest.fn();
+      // Wire the real shared validator, as the WalletProvider does.
+      const addCustomNetwork = jest.fn(
+        (_key: string, cfg: Omit<NetworkConfigShape, "isCustom">) => {
+          assertValidNetworkUrl(cfg.horizonUrl, "Horizon URL");
+          assertValidNetworkUrl(cfg.sorobanUrl, "Soroban RPC URL");
+        },
+      );
+      setupProvider({
+        activeNetworkKey: "testnet",
+        switchNetwork,
+        addCustomNetwork,
+      });
+
+      render(<NetworkSwitcher />);
+      fireEvent.change(getSelect(), {
+        target: { value: "__add_custom_network__" },
+      });
+
+      fireEvent.change(screen.getByLabelText("Network key"), {
+        target: { value: "futurenet" },
+      });
+      fireEvent.change(screen.getByLabelText("Horizon URL"), {
+        target: { value: "https://horizon-futurenet.stellar.org" },
+      });
+      fireEvent.change(screen.getByLabelText("Soroban RPC URL"), {
+        target: { value: "ftp://rpc-futurenet.stellar.org" },
+      });
+      fireEvent.change(screen.getByLabelText("Network passphrase"), {
+        target: { value: "Test SDF Future Network ; October 2022" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Add network" }));
+
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        'Invalid Soroban RPC URL: "ftp://rpc-futurenet.stellar.org" must use http or https.',
+      );
+      expect(switchNetwork).not.toHaveBeenCalled();
+    });
+
     it("renders a custom network already in the networks map as a selectable option", () => {
       setupProvider({
         activeNetworkKey: "futurenet",
@@ -379,5 +420,32 @@ describe("NetworkSwitcher", () => {
       ).not.toBeInTheDocument();
       expect(addCustomNetwork).not.toHaveBeenCalled();
     });
+  });
+
+  describe("custom RPC URL validation (#1134, matches doctor #831)", () => {
+    it.each([
+      "http://localhost:8000",
+      "https://soroban-testnet.stellar.org",
+    ])("accepts %s", (url) => {
+      expect(() => assertValidNetworkUrl(url, "Soroban RPC URL")).not.toThrow();
+    });
+
+    it.each(["ftp://rpc.example.org", "file:///etc/passwd", "javascript:alert(1)"])(
+      "rejects non-http(s) URL %s",
+      (url) => {
+        expect(() => assertValidNetworkUrl(url, "Soroban RPC URL")).toThrow(
+          /must use http or https/,
+        );
+      },
+    );
+
+    it.each(["not-a-url", "", "rpc.example.org"])(
+      "rejects unparseable URL %j",
+      (url) => {
+        expect(() => assertValidNetworkUrl(url, "Soroban RPC URL")).toThrow(
+          /is not a valid URL/,
+        );
+      },
+    );
   });
 });
