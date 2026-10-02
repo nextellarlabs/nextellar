@@ -85,6 +85,45 @@ npx nextellar deploy --size-threshold 104857600   # 100 MB
 - The threshold is purely advisory in this release; it does not fail the
   command.
 
+## Upload progress
+
+Packing a large bundle (e.g. a project with compiled Soroban `.wasm` contract
+output under `contracts/`) can otherwise sit silently for a while. The CLI now
+reports live progress while the archive is written:
+
+```
+⠋ Packing deployment bundle... 42% (128/305 files, 18.4 MB/43.9 MB)
+```
+
+The percentage is based on cumulative bytes packed, pre-scanned once up front
+so the total is known before packing starts. This only runs in the CLI's
+interactive output — it's not shown in `--dry-run` mode, since no bundle is
+created.
+
+Programmatically, `runDeploy` accepts an `onProgress` callback for the same
+data if you're calling it directly rather than through the CLI:
+
+```typescript
+import { runDeploy, type BundleProgress } from "nextellar/lib/deploy";
+
+await runDeploy({
+  cwd: process.cwd(),
+  onProgress: (progress: BundleProgress) => {
+    console.log(`${progress.filesPacked}/${progress.totalFiles} files`);
+  },
+});
+```
+
+`BundleProgress` fields:
+
+| Field         | Meaning                                                        |
+| ------------- | --------------------------------------------------------------- |
+| `filesPacked` | Number of files packed into the bundle so far.                |
+| `totalFiles`  | Total number of files that will be packed (known up front).   |
+| `bytesPacked` | Cumulative uncompressed bytes packed so far.                   |
+| `totalBytes`  | Total uncompressed bytes that will be packed (known up front). |
+| `lastEntry`   | Path of the entry that was just packed, relative to the project root. |
+
 ## The state file
 
 Every successful (non-dry-run) deploy writes a JSON manifest at:

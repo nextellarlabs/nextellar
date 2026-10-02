@@ -5,6 +5,10 @@
  * the scaffolder all read from here so the list cannot drift between them.
  */
 
+import fs from "fs-extra";
+import path from "path";
+import { fileURLToPath } from "url";
+
 export interface TemplateDefinition {
   /** The value passed to `--template`. */
   name: string;
@@ -92,4 +96,31 @@ export function resolveTemplateDir(name: string, useTs: boolean): string {
   }
 
   return template.jsDir;
+}
+
+/**
+ * Locates the `src/templates` directory that ships with this install,
+ * regardless of whether the CLI is running from source (src/bin), a built
+ * package (dist/bin), or a nested workspace layout. Mirrors the resolution
+ * scaffold.ts and upgrade.ts each do locally for a single template
+ * directory, generalized here as the one place new commands (e.g. `nextellar
+ * templates`) that need the whole templates root should resolve it from.
+ */
+export function findTemplatesRoot(fromDir: string): string {
+  const candidates = [
+    path.resolve(fromDir, "../templates"),
+    path.resolve(fromDir, "../../templates"),
+    path.resolve(fromDir, "../../../src/templates"),
+    path.resolve(fromDir, "../../nextellar/src/templates"),
+    path.resolve(fromDir, "../../../nextellar/src/templates"),
+  ];
+  return (
+    candidates.find((candidate) => fs.existsSync(candidate)) ??
+    candidates[candidates.length - 1]
+  );
+}
+
+/** Convenience wrapper around findTemplatesRoot() using this module's own location. */
+export function defaultTemplatesRoot(): string {
+  return findTemplatesRoot(path.dirname(fileURLToPath(import.meta.url)));
 }
