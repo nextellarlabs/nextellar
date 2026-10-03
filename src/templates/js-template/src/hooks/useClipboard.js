@@ -30,9 +30,9 @@ export function useClipboard({ resetDelayMs = 2000 } = {}) {
             if (timeoutRef.current) clearTimeout(timeoutRef.current);
             timeoutRef.current = setTimeout(() => setCopied(false), resetDelayMs);
             return true;
-        } catch (caughtError) {
+        } catch (err) {
             setCopied(false);
-            setError(caughtError instanceof Error ? caughtError : new Error('Failed to copy to clipboard.'));
+            setError(err instanceof Error ? err : new Error('Failed to copy to clipboard.'));
             return false;
         }
     }, [resetDelayMs]);

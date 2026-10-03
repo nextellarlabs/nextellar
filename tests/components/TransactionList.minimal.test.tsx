@@ -167,4 +167,42 @@ describe("TransactionList (minimal template)", () => {
     expect(screen.getAllByLabelText(/sent/i)).toHaveLength(1);
     expect(screen.getAllByText("Failed").length).toBeGreaterThanOrEqual(1);
   });
+
+  // ── Asset filtering (#1102) ────────────────────────────────────────────
+  // Client-side: filters whatever page is already loaded, doesn't change
+  // what useTransactionHistory is called with.
+
+  it("shows only transactions matching the asset filter prop", () => {
+    mockHook({
+      items: [
+        makeRecord(0, { asset_type: "native" }) as any,
+        makeRecord(1, {
+          asset_type: "credit_alphanum4",
+          asset_code: "USDC",
+        }) as any,
+      ],
+      loading: false,
+      hasMore: false,
+    });
+    render(<TransactionList asset="USDC" />);
+    expect(screen.getAllByRole("listitem")).toHaveLength(1);
+    expect(screen.getByText("USDC")).toBeInTheDocument();
+    expect(screen.queryByText("XLM")).not.toBeInTheDocument();
+  });
+
+  it("renders every item when no asset filter is provided", () => {
+    mockHook({
+      items: [
+        makeRecord(0, { asset_type: "native" }) as any,
+        makeRecord(1, {
+          asset_type: "credit_alphanum4",
+          asset_code: "USDC",
+        }) as any,
+      ],
+      loading: false,
+      hasMore: false,
+    });
+    render(<TransactionList />);
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+  });
 });

@@ -65,3 +65,6 @@ src/templates/**/node_modules/
 src/templates/**/.next/
 src/templates/**/.turbo/
 src/templates/**/coverage/
+
+# Lighthouse CI local run output
+.lighthouseci/
