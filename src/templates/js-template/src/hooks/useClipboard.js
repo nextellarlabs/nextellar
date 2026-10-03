@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+/**
+ * Shared clipboard-copy hook with timed copied feedback state.
+ */
 export function useClipboard({ resetDelayMs = 2000 } = {}) {
     const [copied, setCopied] = useState(false);
     const [error, setError] = useState(null);
