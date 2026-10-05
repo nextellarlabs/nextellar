@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Horizon } from '@stellar/stellar-sdk';
 import { useWalletConfig } from '../contexts';
+import { useHorizonStreaming } from './useHorizonStreaming';
 
 /**
  * Balance interface matching Stellar Horizon API format
@@ -21,6 +22,8 @@ export type Balance = {
 export interface UseStellarBalancesOptions {
   horizonUrl?: string;
   pollIntervalMs?: number | null;
+  /** When true, subscribe to Horizon SSE and refresh on live payment events (#949). */
+  enableStreaming?: boolean;
 }
 
 /**
@@ -94,7 +97,8 @@ export function useStellarBalances(
   const providerConfig = useWalletConfig();
   const { 
     horizonUrl = providerConfig?.horizonUrl ?? DEFAULT_HORIZON_URL, 
-    pollIntervalMs 
+    pollIntervalMs,
+    enableStreaming = false,
   } = options;
   
   // State management
@@ -243,6 +247,13 @@ export function useStellarBalances(
       isRequestInFlightRef.current = false;
     }
   }, [publicKey, fetchBalances]);
+
+  useHorizonStreaming(publicKey, refresh, {
+    horizonUrl,
+    enabled: enableStreaming,
+    pollIntervalMs: pollIntervalMs ?? 15_000,
+    streamType: 'payments',
+  });
 
   // Effect to handle publicKey changes and initial load
   useEffect(() => {

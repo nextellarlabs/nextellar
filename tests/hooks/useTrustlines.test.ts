@@ -1,357 +1,461 @@
 /**
  * @jest-environment jsdom
+ *
+ * useTrustlines (default template) unit tests (#1044).
+ *
+ * Exercises the real hook in src/templates/default/src/hooks/useTrustlines
+ * — not a mocked stand-in — against a mocked @stellar/stellar-sdk, following
+ * useStellarBalances.test.ts. Covers the fetch lifecycle (loading, parsing
+ * balances into trustlines, empty/404/error states, refresh), how
+ * buildChangeTrustXDR drives the SDK, and dev-only signing + submission. The
+ * complementary useTrustlines.real.test.ts keeps the real SDK and checks the
+ * XDR itself.
  */
 import { jest } from "@jest/globals";
 import {
-  ACCOUNT_ID,
   act,
   EURC_ISSUER,
+  PUBLIC_KEY,
+  PUBLIC_KEY_2,
   renderHook,
   SAMPLE_TRUSTLINE_BALANCES,
   SAMPLE_TRUSTLINES,
-  SECRET_KEY,
   USDC_ISSUER,
+  waitFor,
 } from "../helpers";
 
 // Virtual mock for Stellar SDK since it's not a dependency of the main CLI.
 // This repo runs Jest under real ESM (--experimental-vm-modules), so the
 // classic jest.mock() factory (which relies on babel's hoist-to-require
 // transform) can't be used here — jest.unstable_mockModule is the
-// ESM-native equivalent. Nothing in this file imports 'react' directly
-// (only @testing-library/react, a separate package), so no react mock is
-// needed.
+// ESM-native equivalent. `../contexts` is resolved to the shared mock (see
+// jest.config.mjs moduleNameMapper), whose useWalletConfig() returns
+// undefined so the hook falls back to its default Horizon URL.
+const MockServer = jest.fn();
+const MockTransactionBuilder = jest.fn();
+const MockTransaction = jest.fn();
+const MockAsset = jest.fn();
+const mockFromSecret = jest.fn();
+const mockChangeTrust = jest.fn();
+
+const TESTNET = "Test SDF Network ; September 2015";
+const PUBLIC = "Public Global Stellar Network ; September 2015";
+
 await jest.unstable_mockModule("@stellar/stellar-sdk", () => ({
-  Horizon: {
-    Server: jest.fn(),
-  },
-  Keypair: {
-    fromSecret: jest.fn(),
-  },
-  TransactionBuilder: jest.fn(),
-  Operation: {
-    changeTrust: jest.fn(),
-  },
-  Networks: {
-    TESTNET: "Test SDF Network ; September 2015",
-    PUBLIC: "Public Global Stellar Network ; September 2015",
-  },
-  Asset: jest.fn(),
+  Horizon: { Server: MockServer },
+  Keypair: { fromSecret: mockFromSecret },
+  TransactionBuilder: MockTransactionBuilder,
+  Operation: { changeTrust: mockChangeTrust },
+  Networks: { TESTNET, PUBLIC },
+  Asset: MockAsset,
   BASE_FEE: "100",
-  Transaction: jest.fn(),
+  Transaction: MockTransaction,
 }));
 
-// Mock the hook import to avoid module loading issues during testing
-const mockUseTrustlines = jest.fn();
+const { useTrustlines } =
+  await import("../../src/templates/default/src/hooks/useTrustlines.js");
 
-type Trustline = {
-  asset_code: string;
-  asset_issuer: string;
-  limit?: string;
-  balance?: string;
-  authorized?: boolean;
+// Shape-valid (56 chars, "S" prefix) but not a real key — Keypair is mocked.
+const SECRET = "SENTINELTESTSECRET".padEnd(56, "X");
+const UNSIGNED_XDR = "UNSIGNED".padEnd(64, "A");
+
+const SOURCE_ACCOUNT = {
+  accountId: () => PUBLIC_KEY,
+  sequenceNumber: () => "5",
 };
 
-describe("useTrustlines (Template Hook)", () => {
-  let mockServer: any;
-  let mockLoadAccount: any;
-  let mockSubmitTransaction: any;
-  let mockTransactionBuilder: any;
-  let mockTransaction: any;
-  let mockKeypair: any;
-  let consoleErrorSpy: any;
+type AsyncFn = (...args: unknown[]) => Promise<unknown>;
 
-  beforeEach(async () => {
-    // Reset all mocks
+type Builder = {
+  addOperation: jest.Mock;
+  setTimeout: jest.Mock;
+  build: jest.Mock;
+};
+
+function horizonError(status: number, message = "Horizon failure") {
+  return Object.assign(new Error(message), { response: { status } });
+}
+
+describe("useTrustlines (default template)", () => {
+  let mockAccountId: jest.Mock;
+  let mockAccountCall: jest.Mock<AsyncFn>;
+  let mockLoadAccount: jest.Mock<AsyncFn>;
+  let mockSubmitTransaction: jest.Mock<AsyncFn>;
+  let builder: Builder;
+  let keypair: { publicKey: jest.Mock };
+  let consoleErrorSpy: jest.SpiedFunction<typeof console.error>;
+
+  beforeEach(() => {
     jest.clearAllMocks();
-
-    // Mock console.error to avoid test noise
     consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
 
-    // Mock account data with various balance types including trustlines
-    const mockAccount = {
-      accountId: () => ACCOUNT_ID,
-      sequenceNumber: () => "123456789",
-      incrementSequenceNumber: jest.fn(),
-    };
-
-    const mockAccountData = {
-      balances: SAMPLE_TRUSTLINE_BALANCES,
-    };
-
-    // Mock accounts() call
-    const mockAccounts = jest.fn().mockReturnValue({
-      accountId: jest.fn().mockReturnValue({
-        call: jest.fn().mockResolvedValue(mockAccountData),
-      }),
-    });
-
-    // Mock server methods
-    mockLoadAccount = jest.fn().mockResolvedValue(mockAccount);
-    mockSubmitTransaction = jest.fn().mockResolvedValue({
-      hash: "tx_hash_123",
-      successful: true,
-    });
-
-    mockServer = {
-      accounts: mockAccounts,
+    mockAccountCall = jest
+      .fn<AsyncFn>()
+      .mockResolvedValue({ balances: SAMPLE_TRUSTLINE_BALANCES });
+    mockAccountId = jest.fn(() => ({ call: mockAccountCall }));
+    mockLoadAccount = jest.fn<AsyncFn>().mockResolvedValue(SOURCE_ACCOUNT);
+    mockSubmitTransaction = jest
+      .fn<AsyncFn>()
+      .mockResolvedValue({ hash: "tx_hash_123", successful: true });
+    MockServer.mockImplementation(() => ({
+      accounts: () => ({ accountId: mockAccountId }),
       loadAccount: mockLoadAccount,
       submitTransaction: mockSubmitTransaction,
+    }));
+
+    builder = {
+      addOperation: jest.fn().mockReturnThis(),
+      setTimeout: jest.fn().mockReturnThis(),
+      build: jest.fn(() => ({ toXDR: () => UNSIGNED_XDR })),
     };
+    MockTransactionBuilder.mockImplementation(() => builder);
 
-    // Mock transaction and builder
-    mockTransaction = {
-      toXDR: jest.fn().mockReturnValue("mock_unsigned_xdr"),
-      sign: jest.fn(),
-    };
-
-    const mockAddOperation = jest.fn().mockReturnThis();
-    const mockSetTimeout = jest.fn().mockReturnThis();
-    const mockBuild = jest.fn().mockReturnValue(mockTransaction);
-
-    mockTransactionBuilder = {
-      addOperation: mockAddOperation,
-      setTimeout: mockSetTimeout,
-      build: mockBuild,
-    };
-
-    // Mock keypair
-    mockKeypair = {
-      publicKey: jest.fn().mockReturnValue(ACCOUNT_ID),
-    };
-
-    // Setup the mock hook to return the expected API
-    mockUseTrustlines.mockReturnValue({
-      trustlines: SAMPLE_TRUSTLINES,
-      loading: false,
-      error: null,
-      refresh: jest.fn(),
-      buildChangeTrustXDR: jest.fn().mockResolvedValue("mock_unsigned_xdr"),
-      submitChangeTrustWithSecret: jest
-        .fn()
-        .mockResolvedValue({ success: true, hash: "tx_hash_123" }),
+    MockTransaction.mockImplementation((...args: unknown[]) => {
+      const [xdr, passphrase] = args as [string, string];
+      return { xdr, passphrase, sign: jest.fn() };
     });
 
-    // Setup mocked SDK components (dynamic import resolves to the mocked module)
-    const StellarSDK = await import("@stellar/stellar-sdk");
-    StellarSDK.Horizon.Server.mockImplementation(() => mockServer);
-    StellarSDK.TransactionBuilder.mockImplementation(
-      () => mockTransactionBuilder,
-    );
-    StellarSDK.Transaction.mockImplementation((xdr: any) => ({
-      ...mockTransaction,
-      toXDR: () => xdr,
+    keypair = { publicKey: jest.fn(() => PUBLIC_KEY) };
+    mockFromSecret.mockReturnValue(keypair);
+
+    MockAsset.mockImplementation((...args: unknown[]) => {
+      const [code, issuer] = args as [string, string];
+      return { code, issuer };
+    });
+    mockChangeTrust.mockImplementation((opts: unknown) => ({
+      type: "changeTrust",
+      opts,
     }));
-    StellarSDK.Keypair.fromSecret.mockReturnValue(mockKeypair);
-    StellarSDK.Asset.mockImplementation((code: string, issuer: string) => ({
-      code,
-      issuer,
-    }));
-    StellarSDK.Operation.changeTrust.mockReturnValue({ type: "changeTrust" });
   });
 
   afterEach(() => {
     consoleErrorSpy.mockRestore();
   });
 
-  const validPublicKey = ACCOUNT_ID;
-  const validSecret = SECRET_KEY;
+  describe("fetching trustlines", () => {
+    it("stays idle and never reaches Horizon without a public key", async () => {
+      const { result } = renderHook(() => useTrustlines(undefined));
 
-  it("should return trustlines functions and data", () => {
-    const { result } = renderHook(() => mockUseTrustlines());
+      expect(result.current.loading).toBe(false);
+      expect(result.current.trustlines).toEqual([]);
+      expect(result.current.error).toBeNull();
+      expect(typeof result.current.refresh).toBe("function");
+      expect(typeof result.current.buildChangeTrustXDR).toBe("function");
+      expect(typeof result.current.submitChangeTrustWithSecret).toBe(
+        "function",
+      );
 
-    expect(Array.isArray(result.current.trustlines)).toBe(true);
-    expect(typeof result.current.loading).toBe("boolean");
-    expect(typeof result.current.refresh).toBe("function");
-    expect(typeof result.current.buildChangeTrustXDR).toBe("function");
-    expect(typeof result.current.submitChangeTrustWithSecret).toBe("function");
+      await act(async () => {
+        await result.current.refresh();
+      });
+      expect(mockAccountId).not.toHaveBeenCalled();
+    });
+
+    it("is loading while the initial account fetch is in flight", async () => {
+      let resolve!: (v: unknown) => void;
+      mockAccountCall.mockImplementation(
+        () =>
+          new Promise((res) => {
+            resolve = res;
+          }),
+      );
+
+      const { result } = renderHook(() => useTrustlines(PUBLIC_KEY));
+
+      expect(result.current.loading).toBe(true);
+      expect(result.current.trustlines).toEqual([]);
+
+      await act(async () => {
+        resolve({ balances: SAMPLE_TRUSTLINE_BALANCES });
+      });
+      expect(result.current.loading).toBe(false);
+    });
+
+    it("parses non-native balances into trustlines and drops native XLM", async () => {
+      const { result } = renderHook(() => useTrustlines(PUBLIC_KEY));
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      expect(MockServer).toHaveBeenCalledWith(
+        "https://horizon-testnet.stellar.org",
+      );
+      expect(mockAccountId).toHaveBeenCalledWith(PUBLIC_KEY);
+      expect(result.current.error).toBeNull();
+      // Balance lines use Horizon's `is_authorized`; the hook maps it to
+      // `authorized` and leaves out the native XLM line entirely.
+      expect(result.current.trustlines).toEqual(SAMPLE_TRUSTLINES);
+    });
+
+    it("returns an empty list for an account holding only native XLM", async () => {
+      mockAccountCall.mockResolvedValue({
+        balances: [{ asset_type: "native", balance: "1000.0000000" }],
+      });
+
+      const { result } = renderHook(() => useTrustlines(PUBLIC_KEY));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      expect(result.current.trustlines).toEqual([]);
+      expect(result.current.error).toBeNull();
+    });
+
+    it("treats a 404 as an unfunded account rather than an error", async () => {
+      mockAccountCall.mockRejectedValue(horizonError(404, "Not Found"));
+
+      const { result } = renderHook(() => useTrustlines(PUBLIC_KEY));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      expect(result.current.trustlines).toEqual([]);
+      expect(result.current.error).toBeNull();
+    });
+
+    it("surfaces a Horizon 5xx as a network error", async () => {
+      mockAccountCall.mockRejectedValue(
+        horizonError(503, "Service Unavailable"),
+      );
+
+      const { result } = renderHook(() => useTrustlines(PUBLIC_KEY));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      expect(result.current.error?.message).toBe(
+        "Network error: Service Unavailable",
+      );
+      expect(result.current.trustlines).toEqual([]);
+    });
+
+    it("surfaces a Horizon 4xx as a client error with its status", async () => {
+      mockAccountCall.mockRejectedValue(horizonError(400, "Bad Request"));
+
+      const { result } = renderHook(() => useTrustlines(PUBLIC_KEY));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      expect(result.current.error?.message).toBe(
+        "Client error: Bad Request (Status: 400)",
+      );
+    });
+
+    it("rejects a malformed public key without querying Horizon", async () => {
+      const { result } = renderHook(() => useTrustlines("GSHORT"));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      expect(result.current.error?.message).toBe(
+        "Invalid Stellar public key format",
+      );
+      expect(mockAccountId).not.toHaveBeenCalled();
+    });
+
+    it("refresh() re-reads trustlines from Horizon", async () => {
+      const { result } = renderHook(() => useTrustlines(PUBLIC_KEY));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(result.current.trustlines).toHaveLength(2);
+
+      mockAccountCall.mockResolvedValue({
+        balances: [SAMPLE_TRUSTLINE_BALANCES[1]],
+      });
+      await act(async () => {
+        await result.current.refresh();
+      });
+
+      expect(mockAccountCall).toHaveBeenCalledTimes(2);
+      expect(result.current.trustlines).toEqual([SAMPLE_TRUSTLINES[0]]);
+    });
+
+    it("refetches when the public key changes", async () => {
+      const { result, rerender } = renderHook(
+        ({ key }: { key: string }) => useTrustlines(key),
+        { initialProps: { key: PUBLIC_KEY } },
+      );
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      rerender({ key: PUBLIC_KEY_2 });
+      await waitFor(() =>
+        expect(mockAccountId).toHaveBeenLastCalledWith(PUBLIC_KEY_2),
+      );
+      await waitFor(() => expect(result.current.loading).toBe(false));
+    });
   });
 
-  it("should parse trustlines from account balances correctly", () => {
-    const { result } = renderHook(() => mockUseTrustlines());
+  describe("buildChangeTrustXDR", () => {
+    it("builds a change-trust operation carrying the requested limit", async () => {
+      const { result } = renderHook(() => useTrustlines(PUBLIC_KEY));
+      await waitFor(() => expect(result.current.loading).toBe(false));
 
-    const trustlines = result.current.trustlines;
-
-    // Should have 2 trustlines (USDC and EURC), native XLM should be filtered out
-    expect(trustlines).toHaveLength(2);
-
-    // Check USDC trustline
-    const usdcTrustline = trustlines.find(
-      (t: Trustline) => t.asset_code === "USDC",
-    );
-    expect(usdcTrustline).toBeDefined();
-    expect(usdcTrustline?.asset_issuer).toBe(USDC_ISSUER);
-    expect(usdcTrustline?.balance).toBe("500.0000000");
-    expect(usdcTrustline?.limit).toBe("1000000.0000000");
-    expect(usdcTrustline?.authorized).toBe(true);
-
-    // Check EURC trustline
-    const eurcTrustline = trustlines.find(
-      (t: Trustline) => t.asset_code === "EURC",
-    );
-    expect(eurcTrustline).toBeDefined();
-    expect(eurcTrustline?.asset_issuer).toBe(EURC_ISSUER);
-    expect(eurcTrustline?.balance).toBe("0.0000000");
-    expect(eurcTrustline?.limit).toBe("500000.0000000");
-    expect(eurcTrustline?.authorized).toBe(false);
-  });
-
-  it("should build change trust XDR successfully", async () => {
-    const { result } = renderHook(() => mockUseTrustlines());
-
-    await act(async () => {
       const xdr = await result.current.buildChangeTrustXDR({
         code: "USDC",
         issuer: USDC_ISSUER,
         limit: "1000000",
       });
-      expect(xdr).toBe("mock_unsigned_xdr");
+
+      expect(xdr).toBe(UNSIGNED_XDR);
+      expect(mockLoadAccount).toHaveBeenCalledWith(PUBLIC_KEY);
+      expect(MockAsset).toHaveBeenCalledWith("USDC", USDC_ISSUER);
+      expect(MockTransactionBuilder).toHaveBeenCalledWith(SOURCE_ACCOUNT, {
+        fee: "100",
+        networkPassphrase: TESTNET,
+      });
+      expect(mockChangeTrust).toHaveBeenCalledWith({
+        asset: { code: "USDC", issuer: USDC_ISSUER },
+        limit: "1000000",
+      });
+      expect(builder.addOperation).toHaveBeenCalledWith(
+        mockChangeTrust.mock.results[0].value,
+      );
+      expect(builder.setTimeout).toHaveBeenCalledWith(30);
     });
 
-    expect(result.current.buildChangeTrustXDR).toHaveBeenCalledWith({
-      code: "USDC",
-      issuer: USDC_ISSUER,
-      limit: "1000000",
-    });
-  });
+    it("omits the limit (SDK maximum) when none is given, on the public network", async () => {
+      const { result } = renderHook(() =>
+        useTrustlines(PUBLIC_KEY, { network: "PUBLIC" }),
+      );
+      await waitFor(() => expect(result.current.loading).toBe(false));
 
-  it("should build change trust XDR without limit", async () => {
-    const { result } = renderHook(() => mockUseTrustlines());
-
-    await act(async () => {
-      const xdr = await result.current.buildChangeTrustXDR({
+      await result.current.buildChangeTrustXDR({
         code: "EURC",
         issuer: EURC_ISSUER,
       });
-      expect(xdr).toBe("mock_unsigned_xdr");
-    });
 
-    expect(result.current.buildChangeTrustXDR).toHaveBeenCalledWith({
-      code: "EURC",
-      issuer: EURC_ISSUER,
-    });
-  });
-
-  it("should handle invalid asset parameters when building XDR", async () => {
-    const mockUseTrustlinesWithError = jest.fn().mockReturnValue({
-      ...mockUseTrustlines(),
-      buildChangeTrustXDR: jest
-        .fn()
-        .mockRejectedValue(new Error("Asset code is required")),
-    });
-
-    const { result } = renderHook(() => mockUseTrustlinesWithError());
-
-    await act(async () => {
-      try {
-        await result.current.buildChangeTrustXDR({
-          code: "",
-          issuer: USDC_ISSUER,
-        });
-      } catch (error) {
-        expect(error).toBeInstanceOf(Error);
-        expect((error as Error).message).toContain("Asset code is required");
-      }
-    });
-  });
-
-  it("should sign and submit change trust with secret successfully", async () => {
-    const { result } = renderHook(() => mockUseTrustlines());
-
-    let submitResult: any;
-    await act(async () => {
-      submitResult = await result.current.submitChangeTrustWithSecret(
-        "mock_unsigned_xdr",
-        validSecret,
-      );
-    });
-
-    expect(submitResult.success).toBe(true);
-    expect(submitResult.hash).toBe("tx_hash_123");
-    expect(result.current.submitChangeTrustWithSecret).toHaveBeenCalledWith(
-      "mock_unsigned_xdr",
-      validSecret,
-    );
-  });
-
-  it("should handle invalid secret key when signing", async () => {
-    const mockUseTrustlinesWithError = jest.fn().mockReturnValue({
-      ...mockUseTrustlines(),
-      submitChangeTrustWithSecret: jest.fn().mockResolvedValue({
-        success: false,
-        error: "Invalid secret key format",
-      }),
-    });
-
-    const { result } = renderHook(() => mockUseTrustlinesWithError());
-
-    let submitResult: any;
-    await act(async () => {
-      submitResult = await result.current.submitChangeTrustWithSecret(
-        "mock_unsigned_xdr",
-        "invalid_secret",
-      );
-    });
-
-    expect(submitResult.success).toBe(false);
-    expect(submitResult.error).toContain("Invalid secret key format");
-  });
-
-  it("should refresh trustlines data", async () => {
-    const { result } = renderHook(() => mockUseTrustlines());
-
-    await act(async () => {
-      await result.current.refresh();
-    });
-
-    expect(result.current.refresh).toHaveBeenCalled();
-  });
-
-  it("should handle account not found gracefully", () => {
-    const mockUseTrustlinesEmpty = jest.fn().mockReturnValue({
-      trustlines: [],
-      loading: false,
-      error: null,
-      refresh: jest.fn(),
-      buildChangeTrustXDR: jest.fn(),
-      submitChangeTrustWithSecret: jest.fn(),
-    });
-
-    const { result } = renderHook(() => mockUseTrustlinesEmpty());
-
-    expect(result.current.trustlines).toHaveLength(0);
-    expect(result.current.error).toBeNull();
-  });
-
-  it("should handle network errors properly", () => {
-    const networkError = new Error(
-      "Network error: Failed to connect to Horizon",
-    );
-    const mockUseTrustlinesError = jest.fn().mockReturnValue({
-      trustlines: [],
-      loading: false,
-      error: networkError,
-      refresh: jest.fn(),
-      buildChangeTrustXDR: jest.fn(),
-      submitChangeTrustWithSecret: jest.fn(),
-    });
-
-    const { result } = renderHook(() => mockUseTrustlinesError());
-
-    expect(result.current.error).toBe(networkError);
-    expect(result.current.error?.message).toContain("Network error");
-  });
-
-  it("should validate asset parameters correctly", async () => {
-    const { result } = renderHook(() => mockUseTrustlines());
-
-    // Test that the mock validates parameters as expected
-    await act(async () => {
-      const xdr = await result.current.buildChangeTrustXDR({
-        code: "USDC",
-        issuer: validPublicKey,
-        limit: "1000000",
+      expect(mockChangeTrust).toHaveBeenCalledWith({
+        asset: { code: "EURC", issuer: EURC_ISSUER },
       });
-      expect(xdr).toBe("mock_unsigned_xdr");
+      expect(mockChangeTrust.mock.calls[0][0]).not.toHaveProperty("limit");
+      expect(MockTransactionBuilder).toHaveBeenCalledWith(SOURCE_ACCOUNT, {
+        fee: "100",
+        networkPassphrase: PUBLIC,
+      });
+    });
+
+    it.each([
+      [{ code: "", issuer: USDC_ISSUER }, "Invalid asset code"],
+      [{ code: "TOO-LONG-CODE!", issuer: USDC_ISSUER }, "Invalid asset code"],
+      [{ code: "USDC", issuer: "GBAD" }, "Invalid asset issuer"],
+      [
+        { code: "USDC", issuer: USDC_ISSUER, limit: "-1" },
+        "Asset limit must be a positive number",
+      ],
+    ])(
+      "rejects invalid asset %j before contacting Horizon",
+      async (asset, message) => {
+        const { result } = renderHook(() => useTrustlines(PUBLIC_KEY));
+        await waitFor(() => expect(result.current.loading).toBe(false));
+
+        await expect(result.current.buildChangeTrustXDR(asset)).rejects.toThrow(
+          message,
+        );
+        expect(mockLoadAccount).not.toHaveBeenCalled();
+      },
+    );
+
+    it("requires a public key", async () => {
+      const { result } = renderHook(() => useTrustlines(null));
+
+      await expect(
+        result.current.buildChangeTrustXDR({
+          code: "USDC",
+          issuer: USDC_ISSUER,
+        }),
+      ).rejects.toThrow("Public key required to build change trust XDR");
+    });
+
+    it("maps a 404 on the source account to a funding hint", async () => {
+      mockLoadAccount.mockRejectedValue(horizonError(404));
+      const { result } = renderHook(() => useTrustlines(PUBLIC_KEY));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      await expect(
+        result.current.buildChangeTrustXDR({
+          code: "USDC",
+          issuer: USDC_ISSUER,
+        }),
+      ).rejects.toThrow(
+        `Account ${PUBLIC_KEY} not found. Account may need funding.`,
+      );
+    });
+  });
+
+  describe("submitChangeTrustWithSecret", () => {
+    it("signs with the account keypair, submits and refreshes the list", async () => {
+      const { result } = renderHook(() => useTrustlines(PUBLIC_KEY));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(mockAccountCall).toHaveBeenCalledTimes(1);
+
+      let outcome!: Awaited<
+        ReturnType<typeof result.current.submitChangeTrustWithSecret>
+      >;
+      await act(async () => {
+        outcome = await result.current.submitChangeTrustWithSecret(
+          UNSIGNED_XDR,
+          SECRET,
+        );
+      });
+
+      expect(mockFromSecret).toHaveBeenCalledWith(SECRET);
+      expect(MockTransaction).toHaveBeenCalledWith(UNSIGNED_XDR, TESTNET);
+      const transaction = MockTransaction.mock.results[0].value as {
+        sign: jest.Mock;
+      };
+      expect(transaction.sign).toHaveBeenCalledWith(keypair);
+      expect(mockSubmitTransaction).toHaveBeenCalledWith(transaction);
+      expect(mockAccountCall).toHaveBeenCalledTimes(2);
+      expect(outcome).toEqual({
+        success: true,
+        hash: "tx_hash_123",
+        raw: { hash: "tx_hash_123", successful: true },
+      });
+    });
+
+    it("returns a failure carrying Horizon's result codes", async () => {
+      mockSubmitTransaction.mockRejectedValue({
+        message: "Request failed with status code 400",
+        response: {
+          status: 400,
+          data: {
+            extras: {
+              result_codes: {
+                transaction: "tx_failed",
+                operations: ["op_no_issuer"],
+              },
+            },
+          },
+        },
+      });
+      const { result } = renderHook(() => useTrustlines(PUBLIC_KEY));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      const outcome = await result.current.submitChangeTrustWithSecret(
+        UNSIGNED_XDR,
+        SECRET,
+      );
+
+      expect(outcome.success).toBe(false);
+      expect(outcome.error).toBe("Transaction failed - tx_failed");
+      expect(mockAccountCall).toHaveBeenCalledTimes(1);
+    });
+
+    it("refuses a secret belonging to a different account", async () => {
+      keypair.publicKey.mockReturnValue(PUBLIC_KEY_2);
+      const { result } = renderHook(() => useTrustlines(PUBLIC_KEY));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      const outcome = await result.current.submitChangeTrustWithSecret(
+        UNSIGNED_XDR,
+        SECRET,
+      );
+
+      expect(outcome).toEqual({
+        success: false,
+        error: "Secret key does not match the provided public key",
+        raw: undefined,
+      });
+      expect(mockSubmitTransaction).not.toHaveBeenCalled();
+    });
+
+    it("throws on a malformed secret before touching the SDK", async () => {
+      const { result } = renderHook(() => useTrustlines(PUBLIC_KEY));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      await expect(
+        result.current.submitChangeTrustWithSecret(UNSIGNED_XDR, "SHORT"),
+      ).rejects.toThrow("Invalid secret key format");
+      expect(mockFromSecret).not.toHaveBeenCalled();
     });
   });
 });

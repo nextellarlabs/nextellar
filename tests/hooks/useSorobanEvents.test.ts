@@ -11,6 +11,7 @@ import {
   advanceAndFlush,
   exhaustPendingTimers,
 } from "../helpers/fake-timers.js";
+import { CONTRACT_ID, makeSdkEvent } from "../helpers/fixtures";
 
 await jest.unstable_mockModule(
   "@stellar/stellar-sdk",
@@ -41,39 +42,6 @@ interface SorobanEvent {
 }
 
 // ── Test fixtures ─────────────────────────────────────────────────────────────
-
-const CONTRACT_ID = "CABC1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12345";
-
-/**
- * Build a mock SDK EventResponse matching the shape of rpc.Api.EventResponse.
- * The real SDK returns objects with toXDR() on topic/value and toString() on
- * contractId – we replicate that interface here.
- */
-function makeSdkEvent(overrides: Record<string, any> = {}) {
-  const {
-    id = "evt-001",
-    type = "contract",
-    ledger = 100,
-    ledgerClosedAt = "2024-01-01T00:00:00Z",
-    contractId = CONTRACT_ID,
-    topic = ["AAAADgAAAAh0cmFuc2Zlcg=="],
-    value = "AAAAAQAAAA==",
-    txHash = "abc123def456",
-    inSuccessfulContractCall = true,
-  } = overrides;
-
-  return {
-    id,
-    type,
-    ledger,
-    ledgerClosedAt,
-    contractId: { toString: () => contractId },
-    topic: (topic as string[]).map((t: string) => ({ toXDR: () => t })),
-    value: { toXDR: () => value },
-    txHash,
-    inSuccessfulContractCall,
-  };
-}
 
 // Pre-built SDK-shaped mock events
 const sdkEvent1 = makeSdkEvent({ id: "evt-001", ledger: 100 });
@@ -597,9 +565,8 @@ describe("useSorobanEvents (Template Hook)", () => {
     });
 
     it("should cap backoff at MAX_BACKOFF_MS", async () => {
-      const { MAX_BACKOFF_MS } = await import(
-        "../../src/templates/default/src/hooks/useSorobanEvents.js"
-      );
+      const { MAX_BACKOFF_MS } =
+        await import("../../src/templates/default/src/hooks/useSorobanEvents.js");
       expect(MAX_BACKOFF_MS).toBe(30_000);
     });
 
@@ -618,5 +585,81 @@ describe("useSorobanEvents (Template Hook)", () => {
       expect(mockGetEvents.mock.calls.length).toBe(callsCount);
     });
   });
-});
 
+  // ── Reconnect after a mid-subscription disconnect ─────────────────────────
+
+  describe("reconnect after a mid-subscription disconnect", () => {
+    it("resumes polling and delivers new events once a dropped RPC connection recovers", async () => {
+      // Subscription established: the initial poll succeeds and advances the cursor.
+      mockGetEvents.mockResolvedValueOnce({
+        events: [sdkEvent1],
+        latestLedger: 100,
+        cursor: "cursor-001",
+      });
+
+      const { result } = renderHook(() => useSorobanEvents(CONTRACT_ID));
+      await flush();
+
+      expect(result.current.events.map((e: SorobanEvent) => e.id)).toEqual([
+        "evt-001",
+      ]);
+      expect(result.current.error).toBeNull();
+      expect(result.current.isRecovering).toBe(false);
+
+      // Connection drops mid-subscription: every call fails until it recovers.
+      mockGetEvents.mockRejectedValue(new Error("RPC connection dropped"));
+
+      // Let the next scheduled poll run and exhaust its retry/backoff chain
+      // until it gives up and enters error-recovery mode.
+      await advanceAndFlush(10_000);
+      await exhaustPendingTimers();
+
+      expect(result.current.error).toBeTruthy();
+      expect(result.current.isRecovering).toBe(true);
+      // Events received before the drop are not discarded.
+      expect(result.current.events).toHaveLength(1);
+
+      // The connection recovers and starts returning new events again.
+      mockGetEvents.mockResolvedValue({
+        events: [sdkEvent2],
+        latestLedger: 101,
+        cursor: "cursor-002",
+      });
+
+      // Error-recovery mode polls at 2x the normal interval (20s).
+      await advanceAndFlush(20_000);
+      await exhaustPendingTimers();
+
+      expect(result.current.error).toBeNull();
+      expect(result.current.isRecovering).toBe(false);
+      // Resumed from where it left off: the pre-drop event is preserved and
+      // the post-reconnect event is appended, not replaced.
+      expect(result.current.events.map((e: SorobanEvent) => e.id)).toEqual([
+        "evt-001",
+        "evt-002",
+      ]);
+
+      // The reconnect fetch resumed from the cursor saved before the drop
+      // rather than restarting the subscription from scratch.
+      expect(
+        mockGetEvents.mock.calls.some(
+          (call: any) => call[0].cursor === "cursor-001",
+        ),
+      ).toBe(true);
+
+      // Polling continues normally after reconnecting.
+      mockGetEvents.mockResolvedValueOnce({
+        events: [sdkEvent3],
+        latestLedger: 102,
+        cursor: "cursor-003",
+      });
+      await advanceAndFlush(10_000);
+
+      expect(result.current.events.map((e: SorobanEvent) => e.id)).toEqual([
+        "evt-001",
+        "evt-002",
+        "evt-003",
+      ]);
+    });
+  });
+});
