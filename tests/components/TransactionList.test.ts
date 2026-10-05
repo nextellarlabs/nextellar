@@ -9,7 +9,8 @@
  * - Empty state (no transactions)
  * - Loading state (initial skeleton)
  * - Props (limit, type)
- * - Rendering (type label, amount/asset, address truncation, relative time)
+ * - Rendering (type label, amount/asset, address truncation, relative time,
+ *   mixed success/failed status indicators)
  * - Error handling
  */
 import "@testing-library/jest-dom";
@@ -20,6 +21,7 @@ import {
   screen,
   fireEvent,
   waitFor,
+  within,
   createTransactionHistoryState,
   connectedWallet,
   disconnectedWallet,
@@ -521,6 +523,51 @@ describe("TransactionList Component", () => {
       // sr-only full description -- both are intentional, not a duplicate
       // bug, so assert on the count rather than a single unique match.
       expect(screen.getAllByText("Failed").length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("renders successful and failed transactions together with visually distinct status indicators", () => {
+      const items = [
+        makePaymentRecord({
+          id: "op-0",
+          isReceived: true,
+          transaction_successful: true,
+        }),
+        makePaymentRecord({
+          id: "op-1",
+          isReceived: true,
+          transaction_successful: false,
+        }),
+      ];
+      mockHookReturn({ items: items as any[] });
+
+      renderList();
+
+      // Both states are rendered in the same list.
+      const rows = screen.getAllByRole("listitem");
+      expect(rows).toHaveLength(2);
+      const [successRow, failedRow] = rows;
+
+      // Failed row: a visible (not sr-only) red "Failed" badge.
+      const failedBadge = within(failedRow)
+        .getAllByText("Failed")
+        .find((el) => !el.classList.contains("sr-only"));
+      expect(failedBadge).toBeDefined();
+      expect(failedBadge).toHaveClass("bg-red-100", "text-red-600");
+
+      // Successful row: no visible failure badge -- the "Failed" indicator
+      // is unique to the failed row.
+      expect(within(successRow).queryByText("Failed")).not.toBeInTheDocument();
+      expect(within(successRow).getByText("Success")).toHaveClass("sr-only");
+
+      // The two rows are also distinguishable to assistive technology.
+      expect(successRow).toHaveAttribute(
+        "aria-label",
+        expect.stringMatching(/status Success$/),
+      );
+      expect(failedRow).toHaveAttribute(
+        "aria-label",
+        expect.stringMatching(/status Failed$/),
+      );
     });
 
     it("handles missing counterparty gracefully", () => {
