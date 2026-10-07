@@ -14,9 +14,16 @@
  * - Failure handling for both actions
  * - Theme styling and the AccountSwitcher slot
  * - Manual balance-refresh affordance (#1069)
+ * - Multi-wallet selection modal (#1132)
  */
 import "@testing-library/jest-dom";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import {
   jest,
   describe,
@@ -48,15 +55,110 @@ jest.unstable_mockModule(
   }),
 );
 
+// ── Multi-wallet selection (#1132) ────────────────────────────────────────────
+// The selection modal is owned by the wallet kit's `openModal`, which the real
+// WalletProvider.connect() calls. To exercise that path end to end, the
+// #1132 tests below run the *real* WalletProvider and bridge its state into
+// the mocked `useWallet` the button reads. Only the kit (a third-party web
+// component that cannot render in jsdom) is faked, and the fake renders a real
+// DOM dialog listing whichever adapters the test marks as installed.
+type FakeAdapter = { id: string; name: string };
+
+let installedAdapters: FakeAdapter[] = [];
+const setWalletMock = jest.fn();
+const getAddressMock = jest.fn(async () => ({
+  address: "GABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234",
+}));
+const getNetworkMock = jest.fn(async () => ({
+  networkPassphrase: "Test SDF Network ; September 2015",
+}));
+
+// Plain functions (not jest.fn) so the file-level restoreAllMocks() in
+// afterEach cannot strip their implementations between tests.
+const fakeKit = {
+  openModal: async (opts: {
+    modalTitle?: string;
+    onWalletSelected: (option: FakeAdapter) => Promise<void>;
+  }) => {
+    const dialog = document.createElement("div");
+    dialog.setAttribute("role", "dialog");
+    dialog.setAttribute("aria-label", opts.modalTitle ?? "Select a wallet");
+    dialog.setAttribute("data-fake-wallet-modal", "true");
+    for (const adapter of installedAdapters) {
+      const option = document.createElement("button");
+      option.type = "button";
+      option.textContent = adapter.name;
+      option.addEventListener("click", async () => {
+        dialog.remove();
+        await opts.onWalletSelected(adapter);
+      });
+      dialog.appendChild(option);
+    }
+    document.body.appendChild(dialog);
+  },
+  setWallet: (id: string) => setWalletMock(id),
+  getAddress: () => getAddressMock(),
+  getNetwork: () => getNetworkMock(),
+  disconnect: async () => {},
+  signTransaction: async () => ({}),
+};
+
+jest.unstable_mockModule(
+  "../../src/templates/default/src/lib/stellar-wallet-kit",
+  () => ({
+    kit: () => fakeKit,
+    WalletNetwork: { PUBLIC: "PUBLIC", TESTNET: "TESTNET" },
+  }),
+);
+
+const providerStorage = new Map<string, string>();
+jest.unstable_mockModule("../../src/templates/default/src/lib/storage", () => ({
+  storage: {
+    get: (key: string) => providerStorage.get(key) ?? null,
+    set: (key: string, value: string) => {
+      providerStorage.set(key, value);
+    },
+    remove: (key: string) => {
+      providerStorage.delete(key);
+    },
+  },
+}));
+
+jest.unstable_mockModule("@stellar/stellar-sdk", () => ({
+  Horizon: {
+    Server: function Server() {
+      return {
+        accounts: () => ({
+          accountId: () => ({
+            call: async () => ({
+              balances: [{ balance: "100", asset_type: "native" }],
+            }),
+          }),
+        }),
+      };
+    },
+  },
+  TransactionBuilder: function TransactionBuilder() {},
+  Operation: { payment: () => ({}) },
+  Networks: { PUBLIC: "PUBLIC", TESTNET: "TESTNET" },
+  Asset: function Asset() {},
+  Memo: { text: () => ({}) },
+  BASE_FEE: "100",
+}));
+
 // ── Dynamic imports (must come after unstable_mockModule) ─────────────────────
 const [
   { default: WalletConnectButton },
   { useWallet },
   { useStellarBalances },
+  { WalletProvider: RealWalletProvider, useWallet: useRealWallet },
 ] = await Promise.all([
   import("../../src/templates/default/src/components/WalletConnectButton"),
   import("../../src/mocks/wallet-contexts-mock"),
   import("../../src/templates/default/src/hooks/useStellarBalances"),
+  // Two `../` segments resolve to the real provider; jest.config.mjs only
+  // remaps the single-`../` form the components themselves use.
+  import("../../src/templates/default/src/contexts/WalletProvider"),
 ]);
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -460,6 +562,86 @@ describe("WalletConnectButton", () => {
       render(<WalletConnectButton theme="dark" />);
 
       expect(getActionButton()).toHaveClass("bg-white", "text-black");
+    });
+  });
+
+  describe("multi-wallet selection modal (#1132)", () => {
+    /**
+     * Renders the real WalletProvider and feeds its live state into the mocked
+     * `useWallet` that WalletConnectButton reads, so clicking the button runs
+     * the provider's real connect() against the fake kit above.
+     */
+    function RealWalletButton() {
+      const realWallet = useRealWallet();
+      (useWallet as unknown as jest.Mock).mockReturnValue(realWallet);
+      return <WalletConnectButton />;
+    }
+
+    function renderWithRealProvider() {
+      return render(
+        <RealWalletProvider>
+          <RealWalletButton />
+        </RealWalletProvider>,
+      );
+    }
+
+    const getConnectButton = () =>
+      screen.getByRole("button", { name: /connect stellar wallet/i });
+
+    beforeEach(() => {
+      providerStorage.clear();
+      setWalletMock.mockClear();
+      getAddressMock.mockClear();
+      installedAdapters = [
+        { id: "freighter", name: "Freighter" },
+        { id: "albedo", name: "Albedo" },
+        { id: "xbull", name: "xBull" },
+      ];
+    });
+
+    afterEach(() => {
+      document
+        .querySelectorAll("[data-fake-wallet-modal]")
+        .forEach((node) => node.remove());
+    });
+
+    it("renders the selection modal instead of auto-connecting when more than one adapter is available", async () => {
+      renderWithRealProvider();
+
+      fireEvent.click(getConnectButton());
+
+      const modal = await screen.findByRole("dialog");
+      for (const { name } of installedAdapters) {
+        expect(within(modal).getByRole("button", { name })).toBeInTheDocument();
+      }
+
+      // Nothing was connected on the user's behalf: no adapter was chosen,
+      // no address was requested, and the button still offers to connect.
+      expect(setWalletMock).not.toHaveBeenCalled();
+      expect(getAddressMock).not.toHaveBeenCalled();
+      expect(
+        screen.queryByRole("button", { name: /disconnect/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("connects the adapter the user selects from the modal", async () => {
+      renderWithRealProvider();
+
+      fireEvent.click(getConnectButton());
+      const modal = await screen.findByRole("dialog");
+
+      // Pick the second adapter, not the first, so an implementation that
+      // silently connects to adapters[0] would fail this test.
+      fireEvent.click(within(modal).getByRole("button", { name: "Albedo" }));
+
+      await waitFor(() => {
+        expect(
+          screen.getByRole("button", { name: /disconnect albedo/i }),
+        ).toBeInTheDocument();
+      });
+      expect(setWalletMock).toHaveBeenCalledTimes(1);
+      expect(setWalletMock).toHaveBeenCalledWith("albedo");
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
   });
 });
