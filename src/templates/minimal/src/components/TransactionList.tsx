@@ -347,6 +347,9 @@ export function TransactionListContent({
   // ── Transaction list ──────────────────────────────────────────
   return (
     <div className="w-full">
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {loading ? 'Loading more transactions.' : !hasMore ? 'All transactions loaded.' : ''}
+      </div>
       {/* Error banner (items loaded but fetchNextPage failed) */}
       {error && items.length > 0 && (
         <div
