@@ -1,0 +1,64 @@
+name: CI install-time benchmark
+
+# Measures npm ci install time with and without the dependency cache,
+# so cache effectiveness is measurable rather than assumed (#934).
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1" # weekly, Mondays 06:00 UTC
+
+permissions:
+  contents: read
+
+jobs:
+  cold-install:
+    name: Cold install (no cache)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          # deliberately no `cache: npm`
+
+      - name: Record start
+        id: start
+        run: echo "ts=$(date +%s)" >> "$GITHUB_OUTPUT"
+
+      - run: npm ci --loglevel=error
+
+      - name: Report
+        run: |
+          elapsed=$(( $(date +%s) - ${{ steps.start.outputs.ts }} ))
+          echo "Cold install: ${elapsed}s" | tee -a "$GITHUB_STEP_SUMMARY"
+
+  warm-install:
+    name: Warm install (npm cache)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Prime cache
+        run: npm ci --loglevel=error
+
+      - name: Clean node_modules (keep cache)
+        run: rm -rf node_modules
+
+      - name: Timed warm reinstall
+        id: timed
+        run: |
+          start=$(date +%s)
+          npm ci --prefer-offline --no-audit --loglevel=error
+          elapsed=$(( $(date +%s) - start ))
+          echo "elapsed=${elapsed}" >> "$GITHUB_OUTPUT"
+
+      - name: Report
+        run: |
+          echo "Warm install: ${{ steps.timed.outputs.elapsed }}s (second pass)" | tee -a "$GITHUB_STEP_SUMMARY"
