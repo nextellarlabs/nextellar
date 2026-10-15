@@ -226,6 +226,23 @@ describe("doctor", () => {
     });
   });
 
+  describe("endpoint URL validation", () => {
+    it("rejects malformed Horizon and Soroban URLs before running checks", async () => {
+      console.log = jest.fn();
+
+      await expect(runDoctor({ horizonUrl: "not-a-url" })).rejects.toThrow(
+        'Invalid --horizon-url: "not-a-url" is not a valid URL.',
+      );
+      await expect(
+        runDoctor({ sorobanUrl: "file:///tmp/soroban" }),
+      ).rejects.toThrow(
+        'Invalid --soroban-url: "file:///tmp/soroban" must use http or https.',
+      );
+
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+  });
+
   describe("no real subprocesses or network calls", () => {
     it("never invokes the real command runner once overridden", async () => {
       const spy = jest.fn(withRunner());

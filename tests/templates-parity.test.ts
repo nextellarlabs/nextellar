@@ -47,6 +47,7 @@ describe("template .env.example parity", () => {
         path.join(TEMPLATES_DIR, name, ".env.example"),
         "utf8",
       );
+      expect(env).toBe(defaultEnv);
       for (const placeholder of REQUIRED_PLACEHOLDERS) {
         expect(env).toContain(placeholder);
       }
