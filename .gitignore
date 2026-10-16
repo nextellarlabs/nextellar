@@ -68,3 +68,6 @@ src/templates/**/coverage/
 
 # Lighthouse CI local run output
 .lighthouseci/
+
+# Rendered template sources written by tests/js-wallet-kit-network.test.ts
+tests/__generated__/

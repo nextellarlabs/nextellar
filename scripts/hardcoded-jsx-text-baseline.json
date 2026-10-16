@@ -372,7 +372,7 @@
   ],
   "src/templates/default/src/components/WalletConnectButton.tsx": [
     {
-      "line": 115,
+      "line": 181,
       "text": "Refresh balances",
       "kind": "prop:title"
     }

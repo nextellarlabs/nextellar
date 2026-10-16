@@ -160,7 +160,7 @@ export default function Home() {
                 Deploy to Stellar
               </a>
 
-              <WalletConnectButton theme={theme} />
+              <WalletConnectButton theme={theme} walletSelector="builtin" confirmDisconnect />
               
               <NetworkSwitcher />
 

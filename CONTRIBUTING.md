@@ -82,6 +82,14 @@ testing style:
   that import happens (per the ES module spec) before any
   `jest.unstable_mockModule` call in the same file could intercept it, silently
   making the mock never take effect.
+### Changing dependencies
+
+Whenever you add, remove or change a range in `package.json`, commit the
+matching `package-lock.json` too (`npm install --package-lock-only` updates
+only what changed). `npm ci` in CI refuses to install when the two disagree.
+`npm run check:lockfile` reports any drift without installing anything, and
+CI runs it before `npm ci` (#795).
+
 `npm install` sets up a **pre-commit hook** (Husky + lint-staged) that runs
 ESLint (`--fix`) and Prettier on staged files, so most style issues are
 caught before they reach CI. It only checks staged files, so it stays fast.
