@@ -7,6 +7,14 @@ export interface SkeletonProps {
   height?: string;
   /** Extra classes, e.g. "rounded-full" for an avatar placeholder. */
   className?: string;
+  /**
+   * Accessible loading announcement. Omit it (the default) when the block is
+   * one piece of a larger loading region such as `SkeletonList`: the block
+   * then stays decorative and hidden from assistive tech. Pass it when the
+   * block is the only loading indicator for its content, so screen readers
+   * announce the loading state instead of meeting a silent placeholder.
+   */
+  label?: string;
 }
 
 /**
@@ -18,15 +26,21 @@ export interface SkeletonProps {
  * ```tsx
  * <Skeleton width="w-10" height="h-10" className="rounded-full" /> // avatar
  * <Skeleton width="w-28" /> // a line of text
+ * <Skeleton width="w-28" label="Loading balance" /> // standalone, announced
  * ```
  */
-export function Skeleton({ width = 'w-full', height = 'h-4', className = '' }: SkeletonProps) {
-  return (
-    <div
-      className={`animate-pulse rounded bg-gray-200 dark:bg-gray-700 ${width} ${height} ${className}`}
-      aria-hidden="true"
-    />
-  );
+export function Skeleton({ width = 'w-full', height = 'h-4', className = '', label }: SkeletonProps) {
+  const classes = `animate-pulse rounded bg-gray-200 dark:bg-gray-700 ${width} ${height} ${className}`;
+
+  if (label) {
+    return (
+      <div className={classes} role="status" aria-live="polite" aria-busy="true" aria-label={label}>
+        <span className="sr-only">{label}...</span>
+      </div>
+    );
+  }
+
+  return <div className={classes} aria-hidden="true" />;
 }
 
 export interface SkeletonListProps {
@@ -56,9 +70,10 @@ function DefaultSkeletonRow() {
 
 /**
  * A stack of skeleton rows for a data view (transaction list, balance list,
- * etc.) that hasn't loaded yet. Wraps the rows in a `role="status"` region
- * with a screen-reader-only label so loading is announced without visually
- * showing text.
+ * etc.) that hasn't loaded yet. Wraps the rows in a polite `role="status"`
+ * live region marked `aria-busy="true"`, with a screen-reader-only label, so
+ * loading is announced without visually showing text. The placeholder rows
+ * themselves are hidden from assistive tech.
  *
  * @example
  * ```tsx
@@ -67,8 +82,8 @@ function DefaultSkeletonRow() {
  */
 export function SkeletonList({ rows = 4, label = 'Loading', renderRow }: SkeletonListProps) {
   return (
-    <div className="w-full" role="status" aria-label={label}>
-      <div className="divide-y divide-gray-100 dark:divide-gray-800">
+    <div className="w-full" role="status" aria-live="polite" aria-busy="true" aria-label={label}>
+      <div className="divide-y divide-gray-100 dark:divide-gray-800" aria-hidden="true">
         {Array.from({ length: rows }).map((_, i) => (
           <div key={i}>{renderRow ? renderRow(i) : <DefaultSkeletonRow />}</div>
         ))}
