@@ -92,8 +92,9 @@ jobs:
           name: nextellar-${{ steps.ref.outputs.name }}
           path: "*.tgz"
 
+      # Tag refs only, so a manual workflow_dispatch on a branch can never publish.
       - name: Publish to npm
-        if: ${{ !inputs['dry-run'] }}
+        if: ${{ startsWith(github.ref, 'refs/tags/') && !inputs['dry-run'] }}
         run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
