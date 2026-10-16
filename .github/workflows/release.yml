@@ -44,6 +44,7 @@ jobs:
         run: npm run build
 
       - name: Verify tag matches package.json
+        if: startsWith(github.ref, 'refs/tags/')
         run: |
           TAG_VERSION="${GITHUB_REF_NAME#v}"
           PKG_VERSION=$(node -p "require('./package.json').version")
@@ -65,28 +66,34 @@ jobs:
           fi
           echo "Package size $PACKAGE_SIZE is within limit"
 
+      # Branch names (dry-run from workflow_dispatch) may contain "/", which
+      # upload-artifact rejects in artifact names.
+      - name: Compute artifact-safe ref name
+        id: ref
+        run: echo "name=${GITHUB_REF_NAME//\//-}" >> "$GITHUB_OUTPUT"
+
       - name: Generate Software Bill of Materials (SBOM)
         run: npx @cyclonedx/cyclonedx-npm --output-file bom.json
 
       - name: Upload SBOM artifact
         uses: actions/upload-artifact@v4
         with:
-          name: sbom-${{ github.ref_name }}
+          name: sbom-${{ steps.ref.outputs.name }}
           path: bom.json
 
       - name: Create tarball
-        if: ${{ inputs.dry-run }}
+        if: ${{ inputs['dry-run'] }}
         run: npm pack
 
       - name: Upload tarball
-        if: ${{ inputs.dry-run }}
+        if: ${{ inputs['dry-run'] }}
         uses: actions/upload-artifact@v4
         with:
-          name: nextellar-${{ github.ref_name }}
+          name: nextellar-${{ steps.ref.outputs.name }}
           path: "*.tgz"
 
       - name: Publish to npm
-        if: ${{ !inputs.dry-run }}
+        if: ${{ !inputs['dry-run'] }}
         run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
