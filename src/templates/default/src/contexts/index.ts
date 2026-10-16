@@ -2,7 +2,7 @@
  * Re-export wallet context for easy imports
  */
 export { WalletProvider, useWallet, useWalletConfig, isUnsignedFeeBumpResult } from './WalletProvider';
-export type { Balance, PaymentOptions, UnsignedFeeBumpResult } from './WalletProvider';
+export type { Balance, PaymentOptions, UnsignedFeeBumpResult, WalletOption } from './WalletProvider';
 
 /**
  * Re-export theme context for easy imports

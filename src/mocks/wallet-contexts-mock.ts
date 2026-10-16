@@ -50,10 +50,16 @@ export interface MockWalletState {
   balances: MockBalance[];
   accounts: MockWalletAccount[];
   currentAccountIndex: number;
-  connect: () => Promise<void>;
+  connect: (walletId?: string) => Promise<void>;
   disconnect: () => void;
   refreshBalances: () => Promise<void>;
   switchAccount: (address: string) => Promise<void>;
+  /** See WalletProvider's own WalletContextState (#911). */
+  getWallets?: () => Promise<
+    Array<{ id: string; name: string; icon: string; isAvailable: boolean; url?: string }>
+  >;
+  /** See WalletProvider's own WalletContextState (#910). */
+  reconnecting?: boolean;
   /** See WalletProvider's own WalletContextState (#1072). */
   walletNetworkPassphrase?: string;
   networkMismatch?: boolean;
