@@ -68,3 +68,8 @@ src/templates/**/coverage/
 
 # Lighthouse CI local run output
 .lighthouseci/
+
+# Mutation testing (#1088) and visual regression (#1083) output
+.stryker-tmp/
+reports/
+vr-app/

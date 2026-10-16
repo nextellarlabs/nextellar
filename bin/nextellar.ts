@@ -23,6 +23,7 @@ import {
   isValidTemplate,
   getTemplate,
   JS_TEMPLATE_LIST,
+  templateForcesContracts,
 } from "../src/lib/templates.js";
 import {
   flushTelemetry,
@@ -294,6 +295,11 @@ program
   )
   .option("--dry-run", "Show what would change without applying it", false)
   .option("--check", "Dry preview with changelog display", false)
+  .option(
+    "--diff",
+    "Print a full file-by-file diff against the latest template without applying changes",
+    false,
+  )
   .option("--yes", "Apply changes without prompting", false)
   .option("--verbose", "print additional diagnostic output on failure")
   .option("--debug", "alias for --verbose")
@@ -304,6 +310,7 @@ program
         dryRun: options.dryRun,
         yes: options.yes,
         check: options.check,
+        diff: options.diff,
       });
     } catch (err: any) {
       printError(err.message);
@@ -464,7 +471,10 @@ program.action(async (projectName, options) => {
 
   const template = options.template || "default";
   const useTs = options.typescript && !options.javascript;
-  const withContracts = options.withContracts || template === "defi";
+  const withContracts =
+    options.withContracts ||
+    template === "defi" ||
+    templateForcesContracts(template);
 
   const hasArg = (longFlag: string, shortFlag?: string) => {
     const argv = process.argv;
@@ -600,7 +610,7 @@ program.action(async (projectName, options) => {
     );
     console.log(`  Template:        ${pc.cyan(template)}`);
     console.log(
-      `  Contracts:       ${pc.cyan(options.withContracts ? "Yes" : "No")}`,
+      `  Contracts:       ${pc.cyan(withContracts ? "Yes" : "No")}`,
     );
     console.log(
       `  Wallets:         ${pc.cyan(finalWallets.length > 0 ? finalWallets.join(", ") : "none")}`,

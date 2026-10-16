@@ -1,0 +1,9 @@
+{
+  "tool": "stryker",
+  "scope": "src/lib/**/*.ts",
+  "recordedAt": null,
+  "score": null,
+  "detected": null,
+  "undetected": null,
+  "files": {}
+}
