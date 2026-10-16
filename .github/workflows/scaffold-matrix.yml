@@ -17,7 +17,19 @@ on:
   workflow_dispatch: {}
 
 jobs:
+  # Only needs git + the repo's preinstalled Node, so it runs once right after
+  # checkout, before any `npm ci`, and gates the matrix jobs below.
+  template-junk:
+    name: template junk guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check template junk
+        run: node scripts/check-template-junk.mjs
+
   pr-smoke:
+    needs: template-junk
     if: github.event_name == 'pull_request'
     name: smoke (${{ matrix.variant.name }})
     runs-on: ubuntu-latest
@@ -39,9 +51,6 @@ jobs:
           cache: npm
       - run: npm ci
 
-      - name: Check template junk
-        run: node scripts/check-template-junk.mjs
-
       - run: npm run build
       - name: Scaffold app
         shell: bash
@@ -56,6 +65,7 @@ jobs:
           if grep -q '"build-storybook"' package.json; then npm run build-storybook; fi
 
   nightly-full:
+    needs: template-junk
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     name: full (${{ matrix.os }}, node ${{ matrix.node }}, ${{ matrix.variant.name }})
     runs-on: ${{ matrix.os }}
@@ -77,10 +87,6 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
-
-
-      - name: Check template junk
-        run: node scripts/check-template-junk.mjs
 
       - run: npm run build
       - name: Scaffold app
