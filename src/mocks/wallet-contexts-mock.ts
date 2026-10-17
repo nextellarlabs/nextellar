@@ -77,6 +77,21 @@ export function defaultWalletState(): MockWalletState {
 export const WalletContext = createContext<WalletContextState | undefined>(undefined);
 export const WalletConfigContext = createContext<unknown>(undefined);
 
+/**
+ * Mirrors WalletProvider's real `isUnsignedFeeBumpResult` type guard so
+ * components importing it through `../contexts` (e.g. the default template's
+ * SendForm, which branches on a fee-bump result) keep working under this
+ * mock — loose on purpose, matching this file's other intentionally-loose
+ * context shapes.
+ */
+export function isUnsignedFeeBumpResult(value: unknown): boolean {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    (value as { requiresSponsorSignature?: unknown }).requiresSponsorSignature === true
+  );
+}
+
 export function useWalletConfig() {
   return undefined;
 }

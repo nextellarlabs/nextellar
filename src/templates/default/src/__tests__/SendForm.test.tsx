@@ -80,7 +80,11 @@ describe('SendForm Component (#879)', () => {
       expect(mockSendPayment).toHaveBeenCalledWith({
         to: VALID_ADDRESS,
         amount: '25',
+        // XLM resolves to the native asset and the empty sponsor field is
+        // passed through as undefined, matching PaymentOptions' shape.
+        asset: 'XLM',
         memo: 'rent',
+        sponsor: undefined,
       });
     });
 
