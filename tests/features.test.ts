@@ -39,7 +39,13 @@ describe("feature registry", () => {
     expect(getFeature("balance-display")?.files).toEqual([
       "components/BalanceDisplay.tsx",
     ]);
-    expect(getFeature("send-form")?.files).toEqual(["components/SendForm.tsx"]);
+    expect(getFeature("send-form")?.files).toEqual([
+      "lib/memo.ts",
+      "lib/sep1.ts",
+      "lib/sep2.ts",
+      "hooks/useFederationLookup.ts",
+      "components/SendForm.tsx",
+    ]);
     expect(getFeature("transaction-list")?.files).toEqual([
       "components/TransactionList.tsx",
     ]);

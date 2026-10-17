@@ -7,7 +7,6 @@ import {
   Operation,
   Networks,
   Asset,
-  Memo,
   BASE_FEE
 } from '@stellar/stellar-sdk';
 // `ISupportedWallet`/`WalletNetwork` are only imported for their types below;
@@ -17,6 +16,7 @@ import {
 import type { ISupportedWallet, WalletNetwork } from "@creit.tech/stellar-wallets-kit";
 import { NETWORKS, NetworkConfig, assertValidNetworkUrl } from '../config/networks';
 import { storage } from '../lib/storage';
+import { toStellarMemo, type PaymentMemo } from '../lib/memo';
 
 // `@creit.tech/stellar-wallets-kit` pulls in every wallet connector module
 // (Freighter, Albedo, Lobstr, xBull, Hana). None of that is needed for the
@@ -65,7 +65,12 @@ export interface PaymentOptions {
   to: string;
   amount: string;
   asset?: 'XLM' | { code: string; issuer: string };
-  memo?: string;
+  /**
+   * A plain string is a text memo (backwards compatible). Use
+   * `{ type: 'id' | 'hash' | 'return' | 'text' | 'none', value }` for the
+   * other memo types; it is validated before signing (see lib/memo.ts).
+   */
+  memo?: string | PaymentMemo;
   secret?: string;
   /**
    * Public key of a third party who will cover this transaction's fee via a
@@ -115,7 +120,6 @@ interface WalletContextState {
   refreshBalances: () => Promise<void>;
   switchAccount: (address: string) => Promise<void>;
   sendPayment?: (opts: PaymentOptions) => Promise<Horizon.HorizonApi.SubmitTransactionResponse | UnsignedFeeBumpResult>;
-  sendPayment?: (opts: PaymentOptions) => Promise<Horizon.HorizonApi.SubmitTransactionResponse>;
   /**
    * The network passphrase the connected wallet itself reports, or undefined
    * if not connected or the wallet couldn't answer getNetwork(). Compare
@@ -642,8 +646,9 @@ export function WalletProvider({
         })
       );
 
-      if (opts.memo) {
-        txBuilder.addMemo(Memo.text(opts.memo));
+      const memo = toStellarMemo(opts.memo);
+      if (memo) {
+        txBuilder.addMemo(memo);
       }
 
       const transaction = txBuilder.setTimeout(30).build();

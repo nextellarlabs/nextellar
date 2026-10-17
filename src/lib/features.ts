@@ -29,6 +29,7 @@ const FEATURES: Record<string, FeatureDef> = {
       "components/WalletConnectButton.tsx",
       "lib/stellar-wallet-kit.ts",
       "hooks/useStellarWallet.ts",
+      "lib/memo.ts",
     ],
     dependsOn: [],
     npmDependencies: [
@@ -108,8 +109,15 @@ const FEATURES: Record<string, FeatureDef> = {
   },
   "send-form": {
     id: "send-form",
-    description: "SendForm component (renders useStellarPayment)",
-    files: ["components/SendForm.tsx"],
+    description:
+      "SendForm component (renders useStellarPayment; memo types and SEP-2 federation addresses)",
+    files: [
+      "lib/memo.ts",
+      "lib/sep1.ts",
+      "lib/sep2.ts",
+      "hooks/useFederationLookup.ts",
+      "components/SendForm.tsx",
+    ],
     dependsOn: ["payments"],
     npmDependencies: [],
     kind: "component",
@@ -118,9 +126,10 @@ const FEATURES: Record<string, FeatureDef> = {
     id: "receive-form",
     description:
       "ReceiveForm component (QR code + address display for incoming payments)",
-    files: ["components/ReceiveForm.tsx"],
+    // QR codes are rendered by the dependency-free lib/qr.ts (#662).
+    files: ["lib/sep7.ts", "lib/qr.ts", "components/ReceiveForm.tsx"],
     dependsOn: ["wallet"],
-    npmDependencies: ["qrcode"],
+    npmDependencies: [],
     kind: "component",
   },
   "transaction-list": {

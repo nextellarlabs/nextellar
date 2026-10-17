@@ -75,6 +75,11 @@ export function defaultWalletState(): MockWalletState {
 }
 
 export const WalletContext = createContext<WalletContextState | undefined>(undefined);
+
+/** Mirrors WalletProvider's type guard so components that import it (SendForm) work under the mock. */
+export function isUnsignedFeeBumpResult(value: unknown): boolean {
+  return (value as { requiresSponsorSignature?: unknown } | null)?.requiresSponsorSignature === true;
+}
 export const WalletConfigContext = createContext<unknown>(undefined);
 
 export function useWalletConfig() {

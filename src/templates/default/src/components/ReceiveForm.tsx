@@ -1,8 +1,16 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useWallet } from '../contexts';
 import { buildSep7PayUri } from '../lib/sep7';
+import { encodeQr, qrToSvgPath, qrToSvgString } from '../lib/qr';
+
+/** Quiet-zone width around the QR code, in modules. */
+const QR_BORDER = 2;
+
+function truncateAddress(address: string): string {
+  return address.length > 16 ? `${address.slice(0, 6)}…${address.slice(-6)}` : address;
+}
 
 // Inline SVG icons — no external icon dependency needed
 const CopyIcon = () => (
@@ -49,11 +57,12 @@ export interface ReceiveFormProps {
 
 /**
  * ReceiveForm — shows a scannable QR code of the Stellar public key plus the
- * raw address string with a one-click copy button.
+ * address (monospace, truncated, with a full-key reveal) and a one-click copy
+ * button with "Copied!" feedback.
  *
- * SSR-safe: the QR image is generated inside a `useEffect` (client-only) via a
- * dynamic `import('qrcode')` so the component hydrates without errors even when
- * rendered on the server.
+ * The QR code is generated in-house as an inline SVG (`lib/qr.ts`, ~3 KB
+ * gzipped, no dependency), so it is SSR-safe and renders identically on the
+ * server and client (issue #662).
  *
  * @example
  * ```tsx
@@ -96,66 +105,45 @@ export default function ReceiveForm({
 
   const qrPayload = sep7Uri ?? address;
 
-  // QR code data URL — populated client-side only to remain SSR-safe
-  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
-  const [qrError, setQrError] = useState<string | null>(null);
+  // QR code as inline SVG — pure computation, so it is SSR-safe.
+  const qr = useMemo(() => {
+    if (!qrPayload) return { path: null as string | null, dim: 0, error: null as string | null };
+    try {
+      const matrix = encodeQr(qrPayload);
+      return { path: qrToSvgPath(matrix, QR_BORDER), dim: matrix.size + QR_BORDER * 2, error: null };
+    } catch (err) {
+      console.error('[ReceiveForm] QR generation failed:', err);
+      return { path: null, dim: 0, error: 'Could not generate QR code.' };
+    }
+  }, [qrPayload]);
 
   // Copy-to-clipboard feedback
   const [copied, setCopied] = useState(false);
-
-  // Generate QR code whenever the payload changes (client-side only)
-  useEffect(() => {
-    if (!qrPayload) {
-      setQrDataUrl(null);
-      setQrError(null);
-      return;
-    }
-
-    let cancelled = false;
-
-    // Dynamic import keeps this module out of the server bundle entirely
-    import('qrcode').then((QRCode) => {
-      return QRCode.toDataURL(qrPayload, {
-        width: qrSize,
-        margin: 2,
-        color: { dark: '#000000', light: '#ffffff' },
-      });
-    }).then((dataUrl) => {
-      if (!cancelled) {
-        setQrDataUrl(dataUrl);
-        setQrError(null);
-      }
-    }).catch((err) => {
-      if (!cancelled) {
-        console.error('[ReceiveForm] QR generation failed:', err);
-        setQrError('Could not generate QR code.');
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [qrPayload, qrSize]);
+  const [revealed, setRevealed] = useState(false);
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (copyTimer.current) clearTimeout(copyTimer.current);
+  }, []);
 
   const handleCopy = async () => {
     if (!qrPayload) return;
     try {
       await navigator.clipboard.writeText(qrPayload);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      if (copyTimer.current) clearTimeout(copyTimer.current);
+      copyTimer.current = setTimeout(() => setCopied(false), 2000);
     } catch {
       // Clipboard API unavailable (non-secure context, etc.)
     }
   };
 
-  // Saves the generated QR as a PNG by driving a temporary, off-DOM anchor's
-  // `download` attribute — the standard client-side approach for saving a
-  // data: URL without a server round-trip.
+  // Saves the QR as an SVG file by driving a temporary, off-DOM anchor's
+  // `download` attribute — no server round-trip needed.
   const handleDownload = () => {
-    if (!qrDataUrl) return;
+    if (!qrPayload || !qr.path) return;
     const link = document.createElement('a');
-    link.href = qrDataUrl;
-    link.download = `stellar-address-${address ? address.slice(0, 8) : 'qr'}.png`;
+    link.href = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(qrToSvgString(qrPayload, { border: QR_BORDER }))}`;
+    link.download = `stellar-address-${address ? address.slice(0, 8) : 'qr'}.svg`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -194,36 +182,33 @@ export default function ReceiveForm({
         aria-label={sep7Uri ? 'QR code of SEP-7 payment request' : 'QR code of Stellar address'}
         data-testid="receive-form-qr"
       >
-        {qrDataUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={qrDataUrl}
-            alt={
+        {qr.path ? (
+          <svg
+            role="img"
+            aria-label={
               sep7Uri
                 ? `QR code for a SEP-7 payment request to ${address}`
                 : `QR code for Stellar address ${address}`
             }
             width={qrSize}
             height={qrSize}
-            style={{ imageRendering: 'pixelated' }}
-          />
-        ) : qrError ? (
-          <p className="text-xs text-red-500 text-center">{qrError}</p>
+            viewBox={`0 0 ${qr.dim} ${qr.dim}`}
+            shapeRendering="crispEdges"
+            data-testid="receive-form-qr-svg"
+          >
+            <rect width="100%" height="100%" fill="#ffffff" />
+            <path d={qr.path} fill="#000000" />
+          </svg>
         ) : (
-          /* Skeleton placeholder while generating */
-          <div
-            className="animate-pulse rounded bg-gray-200 dark:bg-gray-700"
-            style={{ width: qrSize, height: qrSize }}
-            aria-label="Loading QR code"
-          />
+          <p className="text-xs text-red-500 text-center">{qr.error}</p>
         )}
       </div>
 
-      {qrDataUrl && (
+      {qr.path && (
         <button
           type="button"
           onClick={handleDownload}
-          aria-label="Download QR code as PNG"
+          aria-label="Download QR code as SVG"
           className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-gray-100 transition-colors"
           data-testid="receive-form-download"
         >
@@ -242,12 +227,23 @@ export default function ReceiveForm({
       {/* Address text + copy button */}
       <div className="flex w-full items-center gap-2 rounded-xl bg-gray-50 dark:bg-gray-800 px-4 py-2">
         <p
-          className="flex-1 truncate font-mono text-xs text-gray-700 dark:text-gray-300"
+          className={`flex-1 font-mono text-xs text-gray-700 dark:text-gray-300 ${revealed ? 'break-all' : 'truncate'}`}
           title={address}
           data-testid="receive-form-address"
         >
-          {address}
+          {revealed ? address : truncateAddress(address)}
         </p>
+
+        <button
+          type="button"
+          onClick={() => setRevealed((v) => !v)}
+          aria-expanded={revealed}
+          aria-label={revealed ? 'Hide full address' : 'Show full address'}
+          className="shrink-0 rounded-lg px-1.5 py-1 text-xs text-gray-500 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+          data-testid="receive-form-reveal"
+        >
+          {revealed ? 'Hide' : 'Show'}
+        </button>
 
         <button
           type="button"
@@ -267,6 +263,10 @@ export default function ReceiveForm({
           {copied ? <CheckIcon /> : <CopyIcon />}
         </button>
       </div>
+
+      <p aria-live="polite" className="min-h-[1rem] text-xs text-green-600 dark:text-green-400" data-testid="receive-form-copied">
+        {copied ? 'Copied!' : ''}
+      </p>
 
       <p className="text-xs text-gray-400 dark:text-gray-500">
         Only send Stellar (XLM) and supported assets to this address.

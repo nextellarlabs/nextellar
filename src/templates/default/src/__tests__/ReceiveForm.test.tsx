@@ -52,9 +52,14 @@ describe('ReceiveForm Component (#880)', () => {
     expect(screen.queryByText(ADDRESS)).not.toBeInTheDocument();
   });
 
-  it('renders the connected wallet address', () => {
+  it('renders the connected wallet address truncated, with a full-key reveal (#662)', () => {
     renderWithWallet(<ReceiveForm />);
 
+    const address = screen.getByTestId('receive-form-address');
+    expect(address).toHaveTextContent(`${ADDRESS.slice(0, 6)}…${ADDRESS.slice(-6)}`);
+    expect(address).toHaveAttribute('title', ADDRESS);
+
+    fireEvent.click(screen.getByTestId('receive-form-reveal'));
     expect(screen.getByText(ADDRESS)).toBeInTheDocument();
   });
 
@@ -69,10 +74,10 @@ describe('ReceiveForm Component (#880)', () => {
   });
 
   describe('QR code download (#1108)', () => {
-    it('does not show a download button before the QR code has generated', () => {
+    it('shows the download button on first render (the QR is generated synchronously as inline SVG, #662)', () => {
       renderWithWallet(<ReceiveForm />);
 
-      expect(screen.queryByTestId('receive-form-download')).not.toBeInTheDocument();
+      expect(screen.getByTestId('receive-form-download')).toBeInTheDocument();
     });
 
     it('shows a download button once the QR code is ready', async () => {
@@ -83,7 +88,7 @@ describe('ReceiveForm Component (#880)', () => {
       });
     });
 
-    it('saves the QR data URL as a PNG file when the download button is clicked', async () => {
+    it('saves the QR as an SVG file when the download button is clicked', async () => {
       renderWithWallet(<ReceiveForm />);
 
       await waitFor(() => {
@@ -120,8 +125,8 @@ describe('ReceiveForm Component (#880)', () => {
       fireEvent.click(screen.getByTestId('receive-form-download'));
 
       expect(capturedAnchor).not.toBeNull();
-      expect(capturedAnchor!.download).toBe(`stellar-address-${ADDRESS.slice(0, 8)}.png`);
-      expect(capturedAnchor!.href).toMatch(/^data:/);
+      expect(capturedAnchor!.download).toBe(`stellar-address-${ADDRESS.slice(0, 8)}.svg`);
+      expect(capturedAnchor!.href).toMatch(/^data:image\/svg\+xml/);
 
       appendSpy.mockRestore();
       jest.restoreAllMocks();
@@ -157,7 +162,8 @@ describe('ReceiveForm Component (#880)', () => {
     it('still displays the plain address as text even when a SEP-7 request is active', () => {
       renderWithWallet(<ReceiveForm amount="25" />);
 
-      expect(screen.getByTestId('receive-form-address')).toHaveTextContent(ADDRESS);
+      // Shown truncated (#662); the full key stays in the title attribute.
+      expect(screen.getByTestId('receive-form-address')).toHaveAttribute('title', ADDRESS);
     });
 
     it('copies the SEP-7 URI (not the bare address) to the clipboard when an amount is set', async () => {
