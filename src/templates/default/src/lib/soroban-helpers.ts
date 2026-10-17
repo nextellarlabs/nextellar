@@ -8,6 +8,8 @@ import {
   type Transaction,
 } from '@stellar/stellar-sdk';
 
+export { decodeSorobanEvent, decodeSorobanValue } from './soroban-event-decoder';
+
 /**
  * Soroban fee-bump and restore-footprint helpers.
  *

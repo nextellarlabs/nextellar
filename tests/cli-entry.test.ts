@@ -143,4 +143,33 @@ describe("nextellar CLI", () => {
       expect(stdout).toContain("Nothing to clean");
     }, 15000);
   });
+
+  it("prints a pre-scaffold summary of resolved options before writing files with --defaults", async () => {
+    const { exitCode, stdout } = await execa("node", [
+      cli,
+      tmpDir,
+      "--typescript",
+      "--defaults",
+      "--skip-install",
+      "--with-contracts",
+      "--no-telemetry",
+    ]);
+
+    expect(exitCode).toBe(0);
+
+    const summaryIndex = stdout.indexOf("Scaffolding with the following options:");
+    const completeIndex = stdout.indexOf("✔ Nextellar scaffold complete!");
+    // Summary must print, and must print before scaffolding actually
+    // completes (issue #1082: before any files are written).
+    expect(summaryIndex).toBeGreaterThan(-1);
+    expect(completeIndex).toBeGreaterThan(-1);
+    expect(summaryIndex).toBeLessThan(completeIndex);
+
+    expect(stdout).toContain(tmpDir);
+    expect(stdout).toContain("TypeScript");
+    expect(stdout).toContain("default");
+    // --with-contracts was passed: the summary must reflect it, not just a
+    // static template.
+    expect(stdout).toMatch(/Contracts:\s+Yes/);
+  }, 30000);
 });

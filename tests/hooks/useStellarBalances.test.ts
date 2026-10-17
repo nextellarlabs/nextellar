@@ -10,6 +10,7 @@
  */
 import { jest } from "@jest/globals";
 import { renderHook, act, waitFor } from "@testing-library/react";
+import { USDC_TESTNET_ISSUER as ISSUER } from "../helpers/fixtures";
 
 // Virtual mock for Stellar SDK since it's not a dependency of the main CLI.
 // This repo runs Jest under real ESM (--experimental-vm-modules), so the
@@ -29,7 +30,6 @@ const { useStellarBalances } =
 const Horizon = (await import("@stellar/stellar-sdk")).Horizon;
 
 const ADDRESS = "GAKAESXZZO3PJPEI5FNXGFOIANZJU7NAMNU753SGVSY7GF2KK55DALUQ";
-const ISSUER = "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5";
 
 type BalanceShape = {
   asset_type: string;
@@ -127,6 +127,63 @@ describe("useStellarBalances (default template)", () => {
     expect(usdc?.asset_issuer).toBe(ISSUER);
     expect(usdc?.balance).toBe("250.7500000");
     expect(usdc?.limit).toBe("922337203685.4775807");
+  });
+
+  it("preserves a balance sitting exactly at its trustline limit", async () => {
+    mockAccountsCall.mockResolvedValue({
+      balances: [
+        {
+          asset_type: "credit_alphanum4",
+          asset_code: "USDC",
+          asset_issuer: ISSUER,
+          balance: "500.0000000",
+          limit: "500.0000000",
+        },
+      ],
+    });
+
+    const { result } = renderHook(() =>
+      useStellarBalances(ADDRESS, { pollIntervalMs: null }),
+    );
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.error).toBeNull();
+    expect(result.current.balances).toHaveLength(1);
+
+    const [usdc] = result.current.balances as BalanceShape[];
+    expect(usdc.balance).toBe("500.0000000");
+    expect(usdc.limit).toBe("500.0000000");
+    expect(usdc.limit).toBe(usdc.balance);
+  });
+
+  it("preserves the maximum limit on an unlimited-trustline balance", async () => {
+    const UNLIMITED = "922337203685.4775807";
+
+    mockAccountsCall.mockResolvedValue({
+      balances: [
+        {
+          asset_type: "credit_alphanum4",
+          asset_code: "USDC",
+          asset_issuer: ISSUER,
+          balance: "1000.0000000",
+          limit: UNLIMITED,
+        },
+      ],
+    });
+
+    const { result } = renderHook(() =>
+      useStellarBalances(ADDRESS, { pollIntervalMs: null }),
+    );
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.error).toBeNull();
+    expect(result.current.balances).toHaveLength(1);
+
+    const [usdc] = result.current.balances as BalanceShape[];
+    expect(usdc.balance).toBe("1000.0000000");
+    expect(usdc.limit).toBe(UNLIMITED);
   });
 
   it("returns an empty list (not an error) for a 404 — an unfunded account", async () => {

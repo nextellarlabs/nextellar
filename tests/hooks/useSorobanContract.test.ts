@@ -17,7 +17,7 @@ import { useSorobanContract } from "../../src/templates/default/src/hooks/useSor
 
 const SDK = ((StellarSDK as unknown as { default?: unknown }).default ||
   StellarSDK) as typeof StellarSDK;
-const { xdr, Address, Contract, rpc } = SDK;
+const { xdr, Address, Contract, rpc, Account, TransactionBuilder } = SDK;
 
 const server = setupServer(
   http.post(SOROBAN_RPC_URL, async ({ request }) => {
@@ -265,8 +265,11 @@ describe("useSorobanContract", () => {
   it("invalid contract ID is surfaced", () => {
     expect(() =>
       renderHook(() =>
-        useSorobanContract({ contractId: "invalid-contract-id", sorobanRpc: SOROBAN_RPC_URL })
-      )
+        useSorobanContract({
+          contractId: "invalid-contract-id",
+          sorobanRpc: SOROBAN_RPC_URL,
+        }),
+      ),
     ).toThrow(/Invalid Soroban contract ID/);
   });
 
@@ -343,7 +346,10 @@ describe("useSorobanContract", () => {
     } as never);
 
     const { result } = renderHook(() =>
-      useSorobanContract({ contractId: VALID_CONTRACT_ID, sorobanRpc: SOROBAN_RPC_URL })
+      useSorobanContract({
+        contractId: VALID_CONTRACT_ID,
+        sorobanRpc: SOROBAN_RPC_URL,
+      }),
     );
 
     let res: any;
@@ -355,7 +361,7 @@ describe("useSorobanContract", () => {
       expect.objectContaining({
         requiresRestore: true,
         restorePreamble: expect.objectContaining({ minResourceFee: "500" }),
-      })
+      }),
     );
     expect(result.current.error?.message).toContain("Footprint expired");
   });
@@ -370,10 +376,15 @@ describe("useSorobanContract", () => {
     } as never);
 
     const { result } = renderHook(() =>
-      useSorobanContract({ contractId: VALID_CONTRACT_ID, sorobanRpc: SOROBAN_RPC_URL })
+      useSorobanContract({
+        contractId: VALID_CONTRACT_ID,
+        sorobanRpc: SOROBAN_RPC_URL,
+      }),
     );
 
-    let preview: { result: unknown; minResourceFee: string; latestLedger: number } | undefined;
+    let preview:
+      | { result: unknown; minResourceFee: string; latestLedger: number }
+      | undefined;
     await act(async () => {
       preview = await result.current.simulateContractCall("get_value", []);
     });
@@ -384,6 +395,30 @@ describe("useSorobanContract", () => {
     expect(preview!.latestLedger).toBe(9999);
   });
 
+  it("simulateContractCall includes the classic base fee (#1063)", async () => {
+    jest.spyOn(rpc.Server.prototype, "simulateTransaction").mockResolvedValue({
+      result: { retval: xdr.ScVal.scvString("preview-ok") },
+      minResourceFee: "500",
+      latestLedger: 9999,
+    } as never);
+
+    const { result } = renderHook(() =>
+      useSorobanContract({
+        contractId: VALID_CONTRACT_ID,
+        sorobanRpc: SOROBAN_RPC_URL,
+      }),
+    );
+
+    let preview: { baseFee: string } | undefined;
+    await act(async () => {
+      preview = await result.current.simulateContractCall("get_value", []);
+    });
+
+    // BASE_FEE from the SDK is "100" stroops.
+    expect(preview!.baseFee).toBe(SDK.BASE_FEE);
+    expect(preview!.baseFee).toBe("100");
+  });
+
   it("simulateContractCall returns null result when retval absent", async () => {
     jest.spyOn(rpc.Server.prototype, "simulateTransaction").mockResolvedValue({
       minResourceFee: "200",
@@ -391,10 +426,15 @@ describe("useSorobanContract", () => {
     } as never);
 
     const { result } = renderHook(() =>
-      useSorobanContract({ contractId: VALID_CONTRACT_ID, sorobanRpc: SOROBAN_RPC_URL })
+      useSorobanContract({
+        contractId: VALID_CONTRACT_ID,
+        sorobanRpc: SOROBAN_RPC_URL,
+      }),
     );
 
-    let preview: { result: unknown; minResourceFee: string; latestLedger: number } | undefined;
+    let preview:
+      | { result: unknown; minResourceFee: string; latestLedger: number }
+      | undefined;
     await act(async () => {
       preview = await result.current.simulateContractCall("no_return", []);
     });
@@ -410,7 +450,10 @@ describe("useSorobanContract", () => {
     } as never);
 
     const { result } = renderHook(() =>
-      useSorobanContract({ contractId: VALID_CONTRACT_ID, sorobanRpc: SOROBAN_RPC_URL })
+      useSorobanContract({
+        contractId: VALID_CONTRACT_ID,
+        sorobanRpc: SOROBAN_RPC_URL,
+      }),
     );
 
     let thrown: Error | undefined;
@@ -437,7 +480,10 @@ describe("useSorobanContract", () => {
       .mockReturnValue(pending as never);
 
     const { result } = renderHook(() =>
-      useSorobanContract({ contractId: VALID_CONTRACT_ID, sorobanRpc: SOROBAN_RPC_URL })
+      useSorobanContract({
+        contractId: VALID_CONTRACT_ID,
+        sorobanRpc: SOROBAN_RPC_URL,
+      }),
     );
 
     let callPromise!: Promise<unknown>;
@@ -462,9 +508,223 @@ describe("useSorobanContract", () => {
 
   it("simulateContractCall is exposed on the hook return value", () => {
     const { result } = renderHook(() =>
-      useSorobanContract({ contractId: VALID_CONTRACT_ID, sorobanRpc: SOROBAN_RPC_URL })
+      useSorobanContract({
+        contractId: VALID_CONTRACT_ID,
+        sorobanRpc: SOROBAN_RPC_URL,
+      }),
     );
 
     expect(typeof result.current.simulateContractCall).toBe("function");
+  });
+
+  // ── simulateBatchContractCall / buildBatchInvokeXDRs (#1062) ────────────────
+  //
+  // Soroban caps a transaction containing a host-function invocation at
+  // exactly one operation (stellar-core's validateSorobanOpsConsistency
+  // rejects anything else as txMALFORMED), so "batch" here means several
+  // independent single-operation calls run/built together — not one
+  // multi-operation transaction. See the hook's JSDoc for the full rationale.
+
+  describe("simulateBatchContractCall", () => {
+    it("simulates each call independently and returns results in order", async () => {
+      const spy = jest.spyOn(rpc.Server.prototype, "simulateTransaction");
+      spy
+        .mockResolvedValueOnce({
+          result: { retval: xdr.ScVal.scvI32(1) },
+          minResourceFee: "100",
+          latestLedger: 10,
+        } as never)
+        .mockResolvedValueOnce({
+          result: { retval: xdr.ScVal.scvI32(2) },
+          minResourceFee: "150",
+          latestLedger: 11,
+        } as never);
+
+      const { result } = renderHook(() =>
+        useSorobanContract({
+          contractId: VALID_CONTRACT_ID,
+          sorobanRpc: SOROBAN_RPC_URL,
+        }),
+      );
+
+      let results: Array<{
+        result: unknown;
+        minResourceFee: string;
+        latestLedger: number;
+      }> = [];
+      await act(async () => {
+        results = await result.current.simulateBatchContractCall([
+          { name: "get_a", args: [] },
+          { name: "get_b", args: [] },
+        ]);
+      });
+
+      expect(results).toHaveLength(2);
+      expect(results[0]).toEqual({
+        result: 1,
+        minResourceFee: "100",
+        latestLedger: 10,
+      });
+      expect(results[1]).toEqual({
+        result: 2,
+        minResourceFee: "150",
+        latestLedger: 11,
+      });
+      expect(spy).toHaveBeenCalledTimes(2);
+    });
+
+    it("calls each function with its own args against the same contract", async () => {
+      jest
+        .spyOn(rpc.Server.prototype, "simulateTransaction")
+        .mockResolvedValue({
+          result: { retval: xdr.ScVal.scvBool(true) },
+          minResourceFee: "100",
+          latestLedger: 1,
+        } as never);
+      const callSpy = jest.spyOn(Contract.prototype, "call");
+
+      const { result } = renderHook(() =>
+        useSorobanContract({
+          contractId: VALID_CONTRACT_ID,
+          sorobanRpc: SOROBAN_RPC_URL,
+        }),
+      );
+
+      await act(async () => {
+        await result.current.simulateBatchContractCall([
+          { name: "balance", args: ["addr-a"] },
+          { name: "balance", args: ["addr-b"] },
+        ]);
+      });
+
+      expect(callSpy).toHaveBeenCalledTimes(2);
+      expect(callSpy.mock.calls[0][0]).toBe("balance");
+      expect(callSpy.mock.calls[1][0]).toBe("balance");
+    });
+
+    it("rejects the whole batch when one call's simulation fails", async () => {
+      const spy = jest.spyOn(rpc.Server.prototype, "simulateTransaction");
+      spy
+        .mockResolvedValueOnce({
+          result: { retval: xdr.ScVal.scvI32(1) },
+          minResourceFee: "100",
+          latestLedger: 10,
+        } as never)
+        .mockResolvedValueOnce({
+          error: "second call reverted",
+        } as never);
+
+      const { result } = renderHook(() =>
+        useSorobanContract({
+          contractId: VALID_CONTRACT_ID,
+          sorobanRpc: SOROBAN_RPC_URL,
+        }),
+      );
+
+      let thrown: Error | undefined;
+      await act(async () => {
+        try {
+          await result.current.simulateBatchContractCall([
+            { name: "ok_fn", args: [] },
+            { name: "bad_fn", args: [] },
+          ]);
+        } catch (err) {
+          thrown = err as Error;
+        }
+      });
+
+      expect(thrown?.message).toContain("bad_fn");
+      expect(thrown?.message).toContain("second call reverted");
+    });
+
+    it("throws synchronously-rejected promise when calls is empty", async () => {
+      const { result } = renderHook(() =>
+        useSorobanContract({
+          contractId: VALID_CONTRACT_ID,
+          sorobanRpc: SOROBAN_RPC_URL,
+        }),
+      );
+
+      await expect(
+        result.current.simulateBatchContractCall([]),
+      ).rejects.toThrow(/at least one call/i);
+    });
+  });
+
+  describe("buildBatchInvokeXDRs", () => {
+    it("builds one XDR per call with consecutive sequence numbers", async () => {
+      jest
+        .spyOn(rpc.Server.prototype, "getAccount")
+        .mockResolvedValue(new Account(VALID_ACCOUNT_ADDRESS, "100") as never);
+
+      const { result } = renderHook(() =>
+        useSorobanContract({
+          contractId: VALID_CONTRACT_ID,
+          sorobanRpc: SOROBAN_RPC_URL,
+        }),
+      );
+
+      let xdrs: string[] = [];
+      await act(async () => {
+        xdrs = await result.current.buildBatchInvokeXDRs(
+          [
+            { name: "transfer", args: ["addr-a", 100] },
+            { name: "transfer", args: ["addr-b", 200] },
+          ],
+          VALID_ACCOUNT_ADDRESS,
+        );
+      });
+
+      expect(xdrs).toHaveLength(2);
+
+      const tx1 = TransactionBuilder.fromXDR(xdrs[0], SDK.Networks.TESTNET);
+      const tx2 = TransactionBuilder.fromXDR(xdrs[1], SDK.Networks.TESTNET);
+      expect(tx1.sequence).toBe("101");
+      expect(tx2.sequence).toBe("102");
+    });
+
+    it("throws when calls is empty", async () => {
+      jest
+        .spyOn(rpc.Server.prototype, "getAccount")
+        .mockResolvedValue(new Account(VALID_ACCOUNT_ADDRESS, "100") as never);
+
+      const { result } = renderHook(() =>
+        useSorobanContract({
+          contractId: VALID_CONTRACT_ID,
+          sorobanRpc: SOROBAN_RPC_URL,
+        }),
+      );
+
+      await expect(
+        result.current.buildBatchInvokeXDRs([], VALID_ACCOUNT_ADDRESS),
+      ).rejects.toThrow(/at least one call/i);
+    });
+
+    it("propagates the error when the source account can't be loaded", async () => {
+      jest
+        .spyOn(rpc.Server.prototype, "getAccount")
+        .mockRejectedValue(new Error("account not found"));
+
+      const { result } = renderHook(() =>
+        useSorobanContract({
+          contractId: VALID_CONTRACT_ID,
+          sorobanRpc: SOROBAN_RPC_URL,
+        }),
+      );
+
+      let thrown: Error | undefined;
+      await act(async () => {
+        try {
+          await result.current.buildBatchInvokeXDRs(
+            [{ name: "ping", args: [] }],
+            VALID_ACCOUNT_ADDRESS,
+          );
+        } catch (err) {
+          thrown = err as Error;
+        }
+      });
+
+      expect(thrown?.message).toContain("account not found");
+    });
   });
 });

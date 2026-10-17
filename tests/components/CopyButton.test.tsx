@@ -76,6 +76,38 @@ describe("CopyButton", () => {
     expect(confirmation).not.toHaveClass("sr-only");
   });
 
+  it("fails gracefully when the clipboard write is rejected (permission denied)", async () => {
+    const writeText = jest
+      .fn()
+      .mockRejectedValue(new DOMException("Write permission denied.", "NotAllowedError"));
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    render(<CopyButton value="GABC123" label="address" showConfirmationText />);
+    fireEvent.click(screen.getByRole("button", { name: /copy address/i }));
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith("GABC123");
+    });
+
+    // No success feedback: the button keeps its idle name and nothing is announced.
+    expect(
+      screen.getByRole("button", { name: /copy address/i }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/copied to clipboard/i)).not.toBeInTheDocument();
+  });
+
+  it("does not throw when the Clipboard API is unavailable (non-secure context)", async () => {
+    Object.assign(navigator, { clipboard: undefined });
+
+    render(<CopyButton value="GABC123" label="address" showConfirmationText />);
+    fireEvent.click(screen.getByRole("button", { name: /copy address/i }));
+
+    expect(
+      screen.getByRole("button", { name: /copy address/i }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/copied to clipboard/i)).not.toBeInTheDocument();
+  });
+
   it("does not show a visible confirmation before any copy has happened", () => {
     render(<CopyButton value="GABC123" label="address" showConfirmationText />);
     expect(screen.queryByText(/copied to clipboard/i)).not.toBeInTheDocument();

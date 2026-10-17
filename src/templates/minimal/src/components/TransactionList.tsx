@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useWallet } from '../contexts';
 import { useTransactionHistory, type OperationItem } from '../hooks/useTransactionHistory';
 import { SkeletonList } from './Skeleton';
@@ -24,6 +24,14 @@ export interface TransactionListProps {
   limit?: number;
   /** Whether to fetch payments or operations (default: undefined, which means 'operations' per the hook's default). */
   type?: 'payments' | 'operations';
+  /**
+   * Only render transactions for this asset. Matches an asset code (e.g.
+   * "USDC") case-insensitively against each item's asset, or "XLM" for the
+   * native asset (see getAssetLabel). Applied client-side to whatever page
+   * of results is already loaded -- it does not change what's fetched from
+   * Horizon, so "Load More" still paginates the full, unfiltered history.
+   */
+  asset?: string;
 }
 
 /**
@@ -426,6 +434,7 @@ export function TransactionListContent({
 export default function TransactionList({
   limit = 10,
   type,
+  asset,
 }: TransactionListProps) {
   const [mounted, setMounted] = useState(false);
   const { connected, publicKey } = useWallet();
@@ -441,6 +450,18 @@ export default function TransactionList({
     pageSize: limit,
     type,
   });
+
+  // Filtered client-side, against whatever page of results is already
+  // loaded -- Horizon's operations/payments builder used by
+  // useTransactionHistory has no asset param to filter server-side, and
+  // filtering there would also desync hasMore/pagination math, which is
+  // computed from the unfiltered page size.
+  const filteredItems = useMemo(() => {
+    if (!asset) return items;
+    return items.filter(
+      (item) => getAssetLabel(item).toLowerCase() === asset.toLowerCase(),
+    );
+  }, [items, asset]);
 
   // Prevent hydration mismatch in Next.js
   useEffect(() => {
@@ -462,7 +483,7 @@ export default function TransactionList({
 
   return (
     <TransactionListContent
-      items={items}
+      items={filteredItems}
       loading={loading}
       error={error}
       hasMore={hasMore}

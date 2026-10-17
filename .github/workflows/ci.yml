@@ -133,6 +133,93 @@ jobs:
       # Pack size thresholds (~2× clean main): max 5 MB tarball, 25 MB unpacked, 1000 files
       - run: node scripts/check-pack-size.mjs
 
+  lighthouse-default:
+    name: Lighthouse CI — default scaffold
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+
+      # Scaffolds a real default-template app the same way an end user would
+      # (npx nextellar), installs and builds it for production, then runs
+      # Lighthouse CI (performance/accessibility/best-practices/SEO) against
+      # its production server via `npm start`. See .lighthouserc.json for
+      # the budget thresholds and docs/lighthouse-ci.md for how to run this
+      # locally and what to do when a score regresses.
+      - name: Scaffold default app
+        run: node dist/bin/nextellar.js lhci-app --defaults --skip-install --template default
+
+      - name: Install scaffolded app dependencies
+        working-directory: lhci-app
+        run: npm install
+
+      - name: Build scaffolded app
+        working-directory: lhci-app
+        run: npm run build
+
+      - name: Copy Lighthouse CI config
+        run: cp .lighthouserc.json lhci-app/.lighthouserc.json
+
+      - name: Run Lighthouse CI
+        working-directory: lhci-app
+        run: npx --yes @lhci/cli@0.15.x autorun --config=.lighthouserc.json
+        env:
+          LHCI_BUILD_CONTEXT__CURRENT_HASH: ${{ github.sha }}
+
+  visual-regression:
+    name: Visual regression — default template Storybook
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+
+      # Builds the default template's Storybook the way an end user would get
+      # it (scaffold -> install -> build-storybook), then screenshots every
+      # component story with Playwright and compares it to the committed
+      # baselines in tests/visual/__screenshots__/default (#1083). Stories
+      # without a baseline are reported as "new" and do not fail the job; see
+      # docs/visual-regression.md for how to record or update baselines.
+      - name: Scaffold default app
+        run: node dist/bin/nextellar.js vr-app --defaults --skip-install --template default
+
+      - name: Install scaffolded app dependencies
+        working-directory: vr-app
+        run: npm install
+
+      - name: Build Storybook
+        working-directory: vr-app
+        run: npm run build-storybook
+
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Compare story screenshots to baselines
+        run: npm run test:visual -- --storybook-dir vr-app/storybook-static
+
+      - name: Upload screenshots and diffs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-regression
+          path: reports/visual
+          if-no-files-found: ignore
+
   coverage:
     name: Test coverage report
     runs-on: ubuntu-latest

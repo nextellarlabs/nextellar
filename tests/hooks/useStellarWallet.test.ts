@@ -4,6 +4,7 @@
 import { renderHook, act } from "@testing-library/react";
 import { jest } from "@jest/globals";
 import * as StellarSDK from "@stellar/stellar-sdk";
+import { USDC_ISSUER as WALLET_ADDRESS } from "../helpers/fixtures";
 
 const SDK = ((StellarSDK as unknown as { default?: unknown }).default ||
   StellarSDK) as typeof StellarSDK;
@@ -22,7 +23,7 @@ await jest.unstable_mockModule(
       openModal: mockOpenModal,
       disconnect: mockDisconnect,
     }),
-  })
+  }),
 );
 
 await jest.unstable_mockModule(
@@ -37,28 +38,28 @@ await jest.unstable_mockModule(
         clear: () => store.clear(),
       },
     };
-  }
+  },
 );
 
-const { useStellarWallet } = await import(
-  "../../src/templates/default/src/hooks/useStellarWallet.ts"
-);
+const { useStellarWallet } =
+  await import("../../src/templates/default/src/hooks/useStellarWallet.ts");
 
 describe("useStellarWallet Hook", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGetAddress.mockResolvedValue({
-      address: "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
+      address: WALLET_ADDRESS,
     });
     mockDisconnect.mockResolvedValue(undefined);
 
-    jest
-      .spyOn(SDK.Horizon.Server.prototype, "accounts")
-      .mockImplementation(() => ({
-        accountId: () => ({
-          call: jest.fn().mockResolvedValue({ balances: [] }),
-        }),
-      }) as any);
+    jest.spyOn(SDK.Horizon.Server.prototype, "accounts").mockImplementation(
+      () =>
+        ({
+          accountId: () => ({
+            call: jest.fn().mockResolvedValue({ balances: [] }),
+          }),
+        }) as any,
+    );
   });
 
   afterEach(() => {
@@ -71,7 +72,7 @@ describe("useStellarWallet Hook", () => {
       () =>
         new Promise((resolve) => {
           resolveAddress = resolve;
-        })
+        }),
     );
 
     const { result } = renderHook(() => useStellarWallet());
@@ -87,7 +88,7 @@ describe("useStellarWallet Hook", () => {
 
     await act(async () => {
       resolveAddress({
-        address: "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
+        address: WALLET_ADDRESS,
       });
       await connectPromise;
     });
@@ -106,8 +107,6 @@ describe("useStellarWallet Hook", () => {
     expect(mockSetWallet).toHaveBeenCalledWith("freighter");
     expect(result.current.connected).toBe(true);
     expect(result.current.walletName).toBe("freighter");
-    expect(result.current.publicKey).toBe(
-      "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN"
-    );
+    expect(result.current.publicKey).toBe(WALLET_ADDRESS);
   });
 });

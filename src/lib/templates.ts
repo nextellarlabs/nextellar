@@ -5,6 +5,10 @@
  * the scaffolder all read from here so the list cannot drift between them.
  */
 
+import fs from "fs-extra";
+import path from "path";
+import { fileURLToPath } from "url";
+
 export interface TemplateDefinition {
   /** The value passed to `--template`. */
   name: string;
@@ -19,6 +23,19 @@ export interface TemplateDefinition {
    * when this starter has no JavaScript variant yet.
    */
   jsDir: string | null;
+  /**
+   * Optional overlay directory under src/templates copied on top of `tsDir`
+   * for a TypeScript scaffold. Lets a composed starter (e.g. `full`) reuse an
+   * existing starter instead of duplicating every file.
+   */
+  tsOverlayDir?: string;
+  /** Same as `tsOverlayDir`, for a JavaScript scaffold. */
+  jsOverlayDir?: string;
+  /**
+   * When true the `contracts-template` overlay is always applied, as if
+   * `--with-contracts` had been passed.
+   */
+  withContracts?: boolean;
 }
 
 export const TEMPLATES: readonly TemplateDefinition[] = [
@@ -40,6 +57,19 @@ export const TEMPLATES: readonly TemplateDefinition[] = [
     description: "DeFi starter: swap, liquidity pool and price-feed components",
     tsDir: "defi",
     jsDir: "js-defi",
+  },
+  {
+    name: "full",
+    description:
+      "everything: the default component set plus defi's Soroban demo, with --with-contracts pre-enabled",
+    // Composed starter (#1112): `default` is the base, the `full` / `js-full`
+    // overlays add defi's CounterDemo and wire it into the landing page, and
+    // the contracts overlay is always applied.
+    tsDir: "default",
+    jsDir: "js-template",
+    tsOverlayDir: "full",
+    jsOverlayDir: "js-full",
+    withContracts: true,
   },
 ] as const;
 
@@ -92,4 +122,55 @@ export function resolveTemplateDir(name: string, useTs: boolean): string {
   }
 
   return template.jsDir;
+}
+
+/**
+ * Returns the overlay directory (under src/templates) to copy on top of the
+ * resolved base starter, or null when the template has none. Call after
+ * resolveTemplateDir(), which already validates the name and language.
+ */
+export function resolveTemplateOverlayDir(
+  name: string,
+  useTs: boolean,
+): string | null {
+  const template = getTemplate(name);
+  if (!template) return null;
+  return (useTs ? template.tsOverlayDir : template.jsOverlayDir) ?? null;
+}
+
+/**
+ * True when the template definition sets `withContracts`, i.e. the contracts
+ * overlay is part of the starter itself and is applied even when the caller
+ * did not pass `--with-contracts`. (The CLI additionally turns contracts on
+ * for `defi`; that stays a CLI default rather than a scaffold() rule.)
+ */
+export function templateForcesContracts(name: string): boolean {
+  return getTemplate(name)?.withContracts === true;
+}
+
+/**
+ * Locates the `src/templates` directory that ships with this install,
+ * regardless of whether the CLI is running from source (src/bin), a built
+ * package (dist/bin), or a nested workspace layout. Mirrors the resolution
+ * scaffold.ts and upgrade.ts each do locally for a single template
+ * directory, generalized here as the one place new commands (e.g. `nextellar
+ * templates`) that need the whole templates root should resolve it from.
+ */
+export function findTemplatesRoot(fromDir: string): string {
+  const candidates = [
+    path.resolve(fromDir, "../templates"),
+    path.resolve(fromDir, "../../templates"),
+    path.resolve(fromDir, "../../../src/templates"),
+    path.resolve(fromDir, "../../nextellar/src/templates"),
+    path.resolve(fromDir, "../../../nextellar/src/templates"),
+  ];
+  return (
+    candidates.find((candidate) => fs.existsSync(candidate)) ??
+    candidates[candidates.length - 1]
+  );
+}
+
+/** Convenience wrapper around findTemplatesRoot() using this module's own location. */
+export function defaultTemplatesRoot(): string {
+  return findTemplatesRoot(path.dirname(fileURLToPath(import.meta.url)));
 }

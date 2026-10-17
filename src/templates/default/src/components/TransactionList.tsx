@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useWallet } from '../contexts';
 import { useTransactionHistory, type OperationItem } from '../hooks/useTransactionHistory';
 import { SkeletonList } from './Skeleton';
@@ -15,7 +15,52 @@ import {
   Loader2,
   ChevronDown,
   Clock,
+  Download,
 } from 'lucide-react';
+
+// ── CSV Export Helper ─────────────────────────────────────────────────────────
+
+export function generateTransactionsCSV(items: OperationItem[]): string {
+  const headers = ['id', 'type', 'created_at', 'amount', 'asset', 'from', 'to', 'transaction_hash', 'status'];
+  const rows = items.map((item) => {
+    const op = item as unknown as Record<string, unknown>;
+    const amount = typeof op.amount === 'string' ? op.amount : '';
+    const asset = getAssetLabel(item);
+    const from = typeof op.from === 'string' ? op.from : (item.source_account || '');
+    const to = typeof op.to === 'string' ? op.to : '';
+    const txHash = typeof op.transaction_hash === 'string' ? op.transaction_hash : '';
+    const status = getStatus(item).label;
+
+    return [
+      item.id,
+      item.type,
+      item.created_at,
+      amount,
+      asset,
+      from,
+      to,
+      txHash,
+      status,
+    ].map((val) => `"${String(val).replace(/"/g, '""')}"`).join(',');
+  });
+
+  return [headers.join(','), ...rows].join('\n');
+}
+
+export function exportTransactionsToCSV(items: OperationItem[], filename = 'stellar-transactions.csv') {
+  if (typeof window === 'undefined' || items.length === 0) return;
+  const csvContent = generateTransactionsCSV(items);
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', filename);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -24,6 +69,14 @@ export interface TransactionListProps {
   limit?: number;
   /** Whether to fetch payments or operations (default: undefined, which means 'operations' per the hook's default). */
   type?: 'payments' | 'operations';
+  /**
+   * Only render transactions for this asset. Matches an asset code (e.g.
+   * "USDC") case-insensitively against each item's asset, or "XLM" for the
+   * native asset (see getAssetLabel). Applied client-side to whatever page
+   * of results is already loaded -- it does not change what's fetched from
+   * Horizon, so "Load More" still paginates the full, unfiltered history.
+   */
+  asset?: string;
 }
 
 /**
@@ -358,6 +411,18 @@ export function TransactionListContent({
         </div>
       )}
 
+      {/* Actions Toolbar */}
+      <div className="flex justify-end p-2 border-b border-gray-100 dark:border-gray-800">
+        <button
+          onClick={() => exportTransactionsToCSV(items)}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
+          aria-label="Export transactions to CSV"
+        >
+          <Download className="w-3.5 h-3.5" />
+          Export CSV
+        </button>
+      </div>
+
       {/* Transaction rows */}
       <ul
         className="divide-y divide-gray-100 dark:divide-gray-800"
@@ -426,6 +491,7 @@ export function TransactionListContent({
 export default function TransactionList({
   limit = 10,
   type,
+  asset,
 }: TransactionListProps) {
   const [mounted, setMounted] = useState(false);
   const { connected, publicKey } = useWallet();
@@ -441,6 +507,18 @@ export default function TransactionList({
     pageSize: limit,
     type,
   });
+
+  // Filtered client-side, against whatever page of results is already
+  // loaded -- Horizon's operations/payments builder used by
+  // useTransactionHistory has no asset param to filter server-side, and
+  // filtering there would also desync hasMore/pagination math, which is
+  // computed from the unfiltered page size.
+  const filteredItems = useMemo(() => {
+    if (!asset) return items;
+    return items.filter(
+      (item) => getAssetLabel(item).toLowerCase() === asset.toLowerCase(),
+    );
+  }, [items, asset]);
 
   // Prevent hydration mismatch in Next.js
   useEffect(() => {
@@ -462,7 +540,7 @@ export default function TransactionList({
 
   return (
     <TransactionListContent
-      items={items}
+      items={filteredItems}
       loading={loading}
       error={error}
       hasMore={hasMore}

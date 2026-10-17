@@ -34,13 +34,18 @@ is meant to guard.
 
 ## Budgets
 
-| Template      | Budget (`.next/static`) |         Measured baseline (2026-08-28) | Headroom |
+| Template      | Budget (`.next/static`) |         Measured baseline (2026-09-26) | Headroom |
 | ------------- | ----------------------: | -------------------------------------: | -------: |
-| `minimal`     |                 3.40 MB |                                2.27 MB |    ~1.5x |
-| `default`     |                 3.45 MB |                                2.29 MB |    ~1.5x |
+| `minimal`     |                 3.40 MB |                                2.29 MB |    ~1.5x |
+| `default`     |                 3.45 MB |                                2.31 MB |    ~1.5x |
 | `defi`        |                 3.45 MB | _(currently unmeasurable — see below)_ |        — |
-| `js-template` |                 3.40 MB |                                2.28 MB |    ~1.5x |
-| `js-defi`     |                 3.40 MB |                                2.28 MB |    ~1.5x |
+| `js-template` |                 3.40 MB |                                2.31 MB |    ~1.5x |
+| `js-defi`     |                 3.40 MB |                                2.31 MB |    ~1.5x |
+
+Re-measured after `qrcode` (#964) and the `ContractCallForm`/`ContractCallPreview`
+components landed in `default` (and `defi`/`minimal`, where `qrcode` is also a
+dependency): all three currently-measurable templates still pass comfortably within
+their existing budgets, so `BUDGETS_BYTES` did not need to change.
 
 Budgets live as constants in `scripts/analyze-template-bundles.mjs`
 (`BUDGETS_BYTES`), not in this table — this table is descriptive, the script is
@@ -74,6 +79,43 @@ called out explicitly so it isn't lost:
 
 Run `npm run analyze:bundles` after that's fixed to get `defi`'s real baseline and
 fill in the table above.
+
+### Additional build-blocking bugs found and fixed while re-measuring (2026-09-26)
+
+Getting `default`, `minimal`, and `js-defi` to actually produce a measurable build
+(all three previously reported `build-failed`) required fixing several unrelated,
+pre-existing bugs the analyzer's real `next build` step surfaces but `tsc --noEmit`
+alone does not always catch at the same severity:
+
+- `src/templates/default/src/components/BalanceDisplay.tsx` and its `.stories.tsx`
+  were corrupted by an old bad merge: two independently authored versions of each
+  file had been concatenated together instead of conflict-resolved, producing
+  duplicate exports and a function body that fell into a stray `import` statement.
+  Restored to the coherent version (verified against `BalanceDisplay.test.tsx`,
+  which passes unchanged against it).
+- `SendForm.tsx` destructured a nonexistent `address` field from `useWallet()`
+  instead of `publicKey`.
+- `SendForm.tsx`'s fee-bump "sponsor" field was passed into `PaymentOptions`, which
+  had no such field — the sponsor UI (input, validation, button label) was built but
+  never wired into `sendPayment`. Implemented it properly: `sendPayment` now builds
+  and signs the inner transaction, then wraps it in an unsigned fee-bump transaction
+  when a sponsor is given (a valid fee-bump's outer envelope needs the _sponsor's_
+  signature, which this wallet has no channel to obtain), returning the XDR for the
+  sponsor to sign and submit out-of-band. `SendForm.tsx` surfaces that XDR to copy.
+- `useTransactionHistory.ts` (in `default`, `minimal`, and `defi`) declared its
+  `error` field as optional (`error?: Error | null`) even though the hook always
+  returns it (`useState<Error | null>(null)`), which fails `next build`'s stricter
+  prop-type check at the one call site that destructures it directly into a
+  required prop. Made the field required to match actual behavior.
+- `useSorobanContract.ts` and `src/lib/telemetry.ts` (CLI-side) had two
+  `as Record<string, unknown>` casts that TypeScript rejects without going through
+  `unknown` first, since neither source type has an index signature.
+- `useStellarPayment.ts`'s `buildFeeBumpPaymentXDR` was implemented but missing from
+  the hook's declared return type, and passed a `number | string` fee value where
+  `TransactionBuilder.buildFeeBumpTransaction` requires a `string`.
+
+None of these are bundle-size issues; they're flagged here because fixing them was
+a prerequisite for this PR's re-measurement, not a goal in themselves.
 
 ## Design notes / trade-offs
 

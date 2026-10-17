@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  stellar-local:
+    image: stellar/quickstart:latest
+    container_name: stellar-local-standalone
+    command: --standalone --enable-soroban-rpc
+    ports:
+      - "8000:8000"   # Horizon REST API
+      - "8001:8001"   # Soroban RPC endpoint
+      - "11625:11625" # Stellar Core P2P
+      - "11626:11626" # Stellar Core HTTP
+    environment:
+      - LOG_LEVEL=info
+    volumes:
+      - stellar_standalone_data:/opt/stellar
+    restart: unless-stopped
+
+volumes:
+  stellar_standalone_data:

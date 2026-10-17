@@ -81,6 +81,14 @@ export interface SimulationPreview {
    * Displayed as both stroops and its XLM equivalent.
    */
   minResourceFee: string;
+  /**
+   * Classic per-operation base fee in stroops (the "inclusion fee" every
+   * Stellar transaction pays, Soroban or not) — separate from and additive
+   * with `minResourceFee`. Optional so existing callers building a
+   * `SimulationPreview` by hand don't break; when omitted, the base-fee row
+   * is not rendered.
+   */
+  baseFee?: string;
   /** Ledger sequence number at which the simulation was performed. */
   latestLedger: number;
 }
@@ -217,6 +225,10 @@ export default function ContractCallPreview({
   if (!preview) return null;
 
   const xlmFee = stroopsToXlm(preview.minResourceFee);
+  const hasBaseFee = preview.baseFee !== undefined;
+  const totalFeeStroops = hasBaseFee
+    ? String(Number(preview.baseFee) + Number(preview.minResourceFee))
+    : undefined;
 
   // ── Preview data ──────────────────────────────────────────────────────────
   return (
@@ -229,9 +241,24 @@ export default function ContractCallPreview({
       </h3>
 
       <dl className="space-y-2 text-sm">
-        {/* Fee row */}
+        {/* Base fee row — only rendered when the caller supplies it */}
+        {hasBaseFee && (
+          <div className="flex items-baseline justify-between gap-2">
+            <dt className="text-gray-600 dark:text-gray-400">Base fee</dt>
+            <dd className="font-mono text-gray-900 dark:text-gray-100">
+              {preview.baseFee}{' '}
+              <span className="font-normal text-gray-500 dark:text-gray-400">
+                stroops
+              </span>
+            </dd>
+          </div>
+        )}
+
+        {/* Resource fee row */}
         <div className="flex items-baseline justify-between gap-2">
-          <dt className="text-gray-600 dark:text-gray-400">Estimated fee</dt>
+          <dt className="text-gray-600 dark:text-gray-400">
+            {hasBaseFee ? 'Resource fee' : 'Estimated fee'}
+          </dt>
           <dd className="font-mono font-medium text-gray-900 dark:text-gray-100">
             {preview.minResourceFee}{' '}
             <span className="font-normal text-gray-500 dark:text-gray-400">
@@ -242,6 +269,22 @@ export default function ContractCallPreview({
             </span>
           </dd>
         </div>
+
+        {/* Total fee row — only rendered when a base fee is available to sum */}
+        {hasBaseFee && totalFeeStroops && (
+          <div className="flex items-baseline justify-between gap-2 border-t border-blue-200/60 pt-2 dark:border-blue-800/40">
+            <dt className="font-medium text-gray-700 dark:text-gray-300">Total fee</dt>
+            <dd className="font-mono font-semibold text-gray-900 dark:text-gray-100">
+              {totalFeeStroops}{' '}
+              <span className="font-normal text-gray-500 dark:text-gray-400">
+                stroops
+              </span>{' '}
+              <span className="text-gray-400 dark:text-gray-500">
+                ({stroopsToXlm(totalFeeStroops)} XLM)
+              </span>
+            </dd>
+          </div>
+        )}
 
         {/* Return value row */}
         <div className="flex items-baseline justify-between gap-2">

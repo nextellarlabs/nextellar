@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useWallet } from '../contexts';
+import { buildSep7PayUri } from '../lib/sep7';
 
 // Inline SVG icons — no external icon dependency needed
 const CopyIcon = () => (
@@ -17,6 +18,13 @@ const CheckIcon = () => (
   </svg>
 );
 
+const DownloadIcon = () => (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+      d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
+  </svg>
+);
+
 export interface ReceiveFormProps {
   /** Override the public key shown (e.g. to display a specific account). Defaults to the connected wallet. */
   address?: string;
@@ -24,6 +32,19 @@ export interface ReceiveFormProps {
   qrSize?: number;
   /** Optional CSS class applied to the outer container. */
   className?: string;
+  /**
+   * Requested payment amount. When set (together with `asset` for a
+   * non-native asset), the QR code and copy button encode a SEP-7
+   * `web+stellar:pay` payment-request URI instead of a bare address —
+   * see https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0007.md.
+   */
+  amount?: string;
+  /** Non-native asset the payment request is denominated in. Requires `amount` to have any effect. Omit for native XLM. */
+  asset?: { code: string; issuer: string };
+  /** Memo to include in the SEP-7 payment request. Only applies when `amount` is set. */
+  memo?: string;
+  /** Human-readable message shown to the payer's wallet. Only applies when `amount` is set. */
+  message?: string;
 }
 
 /**
@@ -41,13 +62,39 @@ export interface ReceiveFormProps {
  *
  * // Show a specific address regardless of wallet state
  * <ReceiveForm address="GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" />
+ *
+ * // Encode a SEP-7 payment request (amount + asset) instead of a bare address
+ * <ReceiveForm amount="25" asset={{ code: 'USDC', issuer: 'GISSUER...' }} message="Invoice #42" />
  * ```
  */
-export default function ReceiveForm({ address: addressProp, qrSize = 200, className = '' }: ReceiveFormProps) {
+export default function ReceiveForm({
+  address: addressProp,
+  qrSize = 200,
+  className = '',
+  amount,
+  asset,
+  memo,
+  message,
+}: ReceiveFormProps) {
   const { connected, publicKey } = useWallet();
 
   // Resolve the address to display: prop takes precedence, then connected wallet
   const address = addressProp ?? publicKey;
+
+  // When an amount is requested, encode a SEP-7 `web+stellar:pay` URI instead
+  // of a bare address — this is what the QR code and copy button target.
+  // The address shown as text always stays the plain address for readability.
+  const sep7Uri = useMemo(() => {
+    if (!address || amount === undefined) return null;
+    try {
+      return buildSep7PayUri({ destination: address, amount, asset, memo, msg: message });
+    } catch (err) {
+      console.error('[ReceiveForm] Failed to build SEP-7 payment URI:', err);
+      return null;
+    }
+  }, [address, amount, asset, memo, message]);
+
+  const qrPayload = sep7Uri ?? address;
 
   // QR code data URL — populated client-side only to remain SSR-safe
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
@@ -56,9 +103,9 @@ export default function ReceiveForm({ address: addressProp, qrSize = 200, classN
   // Copy-to-clipboard feedback
   const [copied, setCopied] = useState(false);
 
-  // Generate QR code whenever the address changes (client-side only)
+  // Generate QR code whenever the payload changes (client-side only)
   useEffect(() => {
-    if (!address) {
+    if (!qrPayload) {
       setQrDataUrl(null);
       setQrError(null);
       return;
@@ -68,7 +115,7 @@ export default function ReceiveForm({ address: addressProp, qrSize = 200, classN
 
     // Dynamic import keeps this module out of the server bundle entirely
     import('qrcode').then((QRCode) => {
-      return QRCode.toDataURL(address, {
+      return QRCode.toDataURL(qrPayload, {
         width: qrSize,
         margin: 2,
         color: { dark: '#000000', light: '#ffffff' },
@@ -88,17 +135,30 @@ export default function ReceiveForm({ address: addressProp, qrSize = 200, classN
     return () => {
       cancelled = true;
     };
-  }, [address, qrSize]);
+  }, [qrPayload, qrSize]);
 
   const handleCopy = async () => {
-    if (!address) return;
+    if (!qrPayload) return;
     try {
-      await navigator.clipboard.writeText(address);
+      await navigator.clipboard.writeText(qrPayload);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
       // Clipboard API unavailable (non-secure context, etc.)
     }
+  };
+
+  // Saves the generated QR as a PNG by driving a temporary, off-DOM anchor's
+  // `download` attribute — the standard client-side approach for saving a
+  // data: URL without a server round-trip.
+  const handleDownload = () => {
+    if (!qrDataUrl) return;
+    const link = document.createElement('a');
+    link.href = qrDataUrl;
+    link.download = `stellar-address-${address ? address.slice(0, 8) : 'qr'}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // --- Disconnected / no address fallback ---
@@ -124,21 +184,25 @@ export default function ReceiveForm({ address: addressProp, qrSize = 200, classN
       data-testid="receive-form"
     >
       <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">
-        Receive Stellar Assets
+        {sep7Uri ? 'Request Payment' : 'Receive Stellar Assets'}
       </h2>
 
       {/* QR Code area */}
       <div
         className="flex items-center justify-center rounded-xl bg-white p-3 shadow-inner"
         style={{ width: qrSize + 24, height: qrSize + 24 }}
-        aria-label="QR code of Stellar address"
+        aria-label={sep7Uri ? 'QR code of SEP-7 payment request' : 'QR code of Stellar address'}
         data-testid="receive-form-qr"
       >
         {qrDataUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={qrDataUrl}
-            alt={`QR code for Stellar address ${address}`}
+            alt={
+              sep7Uri
+                ? `QR code for a SEP-7 payment request to ${address}`
+                : `QR code for Stellar address ${address}`
+            }
             width={qrSize}
             height={qrSize}
             style={{ imageRendering: 'pixelated' }}
@@ -155,6 +219,26 @@ export default function ReceiveForm({ address: addressProp, qrSize = 200, classN
         )}
       </div>
 
+      {qrDataUrl && (
+        <button
+          type="button"
+          onClick={handleDownload}
+          aria-label="Download QR code as PNG"
+          className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-gray-100 transition-colors"
+          data-testid="receive-form-download"
+        >
+          <DownloadIcon />
+          Download QR
+        </button>
+      )}
+
+      {sep7Uri && (
+        <p className="text-xs text-gray-500 dark:text-gray-400" data-testid="receive-form-request-summary">
+          Requesting {amount}
+          {asset ? ` ${asset.code}` : ' XLM'}
+        </p>
+      )}
+
       {/* Address text + copy button */}
       <div className="flex w-full items-center gap-2 rounded-xl bg-gray-50 dark:bg-gray-800 px-4 py-2">
         <p
@@ -168,7 +252,15 @@ export default function ReceiveForm({ address: addressProp, qrSize = 200, classN
         <button
           type="button"
           onClick={handleCopy}
-          aria-label={copied ? 'Address copied' : 'Copy address to clipboard'}
+          aria-label={
+            copied
+              ? sep7Uri
+                ? 'Payment request copied'
+                : 'Address copied'
+              : sep7Uri
+                ? 'Copy payment request to clipboard'
+                : 'Copy address to clipboard'
+          }
           className="shrink-0 rounded-lg p-1.5 text-gray-500 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-gray-100 transition-colors"
           data-testid="receive-form-copy"
         >

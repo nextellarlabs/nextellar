@@ -11,6 +11,7 @@ import {
 } from "./features.js";
 import { detectPackageManager } from "./install.js";
 import { printError } from "./feedback.js";
+import { recordAuditEvent } from "./audit-log.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -24,6 +25,8 @@ export interface AddOptions {
   skipInstall?: boolean;
   /** Package manager override */
   packageManager?: string;
+  /** Simulate adding feature without modifying disk or installing packages */
+  dryRun?: boolean;
 }
 
 export const DEFAULT_TEMPLATE = "default";
@@ -165,7 +168,8 @@ async function copyFile(
   template: ResolvedTemplate,
   targetDir: string,
   relativePath: string,
-  force: boolean
+  force: boolean,
+  dryRun: boolean = false
 ): Promise<{ result: CopyResult; path: string; fromDefault: boolean }> {
   let fromDefault = false;
   let rel = await findInTemplate(template.dir, relativePath);
@@ -190,8 +194,10 @@ async function copyFile(
     return { result: "skipped", path: rel, fromDefault };
   }
 
-  await fs.ensureDir(path.dirname(dest));
-  await fs.copy(src, dest, { overwrite: true });
+  if (!dryRun) {
+    await fs.ensureDir(path.dirname(dest));
+    await fs.copy(src, dest, { overwrite: true });
+  }
   return { result: "copied", path: rel, fromDefault };
 }
 
@@ -211,7 +217,8 @@ async function addFeatureFiles(
   template: ResolvedTemplate,
   targetDir: string,
   feature: FeatureDef,
-  force: boolean
+  force: boolean,
+  dryRun: boolean = false
 ): Promise<FeatureCopyReport> {
   const report: FeatureCopyReport = {
     copied: [],
@@ -225,7 +232,8 @@ async function addFeatureFiles(
       template,
       targetDir,
       rel,
-      force
+      force,
+      dryRun
     );
     if (result === "copied") report.copied.push(p);
     else if (result === "skipped") report.skipped.push(p);
@@ -247,6 +255,7 @@ export async function runAdd(
   const force = !!options.force;
   const skipInstall = !!options.skipInstall;
   const packageManager = options.packageManager;
+  const dryRun = !!options.dryRun;
 
   const rawId = featureId.trim().toLowerCase();
   const feature = getFeature(rawId);
@@ -281,7 +290,8 @@ export async function runAdd(
       template,
       cwd,
       f,
-      force
+      force,
+      dryRun
     );
     allCopied.push(...copied);
     allSkipped.push(...skipped);
@@ -304,7 +314,7 @@ export async function runAdd(
     };
   }
 
-  if (!skipInstall && allNpmDeps.size > 0) {
+  if (!dryRun && !skipInstall && allNpmDeps.size > 0) {
     const pkgJson = await fs.readJson(pkgPath);
     const existingDeps = {
       ...(pkgJson.dependencies || {}),
@@ -323,11 +333,15 @@ export async function runAdd(
   }
 
   const lines: string[] = [];
-  lines.push(pc.green("✔") + " " + pc.bold(`Feature "${rawId}" added.`));
+  if (dryRun) {
+    lines.push(pc.yellow("[dry-run] ") + pc.bold(`Simulating addition of feature "${rawId}". No files written.`));
+  } else {
+    lines.push(pc.green("✔") + " " + pc.bold(`Feature "${rawId}" added.`));
+  }
   lines.push(pc.dim(`Source template: ${template.name}`));
   if (allCopied.length > 0) {
     lines.push("");
-    lines.push(pc.dim("Added files:"));
+    lines.push(pc.dim(dryRun ? "Files that would be added:" : "Added files:"));
     allCopied.forEach((p) => lines.push("  " + p));
   }
   if (allSkipped.length > 0 && !force) {
@@ -358,6 +372,16 @@ export async function runAdd(
   lines.push("  • Wrap your app with WalletProvider (if you added wallet) in layout.tsx");
   lines.push("  • Import hooks and components from src/hooks and src/components");
   console.log(lines.join("\n"));
+
+  if (!dryRun) {
+    await recordAuditEvent(cwd, "add", {
+      feature: rawId,
+      template: template.name,
+      filesAdded: allCopied,
+      filesSkipped: allSkipped,
+      force,
+    });
+  }
 
   return { success: true };
 }

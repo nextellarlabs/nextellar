@@ -8,14 +8,6 @@ If you are new, start at **[Repo Map](#repo-map)** and **[The Dev Loop](#the-dev
 
 ---
 
-## Getting Started
-
-New contributor? Start with a good first issue:
-- Browse good first issues at https://github.com/nextellarlabs/nextellar/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22
-- These are self-contained, verified-against-the-code tasks with acceptance criteria.
-
----
-
 ## Repo Map
 
 Nextellar is a monorepo. The CLI (`bin/`, `src/lib/`) scaffolds runnable
@@ -27,7 +19,7 @@ Next.js + Stellar apps from the templates under `src/templates/`.
 | `src/lib/` | Shared library code used by the CLI (scaffolding, validation, telemetry). |
 | `src/mocks/` | Mock Horizon / wallet / SDK servers and handlers used by the test suite. |
 | `src/templates/` | Scaffolded-app templates: `default`, `defi`, `js-template`, `js-defi`, `minimal`, `auth`. Each has its own `src/components`, `src/hooks`, and `.storybook`. |
-| `tests/` | Jest tests — unit (`*.test.ts`), component (`*.test.tsx`), smoke, and `e2e/`. |
+| `tests/` | Jest tests, unit (`*.test.ts`), component (`*.test.tsx`), smoke, and `e2e/`. |
 | `docs/` | Documentation markdown (telemetry, bundle budgets, component reference, audits). |
 | `.github/` | CI workflows, the path-based labeler config, and Dependabot config. |
 | `backend/`, `routes-d/` | Optional backend services shipped alongside some templates. |
@@ -50,7 +42,7 @@ npm install
 # 2. Build the CLI / library
 npm run build
 
-# 3. Run the test suite (ESM — uses --experimental-vm-modules under the hood)
+# 3. Run the test suite (ESM, uses --experimental-vm-modules under the hood)
 npm test
 
 # 4. Lint and format-check the source
@@ -59,3 +51,181 @@ npm run format:check
 
 # 5. Run the CLI locally against your changes
 npm start
+```
+
+## Accessibility (a11y) Testing
+
+`tests/accessibility.test.tsx` and `tests/accessibility.mocked-wallet.test.tsx` run
+`jest-axe` against real, rendered markup for the `default` template's components
+(see `docs/accessibility-audit.md` for the full manual audit these automate a subset
+of). These are ordinary Jest test files matched by `jest.config.mjs`'s `testMatch`,
+so **`npm test` already runs them, and a `toHaveNoViolations()` failure fails the
+suite like any other test** — no separate a11y-specific CI job exists or is needed.
+
+In CI, the `Coverage threshold gate` job in `.github/workflows/ci.yml` runs
+`npm test -- --coverage` on every PR and blocks the merge on any test failure,
+including an axe violation in these two files. If you add or change a component
+under `src/templates/default/src/components/`, run `npm test` locally before
+pushing to catch a violation before CI does.
+
+When adding a new component (or a new interactive state to an existing one) that
+belongs in this coverage, add a case to whichever of the two files matches its
+testing style:
+- `tests/accessibility.test.tsx` — uses `./helpers`'s Context-Provider-based
+  `render(el, { wallet })`. Use this for most components.
+- `tests/accessibility.mocked-wallet.test.tsx` — uses
+  `jest.unstable_mockModule` to make `useWallet()`/`useStellarBalances()` real
+  `jest.fn()`s with per-test `mockReturnValue` control. Use this only when a
+  component's test genuinely needs that (e.g. asserting the hook was called with
+  specific arguments) — do **not** import from `./helpers` in this file, since
+  `./helpers` statically imports the real `src/mocks/wallet-contexts-mock` and
+  that import happens (per the ES module spec) before any
+  `jest.unstable_mockModule` call in the same file could intercept it, silently
+  making the mock never take effect.
+`npm install` sets up a **pre-commit hook** (Husky + lint-staged) that runs
+ESLint (`--fix`) and Prettier on staged files, so most style issues are
+caught before they reach CI. It only checks staged files, so it stays fast.
+If a file cannot be auto-fixed, the commit is blocked, fix it, `git add`
+again, and retry.
+
+### E2E tests (optional but recommended)
+
+`npm test` **skips** the E2E suite by default because it performs real
+`npm install` + `next build` runs (2-5 minutes each). Run them explicitly:
+
+```bash
+npm run test:e2e
+```
+
+See `tests/e2e/README.md` for details.
+
+### Flaky tests
+
+Occasionally a test fails intermittently for reasons unrelated to the change
+under review (timing, network, filesystem races). If you hit one:
+
+1. Re-run the failing test in isolation a few times to confirm it really is
+   flaky and not a genuine regression introduced by your change.
+2. If it's flaky, open a tracking issue describing the test name, the file,
+   and what you observed (failure rate, error output, whether it reproduces
+   locally or only in CI).
+3. Quarantine the test by skipping it with `it.skip`/`describe.skip` (or
+   `test.skip`), and add a comment directly above the skip referencing the
+   tracking issue, e.g. `// Flaky: skipped pending #1234`.
+4. Do not delete or silently leave a flaky test failing red. A skipped test
+   with a tracking issue is visible and actionable; a deleted or ignored one
+   is not.
+5. Once the tracking issue is resolved, remove the skip in the same PR that
+   fixes the underlying flakiness.
+
+### CI pipeline (what must stay green)
+
+Every PR runs the workflows in `.github/workflows/`:
+
+| Job | Command | Purpose |
+| --- | --- | --- |
+| Lint & format | `npm run lint` + `npm run format:check` | Style/format gate. |
+| Coverage gate | `npm test -- --coverage` | Fails the merge if coverage drops below the configured floor. |
+| Build & verify | `npm run build` + `npm run verify:pack` | Ensures the package builds and contains the right files. |
+| E2E (default) | scoped `tests/e2e/scaffold-default.e2e.test.ts` | Default template scaffolds and builds. |
+| Pack guard | `npm run build` + `node scripts/check-pack-size.mjs` | Tarball/unpacked size thresholds. |
+| Coverage report | `npm run test:coverage` | Posts a coverage summary as a PR comment. |
+
+If your change adds or modifies behavior, add or update tests so the
+coverage gate stays green.
+
+---
+
+## Label Taxonomy
+
+Labels are applied automatically; you don't need to add them manually.
+
+### Area labels (`.github/labeler.yml`, by changed path)
+
+| Label | Applied when changes touch |
+| --- | --- |
+| `area:cli` | `bin/**`, `src/lib/**` |
+| `area:templates` | `src/templates/**` |
+| `area:backend` | `backend/**`, `routes-d/**` |
+| `area:docs` | `docs/**`, `**/*.md` |
+| `area:ci` | `.github/**` |
+| `area:tests` | `tests/**`, `**/*.test.ts`, `**/*.test.tsx`, `**/__tests__/**` |
+| `area:scripts` | `scripts/**` |
+
+### Size labels (size-label workflow, by changed-line count)
+
+| Label | Total changed lines |
+| --- | --- |
+| `size/xs` | <= 10 |
+| `size/s` | <= 50 |
+| `size/m` | <= 200 |
+| `size/l` | <= 800 |
+| `size/xl` | > 800 |
+
+### Triage labels (applied by maintainers)
+
+Commonly used to route work: `good first issue`, `help wanted`, `product`,
+`bug`, `enhancement`, `question`, `documentation`, `duplicate`, `invalid`,
+`wontfix`. Pick issues filtered by these on the Issues tab.
+
+---
+
+## Branch & PR Expectations
+
+### Branch naming
+
+Use a descriptive, type-prefixed branch:
+
+```bash
+git checkout -b feature/<short-description>
+git checkout -b bugfix/<short-description>
+git checkout -b docs/<short-description>
+```
+
+### Opening a PR
+
+1. Push your branch to your fork.
+2. Open a PR against `nextellarlabs/nextellar:main`.
+3. Fill in the PR template (see `pr.md` for a full example). A good PR has:
+   - An **Issues closed** list, one `Closes #NNN` line per issue the PR
+     resolves. GitHub auto-closes the issue when the PR merges.
+   - A **Summary** describing what changed and why.
+   - A **Files changed** section listing every touched path.
+   - A **Test plan** with the commands you ran and the expected result.
+4. Request review from the maintainers.
+
+### Closing issues from a PR
+
+Always reference the issue with the `Closes` keyword so it is linked and
+auto-closed on merge:
+
+```
+Closes #877
+Closes #876
+```
+
+One PR may close several related issues, list each on its own `Closes #NNN`
+line.
+
+### Focus & scope
+
+Keep PRs focused on a single concern (an issue or a tightly-related group of
+issues). The path-based labeler will categorize it automatically, so you
+don't need to set area/size labels yourself.
+
+---
+
+## Finding Issues to Work On
+
+Filter issues on GitHub by label, e.g.:
+
+```text
+is:issue is:open label:"good first issue"
+```
+
+Read the issue description and any linked discussion before starting. When
+you open a PR, reference the issue with `Closes #NNN` as described above.
+
+---
+
+Thank you for helping make Nextellar better! 🎉

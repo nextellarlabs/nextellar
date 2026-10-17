@@ -173,4 +173,75 @@ describe('BalanceDisplay Component (#838)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Refresh balances' }));
     expect(mockRefresh).toHaveBeenCalledTimes(1);
   });
+
+  describe('fiat-equivalent display (#1104)', () => {
+    it('shows no fiat line when getFiatPrice is not provided', () => {
+      mockUseStellarBalances.mockReturnValue(
+        hookState({ balances: [{ asset_type: 'native', balance: '100.0000000' }] }),
+      );
+      renderWithWallet(<BalanceDisplay />);
+
+      expect(screen.queryByText(/≈/)).not.toBeInTheDocument();
+    });
+
+    it('shows the native balance fiat equivalent when a price is available', () => {
+      mockUseStellarBalances.mockReturnValue(
+        hookState({ balances: [{ asset_type: 'native', balance: '100.0000000' }] }),
+      );
+      renderWithWallet(<BalanceDisplay getFiatPrice={() => 0.12} />);
+
+      expect(screen.getByText(/≈ \$12\.00/)).toBeInTheDocument();
+    });
+
+    it('shows a fiat equivalent per credit asset, looked up by code and issuer', () => {
+      mockUseStellarBalances.mockReturnValue(
+        hookState({
+          balances: [
+            {
+              asset_type: 'credit_alphanum4',
+              asset_code: 'USDC',
+              asset_issuer: ISSUER,
+              balance: '50.0000000',
+            },
+          ],
+        }),
+      );
+      const getFiatPrice = jest.fn().mockReturnValue(1);
+      renderWithWallet(<BalanceDisplay getFiatPrice={getFiatPrice} />);
+
+      expect(getFiatPrice).toHaveBeenCalledWith({ code: 'USDC', issuer: ISSUER });
+      expect(screen.getByText(/≈ \$50\.00/)).toBeInTheDocument();
+    });
+
+    it('omits the fiat line for an asset with no available price, without affecting others', () => {
+      mockUseStellarBalances.mockReturnValue(
+        hookState({
+          balances: [
+            { asset_type: 'native', balance: '100.0000000' },
+            {
+              asset_type: 'credit_alphanum4',
+              asset_code: 'USDC',
+              asset_issuer: ISSUER,
+              balance: '50.0000000',
+            },
+          ],
+        }),
+      );
+      renderWithWallet(
+        <BalanceDisplay getFiatPrice={({ code }) => (code === 'XLM' ? 0.12 : null)} />,
+      );
+
+      expect(screen.getByText(/≈ \$12\.00/)).toBeInTheDocument();
+      expect(screen.queryByText(/≈ \$50\.00/)).not.toBeInTheDocument();
+    });
+
+    it('formats the fiat equivalent using the provided currency', () => {
+      mockUseStellarBalances.mockReturnValue(
+        hookState({ balances: [{ asset_type: 'native', balance: '100.0000000' }] }),
+      );
+      renderWithWallet(<BalanceDisplay getFiatPrice={() => 0.12} fiatCurrency="EUR" />);
+
+      expect(screen.getByText(/≈ €12\.00/)).toBeInTheDocument();
+    });
+  });
 });
