@@ -276,4 +276,97 @@ describe('upgrade', () => {
     expect(logged).toContain('proceeding despite the downgrade');
     expect(await fs.pathExists(path.join(dir, '.nextellar/backups'))).toBe(true);
   });
+  describe('legacy .nextellar/config.json migration (#907)', () => {
+    const configFile = (dir: string) => path.join(dir, '.nextellar/config.json');
+    const cliVersion = () =>
+      fs.readJson(path.resolve(__dirname, '../package.json')).then((p) => p.version as string);
+
+    it('migrates a legacy config and persists it when the upgrade applies changes', async () => {
+      const dir = await makeProject({
+        overrides: { 'src/hooks/useStellarBalances.ts': '// stale copy\n' },
+      });
+      await fs.outputJson(configFile(dir), {
+        templateName: 'minimal',
+        version: '1.0.0',
+        created: 1700000000,
+        wallets: 'freighter, albedo',
+        custom: { keep: true },
+      });
+      process.chdir(dir);
+
+      await upgrade({ yes: true });
+
+      const config = await fs.readJson(configFile(dir));
+      expect(config).toMatchObject({
+        schemaVersion: 1,
+        template: 'minimal',
+        nextellarVersion: await cliVersion(),
+        createdAt: '2023-11-14T22:13:20.000Z',
+        wallets: ['freighter', 'albedo'],
+        custom: { keep: true },
+        // Legacy keys are kept, so the migration is lossless.
+        templateName: 'minimal',
+        version: '1.0.0',
+      });
+      const logged = output();
+      expect(logged).toMatch(/Project template:\s*\S*minimal/);
+      expect(logged).toContain('will be migrated to v1');
+      expect(logged).toContain('template: copied from legacy "templateName"');
+      expect(logged).toContain('Migrated .nextellar/config.json to schema v1');
+    });
+
+    it('persists the migration even when no template files changed', async () => {
+      const dir = await makeProject();
+      process.chdir(dir);
+
+      await upgrade({ yes: true });
+
+      const config = await fs.readJson(configFile(dir));
+      expect(config).toMatchObject({ schemaVersion: 1, template: 'minimal', nextellarVersion: '1.0.0' });
+      expect(Number.isNaN(Date.parse(config.createdAt))).toBe(false);
+      expect(output()).toContain('No template updates to apply.');
+    });
+
+    it('does not write the migrated config on --dry-run', async () => {
+      const dir = await makeProject();
+      const before = await fs.readFile(configFile(dir), 'utf8');
+      process.chdir(dir);
+
+      await upgrade({ dryRun: true });
+
+      expect(await fs.readFile(configFile(dir), 'utf8')).toBe(before);
+      expect(output()).toContain('will be migrated to v1');
+    });
+
+    it('round-trips: a second upgrade finds nothing left to migrate', async () => {
+      const dir = await makeProject();
+      process.chdir(dir);
+
+      await upgrade({ yes: true });
+      const first = await fs.readJson(configFile(dir));
+      logSpy.mockClear();
+      await upgrade({ yes: true });
+
+      expect(output()).not.toContain('will be migrated');
+      expect(await fs.readJson(configFile(dir))).toEqual(first);
+    });
+
+    it('refuses a config written by a newer CLI and leaves it untouched', async () => {
+      const dir = await makeProject();
+      const newer = { schemaVersion: 99, template: 'minimal', nextellarVersion: '9.0.0', createdAt: '2030-01-01T00:00:00.000Z' };
+      await fs.outputJson(configFile(dir), newer);
+      process.chdir(dir);
+
+      await expect(upgrade({ yes: true })).rejects.toThrow(/only understands up to 1/);
+      expect(await fs.readJson(configFile(dir))).toEqual(newer);
+    });
+
+    it('reports an unreadable config instead of silently treating it as empty', async () => {
+      const dir = await makeProject();
+      await fs.outputFile(configFile(dir), '{ not json');
+      process.chdir(dir);
+
+      await expect(upgrade({ yes: true })).rejects.toThrow(/not valid JSON/);
+    });
+  });
 });

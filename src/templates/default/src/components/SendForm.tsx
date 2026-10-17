@@ -4,15 +4,45 @@ import { useState } from 'react';
 import { StrKey } from '@stellar/stellar-sdk';
 import { useWallet, isUnsignedFeeBumpResult } from '../contexts';
 import { useStellarBalances } from '../hooks/useStellarBalances';
+import { useFederationLookup } from '../hooks/useFederationLookup';
+import { MEMO_TYPES, validateMemo, type MemoType, type PaymentMemo } from '../lib/memo';
 import TransactionStatusBadge from './TransactionStatusBadge';
 
 type FormState = 'idle' | 'submitting' | 'success' | 'error' | 'awaiting_sponsor';
+
+const MEMO_TYPE_LABELS: Record<MemoType, string> = {
+  none: 'None',
+  text: 'Text',
+  id: 'ID',
+  hash: 'Hash',
+  return: 'Return',
+};
+
+const MEMO_PLACEHOLDERS: Record<MemoType, string> = {
+  none: '',
+  text: 'Up to 28 bytes',
+  id: 'e.g. 1234567890',
+  hash: '64 hex characters',
+  return: '64 hex characters (refund tx hash)',
+};
+
+function shortKey(key: string): string {
+  return `${key.slice(0, 6)}…${key.slice(-6)}`;
+}
 
 /**
  * Send Form
  *
  * A payment form for the connected wallet: destination address, asset selector,
  * amount, optional memo, and optional fee-bump sponsor key.
+ *
+ * The destination can be a G… public key or a SEP-2 federation address
+ * (`name*domain.com`), which is resolved to an account id as you type. When
+ * the federation server requires a memo (exchanges often do), the memo is
+ * pre-filled and locked so the payment cannot be sent without it.
+ *
+ * Memo types: none / text (≤ 28 bytes) / id (uint64) / hash and return
+ * (32 bytes as 64 hex chars), each validated before submit.
  *
  * A fee-bump's outer envelope must be signed by the sponsor's own key, which
  * this form has no channel to obtain (only their public key is collected) —
@@ -27,15 +57,38 @@ export default function SendForm() {
   const [selectedAsset, setSelectedAsset] = useState<string>('XLM');
   const [amount, setAmount] = useState('');
   const [memo, setMemo] = useState('');
+  const [memoType, setMemoType] = useState<MemoType>('text');
   const [sponsor, setSponsor] = useState('');
   const [state, setState] = useState<FormState>('idle');
   const [error, setError] = useState<string | null>(null);
   const [feeBumpXdr, setFeeBumpXdr] = useState<string | null>(null);
 
-  const addressError =
-    to.length > 0 && !StrKey.isValidEd25519PublicKey(to)
-      ? 'Enter a valid Stellar public key (starts with G).'
+  const federation = useFederationLookup(to);
+  const isFederation = to.includes('*');
+  const destination = isFederation
+    ? federation.status === 'resolved'
+      ? federation.record?.accountId ?? null
+      : null
+    : to;
+
+  const addressError = isFederation
+    ? federation.status === 'error'
+      ? federation.error
+      : null
+    : to.length > 0 && !StrKey.isValidEd25519PublicKey(to)
+      ? 'Enter a valid Stellar public key (starts with G) or a federation address (name*domain.com).'
       : null;
+
+  // A memo required by the federation server overrides (and locks) the field.
+  const lockedMemo: PaymentMemo | undefined =
+    isFederation && federation.status === 'resolved' ? federation.record?.memo : undefined;
+  const effectiveMemoType: MemoType = lockedMemo?.type ?? memoType;
+  const effectiveMemo = lockedMemo?.value ?? (memoType === 'none' ? '' : memo);
+
+  const memoError =
+    effectiveMemoType !== 'text' && effectiveMemoType !== 'none' && effectiveMemo.length === 0
+      ? `Enter a ${MEMO_TYPE_LABELS[effectiveMemoType]} memo or choose None.`
+      : validateMemo(effectiveMemoType, effectiveMemo);
 
   const sponsorError =
     sponsor.length > 0 && !StrKey.isValidEd25519PublicKey(sponsor)
@@ -50,16 +103,17 @@ export default function SendForm() {
   const canSubmit =
     connected &&
     !!sendPayment &&
-    to.length > 0 &&
+    !!destination &&
     amount.length > 0 &&
     !addressError &&
     !sponsorError &&
     !amountError &&
+    !memoError &&
     state !== 'submitting';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!sendPayment || addressError || sponsorError || amountError) return;
+    if (!sendPayment || !destination || addressError || sponsorError || amountError || memoError) return;
 
     setState('submitting');
     setError(null);
@@ -77,19 +131,23 @@ export default function SendForm() {
                 : 'XLM';
             })();
 
+      // Text memos are passed as a plain string (backwards compatible with
+      // PaymentOptions.memo); other types as { type, value }.
+      const memoParam: string | PaymentMemo | undefined =
+        effectiveMemoType === 'none' || effectiveMemo === ''
+          ? undefined
+          : effectiveMemoType === 'text'
+            ? effectiveMemo
+            : { type: effectiveMemoType, value: effectiveMemo };
+
+      // With a sponsor, sendPayment returns the unsigned fee-bump XDR for the
+      // sponsor to sign out-of-band (see WalletProvider PaymentOptions.sponsor).
       const result = await sendPayment({
-      // NOTE: the sponsor input above is validated but not yet wired into
-      // sendPayment — PaymentOptions has no `sponsor` field. A fee-bump send
-      // needs the sponsor's own signature on the outer envelope, which this
-      // wallet has no channel to obtain from just a public key; building
-      // that flow (return an unsigned fee-bump XDR for the sponsor to
-      // co-sign out-of-band) is out of scope for this change. Tracked
-      // separately rather than silently dropped here.
-      await sendPayment({
-        to,
+        to: destination,
         amount,
         asset: assetParam,
-        memo: memo || undefined,
+        memo: memoParam,
+        sponsor: sponsor || undefined,
       });
 
       if (isUnsignedFeeBumpResult(result)) {
@@ -100,6 +158,7 @@ export default function SendForm() {
         setTo('');
         setAmount('');
         setMemo('');
+        setMemoType('text');
         setSponsor('');
       }
     } catch (err) {
@@ -146,12 +205,25 @@ export default function SendForm() {
           type="text"
           value={to}
           onChange={(e) => setTo(e.target.value)}
-          placeholder="GABC...1234"
+          placeholder="GABC...1234 or name*domain.com"
           disabled={!connected || state === 'submitting'}
           aria-invalid={!!addressError}
-          aria-describedby="send-form-to-error"
+          aria-describedby="send-form-to-error send-form-to-federation"
           className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
         />
+        <p
+          id="send-form-to-federation"
+          aria-live="polite"
+          data-testid="send-form-federation"
+          className="mt-1 text-xs text-gray-500 dark:text-gray-400"
+        >
+          {isFederation && federation.status === 'resolving' ? 'Resolving federation address…' : ''}
+          {isFederation && federation.status === 'resolved' && federation.record ? (
+            <span title={federation.record.accountId} className="font-mono">
+              Resolves to {shortKey(federation.record.accountId)}
+            </span>
+          ) : null}
+        </p>
         <p
           id="send-form-to-error"
           aria-live="assertive"
@@ -213,17 +285,50 @@ export default function SendForm() {
       </div>
 
       <div>
+        <label htmlFor="send-form-memo-type" className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
+          Memo type
+        </label>
+        <select
+          id="send-form-memo-type"
+          value={effectiveMemoType}
+          onChange={(e) => setMemoType(e.target.value as MemoType)}
+          disabled={!connected || state === 'submitting' || !!lockedMemo}
+          className="mb-2 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+        >
+          {MEMO_TYPES.map((type) => (
+            <option key={type} value={type}>
+              {MEMO_TYPE_LABELS[type]}
+            </option>
+          ))}
+        </select>
         <label htmlFor="send-form-memo" className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
           Memo (optional)
         </label>
         <input
           id="send-form-memo"
           type="text"
-          value={memo}
+          value={effectiveMemo}
           onChange={(e) => setMemo(e.target.value)}
-          disabled={!connected || state === 'submitting'}
-          className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+          placeholder={MEMO_PLACEHOLDERS[effectiveMemoType]}
+          readOnly={!!lockedMemo}
+          disabled={!connected || state === 'submitting' || effectiveMemoType === 'none'}
+          aria-invalid={!!memoError}
+          aria-describedby="send-form-memo-error send-form-memo-locked"
+          className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 read-only:bg-gray-100 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:read-only:bg-gray-700"
         />
+        <p id="send-form-memo-locked" className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          {lockedMemo && federation.record
+            ? `Memo required by ${federation.record.stellarAddress} (locked).`
+            : ''}
+        </p>
+        <p
+          id="send-form-memo-error"
+          aria-live="assertive"
+          aria-atomic="true"
+          className="mt-1 min-h-[1rem] text-xs text-red-600 dark:text-red-400"
+        >
+          {memoError ?? ''}
+        </p>
       </div>
 
       <div>

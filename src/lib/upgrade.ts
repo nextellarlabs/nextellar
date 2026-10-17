@@ -5,6 +5,10 @@ import readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { fileURLToPath } from "url";
 import { recordAuditEvent } from "./audit-log.js";
+import {
+  PROJECT_CONFIG_SCHEMA_VERSION,
+  migrateProjectConfig,
+} from "./project-config.js";
 
 interface UpgradeOptions {
   dryRun?: boolean;
@@ -125,9 +129,32 @@ export async function upgrade(opts: UpgradeOptions = {}) {
     throw new Error("Not a Nextellar project: missing .nextellar/config.json");
   }
 
-  const projectConfig = await fs.readJson(configPath).catch(() => ({}));
-  const templateName = projectConfig.template || "default";
-  const currentVersion = projectConfig.nextellarVersion || "unknown";
+  let rawConfig: unknown;
+  try {
+    rawConfig = await fs.readJson(configPath);
+  } catch {
+    throw new Error(
+      "Invalid .nextellar/config.json: not valid JSON. Fix or recreate it (see docs/config-migration-guide.md).",
+    );
+  }
+  // Migrate legacy config shapes (#907). Lossless and idempotent; persisted
+  // below only when the upgrade actually writes (never on --dry-run/--check).
+  const configStat = await fs.stat(configPath);
+  const migration = migrateProjectConfig(rawConfig, {
+    fallbackCreatedAt: configStat.mtime.toISOString(),
+  });
+  const projectConfig: Record<string, unknown> = { ...migration.config };
+  const templateName = String(projectConfig.template || "default");
+  const currentVersion = String(projectConfig.nextellarVersion || "unknown");
+  const persistMigration = async () => {
+    if (!migration.migrated) return;
+    await fs.writeJson(configPath, projectConfig, { spaces: 2 });
+    console.log(
+      pc.green(
+        `Migrated .nextellar/config.json to schema v${PROJECT_CONFIG_SCHEMA_VERSION}`,
+      ),
+    );
+  };
 
   const myPkg = await fs.readJson(
     path.join(
@@ -140,6 +167,14 @@ export async function upgrade(opts: UpgradeOptions = {}) {
   console.log(pc.cyan("Nextellar Upgrade"));
   console.log(`Project template: ${pc.bold(templateName)}`);
   console.log(`${currentVersion} -> ${cliVersion}`);
+  if (migration.migrated) {
+    console.log(
+      pc.yellow(
+        `Legacy .nextellar/config.json (schema v${migration.fromVersion}) will be migrated to v${PROJECT_CONFIG_SCHEMA_VERSION}:`,
+      ),
+    );
+    for (const change of migration.changes) console.log(` - ${change}`);
+  }
   console.log("");
 
   if (
@@ -236,6 +271,7 @@ export async function upgrade(opts: UpgradeOptions = {}) {
 
   if (changes.length === 0 && Object.keys(pkgChanges).length === 0) {
     console.log(pc.green("✔️  No template updates to apply."));
+    if (!opts.dryRun && !opts.check) await persistMigration();
     return;
   }
 
@@ -345,9 +381,17 @@ export async function upgrade(opts: UpgradeOptions = {}) {
   }
 
   // Update config nextellarVersion (only reached when changes were actually applied)
+  // (also persists any legacy-config migration from above)
   projectConfig.nextellarVersion = cliVersion;
   projectConfig.updatedAt = new Date().toISOString();
   await fs.writeJson(configPath, projectConfig, { spaces: 2 });
+  if (migration.migrated) {
+    console.log(
+      pc.green(
+        `Migrated .nextellar/config.json to schema v${PROJECT_CONFIG_SCHEMA_VERSION}`,
+      ),
+    );
+  }
 
   await recordAuditEvent(cwd, "upgrade", {
     template: templateName,

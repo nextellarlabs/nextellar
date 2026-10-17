@@ -166,7 +166,7 @@ The following components and tools are planned but **not yet included** in scaff
 | `<SendForm>` component | Installable via `nextellar add send-form` | — |
 | `<TransactionList>` component | Installable via `nextellar add transaction-list` | — |
 | `<ContractCallForm>` / `<ContractCallPreview>` components | Installable via `nextellar add contract-call` | — |
-| `<ReceiveForm>` component | Planned | — |
+| `<ReceiveForm>` component | Ships in the default template (`nextellar add receive-form` elsewhere) | #662 |
 | `<TransactionStatusBadge>` component | Planned | — |
 | Full `shadcn/ui` integration | Templates ship inline shadcn/ui-inspired components; full setup is manual | — |
 | Storybook for component previews | Planned | — |

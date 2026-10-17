@@ -93,6 +93,45 @@ export default function HistoryPage() {
 
 The component automatically integrates with the wallet context. When no wallet is connected, it displays a message prompting the user to connect.
 
+### ReceiveForm Component
+
+`ReceiveForm` shows the connected wallet's address so others can pay it:
+
+- the public key in monospace, truncated (`GABC12…XYZ789`), with a **Show/Hide** toggle for the full key
+- a copy button with "Copied!" feedback for about 2 seconds
+- a QR code rendered as inline SVG by `src/lib/qr.ts`. It has no dependency, adds about 3 KB gzipped and is SSR-safe. **Download QR** saves it as an `.svg` file.
+- an empty state when no wallet is connected
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `address` | `string` | connected wallet | Show a specific address instead of the wallet's |
+| `amount` | `string` | — | Encode a SEP-7 `web+stellar:pay?destination=G…&amount=…` request in the QR code and copy button instead of the bare address |
+| `asset` | `{ code, issuer }` | XLM | Asset for the payment request (needs `amount`) |
+| `memo` / `message` | `string` | — | Added to the payment request (needs `amount`) |
+| `qrSize` | `number` | `200` | QR code size in px |
+
+```tsx
+import ReceiveForm from "@/components/ReceiveForm";
+
+<ReceiveForm />                                  // your address
+<ReceiveForm amount="25" message="Invoice #42" /> // a 25 XLM payment request
+```
+
+### SendForm Component
+
+`SendForm` sends a payment from the connected wallet.
+
+- **Recipient**: a `G…` public key or a [SEP-2](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0002.md) federation address such as `alice*example.com`. Federation addresses resolve as you type: the domain's `stellar.toml` is read for `FEDERATION_SERVER`, then the server is queried. The form shows which account the address resolves to. Unknown addresses, domains without federation, timeouts and invalid server answers each show a clear error and keep **Send** disabled.
+- **Memo**: choose None, Text, ID, Hash or Return. Each type is validated before sending:
+  - Text: up to 28 bytes. Bytes are counted, not characters.
+  - ID: an unsigned 64-bit integer.
+  - Hash and Return: 64 hex characters.
+
+  The memo is added to the transaction the wallet builds.
+- **Required memos**: when a federation server says the recipient needs a memo (common for exchange deposit addresses), the memo type and value are filled in and locked, so the payment cannot be sent without them.
+
+The helpers live in `src/lib/sep2.ts` (`resolveFederationAddress`), `src/hooks/useFederationLookup.ts` and `src/lib/memo.ts` (`validateMemo`, `toStellarMemo`). `sendPayment({ memo })` still accepts a plain string as a text memo, and also takes `{ type, value }` for the other types.
+
 ### 📚 Component Previews (Storybook)
 
 The template includes [Storybook](https://storybook.js.org/) out of the box so you can view and develop components in isolation.

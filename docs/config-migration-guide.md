@@ -4,10 +4,11 @@ Every scaffolded project has a `.nextellar/config.json` file that records how th
 
 ---
 
-## Current schema (v1, unversioned)
+## Current schema (v1)
 
 ```json
 {
+  "schemaVersion": 1,
   "nextellarVersion": "0.4.2",
   "template": "default",
   "createdAt": "2026-01-15T10:32:00.000Z"
@@ -16,33 +17,61 @@ Every scaffolded project has a `.nextellar/config.json` file that records how th
 
 | Field              | Type   | Meaning                                                                 |
 | ------------------ | ------ | ------------------------------------------------------------------------ |
+| `schemaVersion`    | number | Shape of this file. `nextellar` refuses to touch a file with a higher version than it understands. |
 | `nextellarVersion` | string | The `nextellar` CLI version that scaffolded (or last upgraded) this project. |
 | `template`         | string | Which template was scaffolded (`default`, `minimal`, `defi`, `js-template`, `js-defi`). |
 | `createdAt`        | string | ISO 8601 timestamp of when the project was scaffolded.                  |
 
-There is currently no `configVersion`/`schemaVersion` field in this file — the shape above is the only shape that has ever existed, referred to here as "v1" for the purpose of this guide. `nextellar upgrade` reads `nextellarVersion` and `template` from it, but never adds, renames, or removes fields in `config.json` itself.
+Other keys (for example `horizonUrl`, `sorobanUrl` and `wallets` written by `nextellar init`) are allowed and always preserved.
 
-## What `nextellar upgrade` actually does
+## What `nextellar upgrade` does
 
 Running `npx nextellar upgrade` in a scaffolded project:
 
-1. Reads `.nextellar/config.json` to determine the project's template and the CLI version it was last scaffolded/upgraded with.
-2. Compares that version against the currently installed `nextellar` CLI version, and refuses to proceed (unless `--yes` is passed) if the installed CLI is older than the project — upgrading would downgrade project files.
-3. Diffs the project's `src/hooks` and `src/lib` files against the current version of the matching template, reporting files that are new or changed upstream.
+1. Reads `.nextellar/config.json` and **migrates it to the current schema** if needed (see below). An unreadable file is an error; it is no longer treated as empty.
+2. Compares the project's `nextellarVersion` against the installed CLI version. It refuses to proceed (unless `--yes` is passed) if the installed CLI is older than the project, because upgrading would downgrade project files.
+3. Diffs the project's `src/hooks` and `src/lib` files against the current version of the matching template, and reports files that are new or changed upstream.
 4. Diffs `package.json` for the Stellar-related dependencies (`@stellar/stellar-sdk`, `@creit.tech/stellar-wallets-kit`) against the template's current versions.
-5. Prints a changelog summary of what would change. Pass `--dry-run` to preview only, or omit it to apply the changes.
+5. Prints a summary of what would change, including each config migration step. Pass `--dry-run` to preview only, or omit it to apply the changes.
 
-**`config.json` itself is not migrated, rewritten, or version-bumped by any of this.** The only thing `upgrade` writes back is the `nextellarVersion` field, updated to the CLI version that just ran the upgrade, once source files have been reconciled.
+After applying changes, `upgrade` writes `nextellarVersion` (the CLI version that just ran) and `updatedAt`. If only the config needed migrating, it writes the migrated config and nothing else.
 
 ## Migrating between schema versions
 
-There is no v1 → v2 (or any other) config schema migration today, because no second schema version exists yet. If you're looking for:
+Implemented by `migrateProjectConfig()` in `src/lib/project-config.ts` (#907).
 
-- **A versioned `configVersion` field on `config.json`** — tracked in [#906](https://github.com/nextellarlabs/nextellar/issues/906).
-- **Migration behavior for `nextellar upgrade` when the schema changes** — tracked in [#907](https://github.com/nextellarlabs/nextellar/issues/907).
+### v0 (unversioned) → v1
 
-Once a versioned schema and its first migration land, this guide's "Migrating between schema versions" section will document each version transition here: what changed, why, and what `nextellar upgrade` does automatically versus what (if anything) requires manual action in an existing project.
+Every project scaffolded before `schemaVersion` existed is treated as v0. The migration:
+
+| Step | Detail |
+| ---- | ------ |
+| Add `schemaVersion: 1` | |
+| Fill `nextellarVersion` | from legacy `version` or `cliVersion`, otherwise `"unknown"` |
+| Fill `template` | from legacy `templateName` or `templateId`, otherwise `"default"` |
+| Fill `createdAt` | from legacy `created`, `created_at` or `createdOn`. Epoch seconds or milliseconds are converted to ISO 8601. If nothing usable is found, the config file's last-modified time is used. |
+| Convert `wallets` | a comma-separated string such as `"freighter, albedo"` becomes `["freighter", "albedo"]` |
+
+Guarantees:
+
+- **Lossless:** legacy keys and unknown keys are kept, never deleted.
+- **Idempotent:** a migrated (or already current) file migrates to itself. A valid `createdAt` string is kept exactly as written, so current files are never rewritten.
+- **Safe on preview:** `--dry-run` and `--check` show the migration but never write it.
+- **No silent downgrades:** a file with a `schemaVersion` newer than the CLI understands stops the upgrade with an error asking you to update `nextellar`.
+
+An incomplete v1 file (for example one hand-edited, or a legacy file that `nextellar init` stamped with `schemaVersion: 1` without the other fields) is repaired the same way.
+
+Example output:
+
+```text
+Legacy .nextellar/config.json (schema v0) will be migrated to v1:
+ - schemaVersion: 0 -> 1
+ - template: copied from legacy "templateName"
+ - createdAt: copied from legacy "created"
+...
+Migrated .nextellar/config.json to schema v1
+```
 
 ## If your project predates this guide
 
-Every project scaffolded so far has the same v1 shape described above — there is nothing to manually migrate. If `nextellar upgrade` reports `.nextellar/config.json` is missing entirely, that project was not created by `nextellar create` (or the file was deleted); recreate it with the three fields listed above, using your project's actual template name and the CLI version you're currently running.
+Run `npx nextellar upgrade --dry-run` to see what the migration would change, then `npx nextellar upgrade` to apply it. Nothing needs to be edited by hand. If `nextellar upgrade` reports `.nextellar/config.json` is missing entirely, the project was not created by `nextellar create` (or the file was deleted). Recreate it with the four fields above, using your project's actual template name and the CLI version you're currently running.

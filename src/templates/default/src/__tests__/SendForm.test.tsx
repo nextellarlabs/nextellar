@@ -77,11 +77,14 @@ describe('SendForm Component (#879)', () => {
     fireEvent.click(screen.getByRole('button', { name: /send/i }));
 
     await waitFor(() => {
-      expect(mockSendPayment).toHaveBeenCalledWith({
-        to: VALID_ADDRESS,
-        amount: '25',
-        memo: 'rent',
-      });
+      // objectContaining: SendForm also passes `asset` and `sponsor` (#951).
+      expect(mockSendPayment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: VALID_ADDRESS,
+          amount: '25',
+          memo: 'rent',
+        }),
+      );
     });
 
     expect(await screen.findByText('Sent')).toBeInTheDocument();
