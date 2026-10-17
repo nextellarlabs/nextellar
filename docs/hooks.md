@@ -455,6 +455,114 @@ async function getPrice() {
 }
 ```
 
+### `useSep24Interactive(options?)`
+
+Runs the [SEP-24](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0024.md) hosted deposit/withdraw flow:
+
+1. Requests the anchor's interactive URL (`POST /transactions/{deposit|withdraw}/interactive`).
+2. Opens it in a popup, or exposes it for `<Sep24InteractiveFrame>`.
+3. Listens for the anchor's `postMessage` updates. Only messages from the anchor's origin about this transaction are accepted.
+4. Polls `GET /transaction` as a fallback, which covers anchors that redirect instead of posting messages.
+
+Discover the server with `discoverSep24TransferServer(homeDomain)` (`@/lib/sep24`). Get the `authToken` from SEP-10.
+
+**Signature:**
+```typescript
+function useSep24Interactive(options?: {
+  fetchImpl?: typeof fetch;
+  pollIntervalMs?: number;         // default 5000, 0 disables polling
+  closePopupOnComplete?: boolean;  // default true
+  onUpdate?: (tx: Sep24Transaction) => void;
+}): UseSep24InteractiveReturn
+```
+
+**Returns:**
+- `start(opts)`: `opts` is `{ transferServer, kind: 'deposit' | 'withdraw', authToken, assetCode, assetIssuer?, account?, amount?, lang?, extra?, mode?: 'popup' | 'iframe' }`.
+- `status`: one of
+  - `idle`, `starting`, `interactive`
+  - `pending`: the user finished the form. For a withdrawal, `transaction.withdraw_anchor_account` / `withdraw_memo` say where to send funds.
+  - `completed`, `failed`
+  - `closed`: the user closed the window before finishing.
+  - `error`: for example a blocked popup. `url` is still set so you can show a link.
+- `transaction`, `transactionId`, `url`, `error`
+- `cancel()`, `reset()`
+
+**Example:**
+```tsx
+import { useSep24Interactive } from '@/hooks/useSep24Interactive';
+import Sep24InteractiveFrame from '@/components/Sep24InteractiveFrame';
+import { discoverSep24TransferServer } from '@/lib/sep24';
+
+function Deposit({ jwt, account }: { jwt: string; account: string }) {
+  const sep24 = useSep24Interactive();
+
+  async function onDeposit() {
+    const transferServer = await discoverSep24TransferServer('testanchor.stellar.org');
+    await sep24.start({ transferServer, kind: 'deposit', authToken: jwt, assetCode: 'USDC', account, mode: 'iframe' });
+  }
+
+  return (
+    <>
+      <button onClick={onDeposit}>Deposit USDC</button>
+      {sep24.url && sep24.status === 'interactive' && (
+        <Sep24InteractiveFrame url={sep24.url} onClose={sep24.cancel} />
+      )}
+      {sep24.status === 'completed' && <p>Deposit complete: {sep24.transaction?.amount_out}</p>}
+    </>
+  );
+}
+```
+
+`<Sep24InteractiveFrame url onClose? closeLabel? title? height?>` only renders https URLs (or http://localhost). It sandboxes the iframe to `allow-scripts allow-same-origin allow-forms allow-popups`.
+
+---
+
+## Multi-sig Hooks
+
+### `useMultisigTransaction(account, networkPassphrase)`
+
+Collects signatures for a transaction that needs several signers, and tracks
+which of the account's signers have signed and whether the threshold is met.
+It wraps `createMultisigSession` from `@/lib/multisig`. That module also exports:
+- `buildMultisigTransaction({ source, operations, networkPassphrase, fee?, timeoutSeconds?, memo? })`, with a default 1-hour timeout to leave time for collecting signatures
+- `evaluateSignatures(tx, account)`
+- `thresholdLevelForTransaction(tx)`
+
+`account` is the Horizon account record (`thresholds` + `signers`), e.g. from `server.loadAccount(id)`.
+
+The threshold level (low/medium/high) is derived from the operations, using Stellar's threshold table. A threshold of 0 still needs weight 1.
+
+Supported signer types:
+- `ed25519_public_key`: the signature is verified against the transaction hash. A matching hint alone is not enough.
+- `preauth_tx`
+- `sha256_hash`
+- `ed25519_signed_payload` signers are reported with `supported: false` and are not counted.
+
+**Returns:**
+- `load(txOrXdr, { thresholdLevel? })`
+- `addSignedXdr(xdr)`: merges a co-signer's signed copy. It is rejected if the copy is for a different transaction.
+- `addSignature(publicKey, base64Sig)`, `signWith(keypair)`, `reset()`
+- `status`: `{ requiredWeight, signedWeight, thresholdMet, signers[], pendingSigners[], unknownSignatures }`
+- `xdr`: the envelope with every collected signature
+- `thresholdMet`, `error`
+
+`unknownSignatures > 0` means the envelope carries a signature from a non-signer. The network rejects that with `tx_bad_auth_extra`.
+
+**Example:**
+```tsx
+import { Networks } from '@stellar/stellar-sdk';
+import { useMultisigTransaction } from '@/hooks/useMultisigTransaction';
+
+const multisig = useMultisigTransaction(accountRecord, Networks.TESTNET);
+multisig.load(unsignedXdr);
+multisig.addSignedXdr(signedByAlice);
+multisig.addSignedXdr(signedByBob);
+if (multisig.thresholdMet) await server.submitTransaction(TransactionBuilder.fromXDR(multisig.xdr!, Networks.TESTNET));
+```
+
+Limitation: only the transaction source account's signers are evaluated.
+Operations with a different `source` also need that account's threshold.
+
 ---
 
 ## Utility Hooks
