@@ -1,0 +1,7 @@
+{
+  "name": "upgrade-drift-fixture",
+  "private": true,
+  "dependencies": {
+    "@stellar/stellar-sdk": "^11.0.0"
+  }
+}
