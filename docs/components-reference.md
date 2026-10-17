@@ -52,6 +52,13 @@ active template has network switching disabled.
 
 No props. Reads config from `useWalletConfig()` and `useWallet()`.
 
+Keyboard: with the control focused, ArrowUp/ArrowDown/Home/End move between
+networks without switching, Enter switches to the highlighted network (and
+asks to disconnect first when a wallet is connected), Escape cancels back to
+the active network, and leaving the control keeps the highlighted choice.
+Alt+ArrowDown still opens the native option list. Pointer selection switches
+immediately.
+
 ---
 
 ## ThemeToggle
@@ -59,7 +66,9 @@ No props. Reads config from `useWalletConfig()` and `useWallet()`.
 `'use client'`. A three-way `light` / `dark` / `system` switcher backed by
 `useTheme()`. Must be rendered inside a `ThemeProvider`.
 
-No props.
+No props. The option color transition is skipped when the user has
+`prefers-reduced-motion: reduce` set; the setting is re-read on each switch
+(see `usePrefersReducedMotion`).
 
 ```tsx
 <ThemeProvider>
@@ -160,6 +169,7 @@ occupies to avoid layout shift.
 | width      | `string`  | `'w-full'`| Tailwind width class (e.g. `"w-28"`).    |
 | height     | `string`  | `'h-4'`   | Tailwind height class (e.g. `"h-10"`).   |
 | className  | `string`  | `''`      | Extra classes (e.g. `"rounded-full"`).   |
+| label      | `string`  | none      | Loading announcement. Omit inside a larger loading region (the block stays `aria-hidden`); set it when the block is the only loading indicator, to render a busy `role="status"` region. |
 
 ### `SkeletonList`
 
@@ -169,8 +179,13 @@ occupies to avoid layout shift.
 | label      | `string`                      | `'Loading'` | Accessible loading label.                 |
 | renderRow  | `(index: number) => ReactNode`| generic row | Custom skeleton shape per row.            |
 
+`SkeletonList` renders a polite `role="status"` region with `aria-busy="true"`,
+named by `label`, plus a screen-reader-only announcement; its placeholder rows
+are hidden from assistive tech.
+
 ```tsx
 <Skeleton width="w-10" height="h-10" className="rounded-full" />
+<Skeleton width="w-28" label="Loading balance" />
 <SkeletonList rows={4} label="Loading transaction history" />
 ```
 
