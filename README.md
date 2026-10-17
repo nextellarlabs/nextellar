@@ -82,6 +82,8 @@ Options:
   --package-manager <manager>    choose package manager (npm, yarn, pnpm, bun)
   -c, --with-contracts            scaffold Soroban smart contracts alongside the frontend
   --force                         overwrite existing directory
+  --workspace                     scaffold into the nearest npm/yarn/pnpm/bun workspace (monorepo) root
+  --workspace-root <dir>          workspace root to scaffold into (implies --workspace)
   --no-git                        skip initializing a git repository in the new project (defaults to on)
   --git-init                      explicitly initialize a git repository in the new project
   --install-timeout <ms>         timeout in ms for package install (default: 1200000 / 20 minutes)
@@ -199,7 +201,10 @@ Authoring a custom wallet adapter (the `ModuleInterface`, a worked example, and 
 Soroban contracts overlay guide (`--with-contracts`):  
 🔗 [docs/soroban-contracts-overlay-guide.md](docs/soroban-contracts-overlay-guide.md)
 
-Anchor discovery & KYC fields (SEP-1 / SEP-9 / SEP-38):  
+Adding an app to an existing monorepo (npm/yarn/pnpm workspaces, Turborepo):  
+🔗 [docs/monorepo-workspaces.md](docs/monorepo-workspaces.md)
+
+Anchor discovery & KYC fields (SEP-1 / SEP-6 / SEP-9 / SEP-38):  
 🔗 [docs/anchor-discovery-and-kyc.md](docs/anchor-discovery-and-kyc.md)
 
 Web authentication & payment request URIs (SEP-7 / SEP-45):  

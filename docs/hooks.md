@@ -455,6 +455,63 @@ async function getPrice() {
 }
 ```
 
+### `useSep6(options)`
+
+Non-interactive [SEP-6](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0006.md) deposits and withdrawals (on/off-ramp) against a configured anchor `TRANSFER_SERVER`. Discover the server with `discoverSep6TransferServer(homeDomain)` (`@/lib/sep6`), which resolves `TRANSFER_SERVER` from the domain's `stellar.toml`.
+
+Nothing is fetched on mount: deposit and withdraw requests create transactions on the anchor, so every call is explicit.
+
+**Signature:**
+```typescript
+function useSep6(options: UseSep6Options): UseSep6Return
+```
+
+**Options:**
+- `transferServer` (string, required): The anchor's SEP-6 base URL.
+- `authToken` (string): SEP-10 JWT, sent as `Authorization: Bearer` on every request. Required for assets whose `/info` entry has `authenticationRequired: true`.
+- `lang` (string): Language for anchor-provided descriptions.
+- `fetchImpl` (`typeof fetch`): Custom fetch, e.g. for tests.
+
+**Returns:**
+- `getInfo()`: `GET /info`. Stores a `Sep6Info` (`deposit`/`withdraw` keyed by asset code, with `enabled`, `authenticationRequired`, limits, fees, and required `fields`/`types`) in `info`.
+- `deposit(params)`: `GET /deposit` with `assetCode` and `account` (required) plus optional `type`, `amount`, `memo`, `memoType`, `emailAddress`, `claimableBalanceSupported`, `customerId`, etc.
+- `withdraw(params)`: `GET /withdraw` with `assetCode` and `type` (required) plus optional `account`, `amount`, `dest`, `destExtra`, `refundMemo`, etc.
+- `getTransaction(id)`: `GET /transaction?id=` for status polling. Stored in `transaction`.
+- `result`: the last deposit/withdraw result, one of:
+  - `{ kind: 'deposit', how, instructions, id, eta, minAmount, maxAmount, feeFixed, feePercent, extraInfo }`
+  - `{ kind: 'withdraw', accountId, memoType, memo, id, eta, ... }` — send the Stellar payment to `accountId` with that memo.
+  - `{ kind: 'customer_info_needed', fields }` — the anchor answered 403 and needs these SEP-9 fields via SEP-12 first.
+  - `{ kind: 'customer_info_status', status, moreInfoUrl, eta }` — KYC was submitted and is `pending` or `denied`.
+- `needsCustomerInfo` (boolean): True for either KYC result. KYC responses are results, not errors.
+- `loading` (boolean), `error` (Error | null): Any other non-2xx response, network failure, or malformed body becomes a `Sep6Error` (with `status` and the parsed `body`) in `error`, and the call rejects.
+- `reset()`: Clears state and ignores in-flight responses.
+
+**Example:**
+```tsx
+import { useSep6 } from '@/hooks/useSep6';
+
+function Deposit({ transferServer, jwt, account }: { transferServer: string; jwt: string; account: string }) {
+  const { getInfo, deposit, info, result, needsCustomerInfo, loading, error } = useSep6({
+    transferServer,
+    authToken: jwt,
+  });
+
+  return (
+    <div>
+      <button onClick={() => getInfo()}>Load assets</button>
+      {info?.deposit.USDC?.enabled && (
+        <button disabled={loading} onClick={() => deposit({ assetCode: 'USDC', account, amount: '100' })}>
+          Deposit USDC
+        </button>
+      )}
+      {result?.kind === 'deposit' && <p>{result.how}</p>}
+      {needsCustomerInfo && <p>Complete identity verification to continue.</p>}
+      {error && <p>{error.message}</p>}
+    </div>
+  );
+}
+```
+
 ---
 
 ## Utility Hooks

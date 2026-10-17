@@ -1,6 +1,6 @@
-# Anchor Discovery & KYC Fields (SEP-1 / SEP-9 / SEP-38)
+# Anchor Discovery & KYC Fields (SEP-1 / SEP-6 / SEP-9 / SEP-38)
 
-This guide covers three client-side helpers shipped in the default template
+This guide covers four client-side helpers shipped in the default template
 under `src/lib`:
 
 - **SEP-1** (`src/lib/sep1.ts`) — fetches and caches a domain's
@@ -8,6 +8,9 @@ under `src/lib`:
 - **SEP-9** (`src/lib/sep9.ts`) — a typed, shared `Sep9Fields` interface plus
   a validation/builder helper for standard KYC/AML fields, used when
   building SEP-6/SEP-12/SEP-24 KYC payloads.
+- **SEP-6** (`src/lib/sep6.ts`, `src/hooks/useSep6.ts`) — non-interactive
+  deposit and withdrawal (on/off-ramp) against an anchor's
+  `TRANSFER_SERVER`. See the [Hooks Reference](hooks.md#usesep6options).
 - **SEP-38** (`src/lib/sep38.ts`, `src/hooks/useSep38Quote.ts`) — indicative
   and firm anchor quotes. See the [Hooks Reference](hooks.md#sep-hooks) for
   `useSep38Quote`'s full API.
@@ -81,6 +84,43 @@ const { data, files } = splitSep9Payload(payload); // files: binary fields (phot
 them in error messages, or commit real personal data as test fixtures —
 this toolkit's own tests use synthetic values only.
 
+## SEP-6: deposit and withdrawal
+
+https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0006.md
+
+```typescript
+import { discoverSep6TransferServer, fetchSep6Info, sep6Deposit } from '@/lib/sep6';
+
+const transferServer = await discoverSep6TransferServer('anchor.example.com');
+const info = await fetchSep6Info({ transferServer });
+
+if (info.deposit.USDC?.enabled) {
+  const result = await sep6Deposit({
+    transferServer,
+    authToken: sep10Jwt, // required when info.deposit.USDC.authenticationRequired
+    assetCode: 'USDC',
+    account: publicKey,
+    amount: '100',
+  });
+
+  if (result.kind === 'customer_info_needed') {
+    // Collect result.fields (SEP-9 names, see above) and submit them via SEP-12.
+  }
+}
+```
+
+- `discoverSep6TransferServer(domain)` resolves `TRANSFER_SERVER` from
+  `stellar.toml` (via `fetchStellarToml`).
+- `fetchSep6Info`, `sep6Deposit`, `sep6Withdraw` and `fetchSep6Transaction`
+  wrap `GET /info`, `/deposit`, `/withdraw` and `/transaction`. All accept an
+  optional SEP-10 `authToken` and a `fetchImpl` for testing.
+- A 403 whose body is `non_interactive_customer_info_needed` or
+  `customer_info_status` is returned as a `customer_info_needed` /
+  `customer_info_status` result, because it is a normal step in the flow,
+  not a failure. Any other non-2xx response throws `Sep6Error` with `status`
+  and the parsed `body`.
+- The interactive flow (SEP-24) is not covered here.
+
 ## SEP-38: anchor quotes
 
 See the [Hooks Reference](hooks.md#sep-hooks) for `useSep38Quote`, and
@@ -95,6 +135,6 @@ See the [Hooks Reference](hooks.md#sep-hooks) for `useSep38Quote`, and
 ## See also
 
 - [Hooks Reference](hooks.md) — full hook API reference, including
-  `useSep38Quote`.
+  `useSep6` and `useSep38Quote`.
 - [Web Authentication & Payment Request URIs](web-auth-and-payments.md) —
   SEP-7 and SEP-45.

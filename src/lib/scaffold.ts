@@ -14,6 +14,16 @@ import { validateHorizonUrl, validateSorobanUrl } from "./validate.js";
 import { runPreflight } from "./preflight.js";
 import { resolveTemplateDir } from "./templates.js";
 import { printError, printWarning } from "./feedback.js";
+import {
+  assertPackageManagerMatches,
+  detectWorkspace,
+  ensureWorkspaceIncludes,
+  findWorkspaceRoot,
+  isCoveredByWorkspace,
+  removeNestedLockfiles,
+  resolveWorkspaceTarget,
+  type WorkspaceInfo,
+} from "./workspace.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -35,9 +45,34 @@ export interface ScaffoldOptions {
   force?: boolean;
   dryRun?: boolean;
   git?: boolean;
+  /**
+   * Scaffold into an existing npm/yarn/pnpm/bun workspace (#1117). `true`
+   * finds the nearest workspace root above the current directory; a string
+   * is an explicit workspace root path. `appName` is then a bare name
+   * (placed under `apps/` or `packages/`) or a path relative to the root.
+   */
+  workspace?: boolean | string;
 }
 
-export async function scaffold(options: ScaffoldOptions) {
+export interface ScaffoldResult {
+  /** Absolute directory the project was (or, for a dry run, would be) written to. */
+  targetDir: string;
+  /** Package manager used for (or recommended for) installing. */
+  packageManager: PackageManager;
+  /** Present in workspace mode. */
+  workspace?: {
+    root: string;
+    relativeDir: string;
+    packageManager: PackageManager;
+    turbo: boolean;
+    /** True when the workspace config had to be extended to include the app. */
+    registered: boolean;
+  };
+}
+
+export async function scaffold(
+  options: ScaffoldOptions,
+): Promise<ScaffoldResult> {
   const {
     appName,
     useTs,
@@ -55,6 +90,7 @@ export async function scaffold(options: ScaffoldOptions) {
     defaults,
     dryRun,
     git,
+    workspace,
   } = options;
 
   // Preflight toolchain check (#908): fail fast with guidance when the local
@@ -107,8 +143,57 @@ export async function scaffold(options: ScaffoldOptions) {
     ) || templateRoots[templateRoots.length - 1];
   const templateDir = path.join(templateRoot, resolvedTemplateName);
 
-  const targetDir = path.resolve(process.cwd(), appName);
-  const finalPackageManager = detectPackageManager(targetDir, packageManager);
+  // Workspace mode (#1117): resolve the workspace root first, so an invalid
+  // or missing workspace fails before anything is written.
+  let workspaceInfo: WorkspaceInfo | null = null;
+  if (workspace) {
+    workspaceInfo =
+      typeof workspace === "string"
+        ? detectWorkspace(path.resolve(process.cwd(), workspace))
+        : findWorkspaceRoot(process.cwd());
+    if (!workspaceInfo) {
+      const where =
+        typeof workspace === "string"
+          ? path.resolve(process.cwd(), workspace)
+          : `${process.cwd()} or any parent directory`;
+      throw new Error(
+        `No workspace found at ${where}. Expected a package.json with a "workspaces" field or a pnpm-workspace.yaml.`,
+      );
+    }
+    assertPackageManagerMatches(workspaceInfo, packageManager);
+  }
+  const workspaceTarget = workspaceInfo
+    ? resolveWorkspaceTarget(workspaceInfo, appName)
+    : null;
+
+  const targetDir =
+    workspaceTarget?.targetDir ?? path.resolve(process.cwd(), appName);
+  // In a workspace the package name is the folder name, never a path.
+  const packageName = workspaceTarget?.packageName ?? appName;
+  const finalPackageManager = workspaceInfo
+    ? workspaceInfo.packageManager
+    : detectPackageManager(targetDir, packageManager);
+  // Installs run once from the workspace root so the new app is linked.
+  const installCwd = workspaceInfo ? workspaceInfo.root : targetDir;
+  const workspaceRegistered =
+    !!workspaceInfo &&
+    !!workspaceTarget &&
+    !isCoveredByWorkspace(workspaceInfo.patterns, workspaceTarget.relativeDir);
+  const buildResult = (registered: boolean): ScaffoldResult => ({
+    targetDir,
+    packageManager: finalPackageManager,
+    ...(workspaceInfo && workspaceTarget
+      ? {
+          workspace: {
+            root: workspaceInfo.root,
+            relativeDir: workspaceTarget.relativeDir,
+            packageManager: workspaceInfo.packageManager,
+            turbo: workspaceInfo.turbo,
+            registered,
+          },
+        }
+      : {}),
+  });
 
   // Dry-run mode: print plan without writing
   if (dryRun) {
@@ -127,6 +212,17 @@ export async function scaffold(options: ScaffoldOptions) {
       `  ${pc.cyan("Wallets:")}    ${(wallets && wallets.length > 0 ? wallets : ["freighter", "albedo", "lobstr"]).join(", ")}`,
     );
     console.log(`  ${pc.cyan("Pkg manager:")} ${finalPackageManager}`);
+    if (workspaceInfo && workspaceTarget) {
+      console.log(`  ${pc.cyan("Workspace:")}  ${workspaceInfo.root}`);
+      console.log(
+        `  ${pc.cyan("Workspace path:")} ${workspaceTarget.relativeDir}${workspaceInfo.turbo ? " (Turborepo)" : ""}`,
+      );
+      if (workspaceRegistered) {
+        console.log(
+          `  ${pc.cyan("Workspace config:")} would add "${workspaceTarget.relativeDir}" to ${workspaceInfo.configSource}`,
+        );
+      }
+    }
     console.log("");
 
     // List files that would be copied
@@ -166,7 +262,7 @@ export async function scaffold(options: ScaffoldOptions) {
     // Show placeholder substitutions
     console.log("");
     console.log(pc.bold("  Placeholder substitutions:"));
-    console.log(`    {{APP_NAME}}         → ${appName}`);
+    console.log(`    {{APP_NAME}}         → ${packageName}`);
     console.log(
       `    {{HORIZON_URL}}      → ${horizonUrl || "https://horizon-testnet.stellar.org"}`,
     );
@@ -188,7 +284,7 @@ export async function scaffold(options: ScaffoldOptions) {
       pc.dim("  No files were written. Remove --dry-run to execute."),
     );
     console.log("");
-    return;
+    return buildResult(workspaceRegistered);
   }
 
   if (await fs.pathExists(targetDir)) {
@@ -233,6 +329,12 @@ export async function scaffold(options: ScaffoldOptions) {
       preserveTimestamps: true,
     });
     filesScaffolded = true;
+
+    // A workspace package must not carry its own lockfile: the root
+    // lockfile is the single source of truth for the whole workspace.
+    if (workspaceInfo) {
+      await removeNestedLockfiles(targetDir);
+    }
 
     if (withContracts) {
       const contractsTemplateDir = path.join(
@@ -288,7 +390,7 @@ export async function scaffold(options: ScaffoldOptions) {
     };
 
     const config = {
-      "{{APP_NAME}}": appName,
+      "{{APP_NAME}}": packageName,
       "{{HORIZON_URL}}": horizonUrl || "https://horizon-testnet.stellar.org",
       "{{SOROBAN_URL}}": sorobanUrl || "https://soroban-testnet.stellar.org",
       "{{NETWORK}}":
@@ -340,10 +442,25 @@ export async function scaffold(options: ScaffoldOptions) {
 
     console.log(`✔️  Scaffolded "${appName}" from template.`);
 
+    let registered = false;
+    if (workspaceInfo && workspaceTarget) {
+      registered = await ensureWorkspaceIncludes(
+        workspaceInfo,
+        workspaceTarget.relativeDir,
+      );
+      if (registered) {
+        console.log(
+          `✔️  Added "${workspaceTarget.relativeDir}" to ${workspaceInfo.configSource} workspaces.`,
+        );
+      }
+    }
+
     const result = await runInstall({
-      cwd: targetDir,
+      cwd: installCwd,
       skipInstall,
-      packageManager,
+      packageManager: workspaceInfo
+        ? workspaceInfo.packageManager
+        : packageManager,
       timeout: installTimeout,
     });
 
@@ -356,7 +473,7 @@ export async function scaffold(options: ScaffoldOptions) {
       throw new Error(
         `Dependency installation failed, but your project files were created.\n` +
           `Finish setup by running:\n\n` +
-          `  cd ${appName}\n` +
+          `  cd ${workspaceInfo ? workspaceInfo.root : appName}\n` +
           `  ${result.packageManager} install\n`,
       );
     }
@@ -364,7 +481,9 @@ export async function scaffold(options: ScaffoldOptions) {
     // Initialize a git repository in the newly scaffolded project unless the
     // user opted out with --no-git (or --git false). Defaults to on, matching
     // the behavior most users expect from a scaffolding tool.
-    if (git !== false) {
+    // Skipped in workspace mode: the monorepo already owns the git repo, and
+    // a nested repository would hide the app from it.
+    if (git !== false && !workspaceInfo) {
       try {
         await execa("git", ["init"], { cwd: targetDir, stdio: "ignore" });
       } catch (error: any) {
@@ -391,6 +510,8 @@ export async function scaffold(options: ScaffoldOptions) {
       },
       { noTelemetryFlag: telemetryEnabled === false },
     );
+
+    return buildResult(registered);
   } catch (error) {
     // Only clean up when scaffolding didn't get far enough to leave a
     // usable project behind (#673) — a copy-phase failure leaves nothing
