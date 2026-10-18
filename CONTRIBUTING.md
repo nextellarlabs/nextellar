@@ -51,7 +51,30 @@ npm run format:check
 
 # 5. Run the CLI locally against your changes
 npm start
+
+# 6. If you added/changed CLI commands, regenerate shell completions
+npm run generate:completions
 ```
+
+### Updating Shell Completions
+
+When you add new CLI commands, options, templates, or features, update the shell completions:
+
+1. Edit `bin/generate-completions.ts` and update the relevant constants:
+   - `COMMANDS` - List of subcommands
+   - `TEMPLATES` - Available templates
+   - `FEATURES` - Features for the `add` command
+   - `PACKAGE_MANAGERS` - Supported package managers
+   - `WALLETS` - Supported wallet adapters
+
+2. Regenerate the completion scripts:
+   ```bash
+   npm run generate:completions
+   ```
+
+3. Test the completions in your shell (see `docs/shell-completions.md` for installation)
+
+4. Commit both the generator changes and the generated files in `completions/`
 
 ## Accessibility (a11y) Testing
 

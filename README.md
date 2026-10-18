@@ -56,6 +56,8 @@ npm install -g nextellar
 nextellar my-app
 ```
 
+**Shell completions:** Tab completion is available for bash, zsh, fish, and PowerShell. See [docs/shell-completions.md](docs/shell-completions.md) for installation instructions.
+
 ---
 
 ## ⚙️ CLI Usage
@@ -226,6 +228,9 @@ Doctor diagnostic & troubleshooting guide:
 
 Testing guide for generated apps (Storybook interaction tests, and adding Jest/Vitest if you need it):  
 🔗 [docs/testing-guide.md](docs/testing-guide.md)
+
+Shell completions for bash, zsh, fish, and PowerShell (tab completion for commands, options, and arguments):  
+🔗 [docs/shell-completions.md](docs/shell-completions.md)
 
 ---
 

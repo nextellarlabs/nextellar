@@ -1,0 +1,126 @@
+#compdef nextellar
+# zsh completion for nextellar
+# To install: place this file in your $fpath (e.g., /usr/local/share/zsh/site-functions/_nextellar)
+
+_nextellar() {
+  local context state state_descr line
+  typeset -A opt_args
+
+  local -a commands
+  commands=(
+    'doctor:Run environment diagnostics'
+    'status:Show project health score'
+    'templates:Preview template file trees'
+    'init:Reconfigure network and wallet settings'
+    'add:Add a Stellar feature to an existing project'
+    'telemetry:Manage anonymous telemetry settings'
+    'upgrade:Upgrade project to latest template files'
+    'deploy:Validate and prepare deployment bundle'
+    'clean:Remove build artifacts'
+  )
+
+  local -a templates
+  templates=('default' 'minimal' 'defi' 'marketplace' 'nft' 'dao' 'payments')
+
+  local -a features
+  features=('useWallet' 'useStellarAccount' 'useStellarBalance' 'useStellarPayment' 'useSorobanContract' 'useAnchorAuth' 'WalletButton' 'AccountInfo' 'PaymentForm' 'TokenBalance')
+
+  local -a package_managers
+  package_managers=('npm' 'yarn' 'pnpm' 'bun')
+
+  local -a wallets
+  wallets=('freighter' 'xbull' 'albedo' 'lobstr')
+
+  _arguments -C \
+    '1: :->command' \
+    '*:: :->args' \
+    && return 0
+
+  case $state in
+    command)
+      _describe -t commands 'nextellar commands' commands
+      _arguments \
+        '1:project-name:' \
+        '(-t --typescript)'{-t,--typescript}'[Generate TypeScript project (default)]' \
+        '(-j --javascript)'{-j,--javascript}'[Generate JavaScript project]' \
+        '--template[Project template]:template:($templates)' \
+        '--horizon-url[Custom Horizon endpoint]:url:' \
+        '--soroban-url[Custom Soroban RPC endpoint]:url:' \
+        '(-w --wallets)'{-w,--wallets}'[Comma-separated wallet adapters]:wallets:($wallets)' \
+        '(-d --defaults)'{-d,--defaults}'[Skip prompts and use defaults]' \
+        '(-y --yes)'{-y,--yes}'[Alias for --defaults]' \
+        '--skip-install[Skip dependency installation]' \
+        '--package-manager[Choose package manager]:manager:($package_managers)' \
+        '(-c --with-contracts)'{-c,--with-contracts}'[Scaffold Soroban smart contracts]' \
+        '--force[Overwrite existing directory]' \
+        '--no-git[Skip git repository initialization]' \
+        '--git-init[Explicitly initialize git repository]' \
+        '--install-timeout[Timeout in ms for package install]:milliseconds:' \
+        '--no-telemetry[Disable telemetry]' \
+        '--verbose[Print additional diagnostic output]' \
+        '--debug[Alias for --verbose]' \
+        '(-v --version)'{-v,--version}'[Output version]' \
+        '(-h --help)'{-h,--help}'[Show help]'
+      ;;
+    args)
+      case $line[1] in
+        doctor)
+          _arguments \
+            '--json[Output results as JSON]' \
+            '--fix[Offer to auto-fix check failures]' \
+            '--horizon-url[Horizon endpoint to check]:url:' \
+            '--soroban-url[Soroban RPC endpoint to check]:url:'
+          ;;
+        status)
+          _arguments \
+            '--json[Output results as JSON]'
+          ;;
+        templates)
+          _arguments \
+            '1:template:($templates)' \
+            '--json[Output as JSON]'
+          ;;
+        init)
+          _arguments \
+            '(-d --defaults)'{-d,--defaults}'[Skip prompts and keep defaults]'
+          ;;
+        add)
+          _arguments \
+            '1:feature:($features)' \
+            '--list[Show all available features]' \
+            '--force[Overwrite existing files]' \
+            '--skip-install[Skip installing dependencies]' \
+            '--package-manager[Package manager]:manager:($package_managers)' \
+            '--dry-run[Simulate without writing files]' \
+            '--verbose[Print additional diagnostic output]' \
+            '--debug[Alias for --verbose]'
+          ;;
+        telemetry)
+          _arguments \
+            '1:action:(status enable disable)'
+          ;;
+        upgrade)
+          _arguments \
+            '--dry-run[Show what would change]' \
+            '--check[Dry preview with changelog]' \
+            '--diff[Print full file-by-file diff]' \
+            '--yes[Apply changes without prompting]' \
+            '--verbose[Print additional diagnostic output]' \
+            '--debug[Alias for --verbose]'
+          ;;
+        deploy)
+          _arguments \
+            '--dry-run[Validate without bundling]' \
+            '--size-threshold[Bundle size threshold in bytes]:bytes:' \
+            '--verbose[Print additional diagnostic output]' \
+            '--debug[Alias for --verbose]'
+          ;;
+        clean)
+          # No options
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_nextellar "$@"
