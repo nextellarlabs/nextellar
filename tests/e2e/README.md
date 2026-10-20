@@ -5,6 +5,7 @@ End-to-end tests that validate the complete scaffolding workflow including insta
 ## Why E2E Tests are Gated
 
 E2E tests are **SKIPPED BY DEFAULT** because they:
+
 - Take 2-5 minutes to run (full npm install + build cycle)
 - Require network access for package installation
 - Are resource-intensive
@@ -45,8 +46,9 @@ $env:NEXTELLAR_E2E="1"; npm test -- tests/e2e/scaffold-default.e2e.test.ts
 Validates the core product promise: scaffolded apps are production-ready.
 
 **What it tests:**
+
 - Scaffolds the default TypeScript template
-- Runs `npm install` 
+- Runs `npm install`
 - Verifies no `{{PLACEHOLDER}}` syntax remains in generated files
 - Verifies `.env.example` exists and is populated
 - Verifies `.nextellar/config.json` exists (if present in template)
@@ -54,12 +56,14 @@ Validates the core product promise: scaffolded apps are production-ready.
 - Verifies `.next` build artifacts are created
 
 **Requirements:**
+
 - Node.js 20+ (matches package.json engine requirement)
 - npm installed and in PATH
 - ~2-3 minutes execution time
 - ~500MB disk space for temp scaffolded app
 
 **Expected output on success:**
+
 ```
 PASS tests/e2e/scaffold-default.e2e.test.ts
   E2E: scaffold + install + build (default template)
@@ -72,6 +76,7 @@ PASS tests/e2e/scaffold-default.e2e.test.ts
 ```
 
 **Expected output when skipped (normal test run):**
+
 ```
 SKIP tests/e2e/scaffold-default.e2e.test.ts
   E2E: scaffold + install + build (default template)
@@ -97,8 +102,9 @@ These tests can be integrated into CI pipelines:
 ### Build fails with TypeScript errors
 
 Check the build output in the test failure message. The test captures and displays:
+
 - Build stdout
-- Build stderr  
+- Build stderr
 - Error details
 
 The scaffolded app directory is cleaned up after the test, but you can comment out the `afterAll` cleanup to inspect the generated files.
@@ -106,6 +112,7 @@ The scaffolded app directory is cleaned up after the test, but you can comment o
 ### Test times out
 
 The test has a 5-minute timeout. If it consistently times out:
+
 - Check network connection (npm install requires network)
 - Check available disk space
 - Consider increasing the timeout in the test file
@@ -113,6 +120,7 @@ The test has a 5-minute timeout. If it consistently times out:
 ### Unresolved placeholders found
 
 If the test fails with unresolved `{{PLACEHOLDER}}` syntax:
+
 1. Check which file contains the placeholder (logged in test output)
 2. Verify the file is in `filesToProcess` array in `src/lib/scaffold.ts`
 3. Verify the placeholder key exists in the `config` object in `src/lib/scaffold.ts`
@@ -122,21 +130,43 @@ If the test fails with unresolved `{{PLACEHOLDER}}` syntax:
 Validates that a scaffolded app actually boots and renders — not just builds. The other suites here run `next build` (a production compile), which does not catch every runtime error a dev server load can hit (a client-only hook misbehaving, a hydration mismatch, a broken provider).
 
 **What it tests:**
+
 - Scaffolds the default TypeScript template and runs `npm install`
 - Starts `npm run dev` on a dedicated port (3100, distinct from the default 3000 to avoid colliding with a developer's own local dev server)
 - Loads the home page in a real Chromium browser via Playwright
 - Asserts the page responds successfully, renders non-empty content, and produces no console errors or uncaught page errors
 
 **Requirements:**
+
 - Everything `scaffold-default.e2e.test.ts` requires, plus Playwright's Chromium browser:
   ```bash
   npx playwright install chromium
   ```
 - ~1-2 minutes execution time
 
+### `contract-upgrade.e2e.test.ts`
+
+Validates contract lifecycle management and on-chain upgrade flows using a simulated local Soroban RPC sandbox (`startLocalSorobanSandbox`).
+
+**What it tests:**
+
+- Deploys a sample Soroban contract with initial logic (`version = "1.0.0"`) and verifies live on-chain state via `useSorobanContract`.
+- Builds and signs an upgrade transaction (`upgrade(new_wasm_hash)`) targeting WASM v2 using `useContractUpgrade`.
+- Submits and confirms the upgrade transaction against the local Soroban RPC sandbox.
+- Asserts that the contract instance code hash is updated to WASM v2 and that newly dispatched calls execute updated logic (`version = "2.0.0"`).
+- Builds and validates `extendTtl` footprint keys for both contract instance and upgraded contract code ledger entries.
+- Validates error handling for invalid WASM hash lengths and invalid TTL inputs.
+
+**Requirements:**
+
+- Node.js 20+
+- Gated behind `NEXTELLAR_E2E=1` (or `RUN_E2E=1`)
+- Runs in < 5 seconds without external network dependencies
+
 ## Future E2E Tests
 
 Additional E2E tests can be added for:
+
 - `scaffold-minimal.e2e.test.ts` - Test minimal template
 - `scaffold-defi.e2e.test.ts` - Test DeFi template
 - `scaffold-js.e2e.test.ts` - Test JavaScript template
