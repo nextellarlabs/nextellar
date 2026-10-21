@@ -2,8 +2,9 @@
  * @jest-environment jsdom
  *
  * Smoke test for JavaScript template components (#894).
- * Imports and renders each .jsx component in src/templates/js-template and
- * src/templates/js-defi to verify they all mount cleanly without runtime error.
+ * Imports and renders each .jsx component in src/templates/js-template,
+ * src/templates/js-defi and src/templates/js-minimal to verify they all mount
+ * cleanly without runtime error.
  */
 import React from "react";
 import { render, screen, act } from "@testing-library/react";
@@ -42,6 +43,9 @@ const [
   { default: DefiErrorBoundary },
   { default: DefiNetworkSwitcher },
   { default: DefiWalletConnectButton },
+  { default: MinimalErrorBoundary },
+  { default: MinimalNetworkSwitcher },
+  { default: MinimalWalletConnectButton },
   { useWallet },
 ] = await Promise.all([
   import("../src/templates/js-template/src/components/ErrorBoundary"),
@@ -50,6 +54,9 @@ const [
   import("../src/templates/js-defi/src/components/ErrorBoundary"),
   import("../src/templates/js-defi/src/components/NetworkSwitcher"),
   import("../src/templates/js-defi/src/components/WalletConnectButton"),
+  import("../src/templates/js-minimal/src/components/ErrorBoundary"),
+  import("../src/templates/js-minimal/src/components/NetworkSwitcher"),
+  import("../src/templates/js-minimal/src/components/WalletConnectButton"),
   import("../src/mocks/wallet-contexts-mock"),
 ]);
 
@@ -143,6 +150,49 @@ describe("js-defi components smoke tests (#894)", () => {
     expect(container).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /Disconnect Albedo/i }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("js-minimal components smoke tests", () => {
+  it("renders ErrorBoundary cleanly with children", () => {
+    const { container } = render(
+      <MinimalErrorBoundary>
+        <div>JS minimal child content</div>
+      </MinimalErrorBoundary>,
+    );
+    expect(container).toBeInTheDocument();
+    expect(screen.getByText("JS minimal child content")).toBeInTheDocument();
+  });
+
+  it("renders NetworkSwitcher cleanly", async () => {
+    let renderResult: ReturnType<typeof render>;
+    await act(async () => {
+      renderResult = render(<MinimalNetworkSwitcher />);
+    });
+    expect(renderResult!.container).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: "Network" }),
+    ).toBeInTheDocument();
+  });
+
+  it("lists testnet and mainnet as switch targets", async () => {
+    await act(async () => {
+      render(<MinimalNetworkSwitcher />);
+    });
+
+    const select = screen.getByRole("combobox", { name: "Network" });
+    expect(
+      Array.from((select as HTMLSelectElement).options).map((o) => o.value),
+    ).toEqual(["testnet", "mainnet"]);
+    expect((select as HTMLSelectElement).value).toBe("testnet");
+  });
+
+  it("renders WalletConnectButton cleanly when disconnected", () => {
+    const { container } = render(<MinimalWalletConnectButton />);
+    expect(container).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Connect Wallet/i }),
     ).toBeInTheDocument();
   });
 });

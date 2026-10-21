@@ -10,7 +10,8 @@ This template includes pre-built Stellar blockchain integration:
 
 - **🔗 Wallet Connection**: `useStellarWallet` hook with multi-wallet support (Freighter, Rabet, XBull, Albedo, Lobstr, xBull)
 - **💰 Balance Display**: Real-time XLM and asset balance fetching via `useStellarBalances`
-- **🎨 UI Components**: Ready-to-use `WalletConnectButton` component
+- **🎨 UI Components**: Ready-to-use `WalletConnectButton` and `NetworkSwitcher` components
+- **🌐 Network Switching**: Switch between Stellar testnet/mainnet on the fly via `NetworkSwitcher`
 - **🌐 Testnet Ready**: Pre-configured for Stellar testnet development
 
 ### Quick Stellar Setup
@@ -42,6 +43,26 @@ export default function MyDApp() {
   );
 }
 ```
+
+### 🌐 Network Switching
+
+`NetworkSwitcher` is a dropdown that lets users flip between Stellar `Testnet` and `Mainnet`. It confirms first if a wallet is currently connected, because switching networks disconnects it (accounts and balances are network-specific). Your choice is remembered in local storage.
+
+**Usage:**
+
+```jsx
+import NetworkSwitcher from "@/components/NetworkSwitcher";
+
+export default function Navigation() {
+  return (
+    <nav className="flex items-center gap-4">
+      <NetworkSwitcher />
+    </nav>
+  );
+}
+```
+
+The available networks and their Horizon/Soroban endpoints live in `src/config/networks.js`. To add one, add a new key there and add a matching `<option>` in `src/components/NetworkSwitcher.jsx`.
 
 ### 🎨 UI Components
 
