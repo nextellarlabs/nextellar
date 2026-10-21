@@ -3,10 +3,23 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Horizon } from '@stellar/stellar-sdk';
 import { useWalletConfig } from '../contexts';
+import type { HorizonTrafficClass } from '../lib/horizonRateLimiter';
 
 const DEFAULT_HORIZON_URL = 'https://horizon-testnet.stellar.org';
 const MIN_POLL_MS = 5000;
 const MAX_RECONNECT_MS = 30_000;
+
+/**
+ * What triggered an update.
+ *
+ * `stream` — a live Horizon SSE event arrived.
+ * `poll`   — the stream is unavailable and the polling fallback fired.
+ *
+ * The source tells the caller which traffic class the resulting Horizon
+ * request belongs to, so the shared rate-limit budget (#1289) can charge it
+ * to the right bucket instead of letting one side starve the other.
+ */
+export type HorizonUpdateSource = HorizonTrafficClass;
 
 export interface UseHorizonStreamingOptions {
   horizonUrl?: string;
@@ -27,10 +40,14 @@ export interface HorizonStreamingState {
 /**
  * Subscribes to Horizon live updates for an account (EventSource-backed `.stream()`).
  * Reconnects with backoff on drop and falls back to polling when streaming fails.
+ *
+ * `onUpdate` receives the source of the update (`stream` for a live SSE
+ * event, `poll` for the polling fallback) so the caller can charge the
+ * resulting request to the matching rate-limit traffic class (#1289).
  */
 export function useHorizonStreaming(
   publicKey: string | null | undefined,
-  onUpdate: () => void,
+  onUpdate: (source: HorizonUpdateSource) => void,
   options: UseHorizonStreamingOptions = {},
 ): HorizonStreamingState {
   const providerConfig = useWalletConfig();
@@ -49,6 +66,8 @@ export function useHorizonStreaming(
   const reconnectAttemptRef = useRef(0);
   const onUpdateRef = useRef(onUpdate);
   onUpdateRef.current = onUpdate;
+  // Keep the callback stable: the stream effect must not tear down and
+  // reconnect the EventSource every time the caller re-renders.
 
   const clearPoll = useCallback(() => {
     if (pollRef.current) {
@@ -72,7 +91,9 @@ export function useHorizonStreaming(
   const startPolling = useCallback(() => {
     if (pollRef.current) return;
     const interval = Math.max(pollIntervalMs, MIN_POLL_MS);
-    pollRef.current = setInterval(() => onUpdateRef.current(), interval);
+    // The fallback is a scheduled refresh, not a live event: it is charged
+    // to the `poll` traffic class of the shared rate-limit budget.
+    pollRef.current = setInterval(() => onUpdateRef.current('poll'), interval);
     setPolling(true);
   }, [pollIntervalMs]);
 
@@ -96,7 +117,9 @@ export function useHorizonStreaming(
           onmessage: () => {
             reconnectAttemptRef.current = 0;
             setStreaming(true);
-            onUpdateRef.current();
+            // A live event is charged to the `stream` traffic class so a
+            // burst of updates cannot starve the polling hooks (#1289).
+            onUpdateRef.current('stream');
           },
           onerror: () => {
             closeStreamRef.current?.();
