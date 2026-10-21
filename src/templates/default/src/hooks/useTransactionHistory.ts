@@ -3,7 +3,12 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Horizon } from '@stellar/stellar-sdk';
 import { useWalletConfig } from '../contexts';
-import { useHorizonStreaming } from './useHorizonStreaming';
+import {
+  globalHorizonRateLimiter,
+  HorizonRateLimitError,
+  type HorizonTrafficClass,
+} from '../lib/horizonRateLimiter';
+import { useHorizonStreaming, type HorizonUpdateSource } from './useHorizonStreaming';
 
 /**
  * Operation item type - initially loose, can be refined later for specific operation types
@@ -41,9 +46,13 @@ const DEFAULT_TYPE = 'operations';
 // Maximum items to keep in memory (prevents excessive memory usage)
 const MAX_ITEMS_IN_MEMORY = 1000;
 
-// Module-level request coordination to prevent duplicate requests
-let globalRefreshInFlight = false;
-let globalFetchNextInFlight = false;
+// Module-level request coordination to prevent duplicate requests.
+// Keyed by public key so two accounts never block each other, and so the
+// live SSE stream and the polling loop of the same account share one
+// in-flight slot instead of firing duplicate Horizon requests (#1289).
+const inFlightRefreshes = new Set<string>();
+const pendingRefreshes = new Set<string>();
+const inFlightPageFetches = new Set<string>();
 
 /**
  * Custom React hook for fetching and paginating Stellar transaction history
@@ -117,7 +126,6 @@ export function useTransactionHistory(
   const serverRef = useRef<Horizon.Server | null>(null);
   const lastHorizonUrlRef = useRef<string>('');
   const nextCursorRef = useRef<string | null>(null);
-  const isRequestInFlightRef = useRef(false);
   const currentPublicKeyRef = useRef<string | null>(null);
   
   // Initialize Horizon server instance when URL changes
@@ -142,12 +150,18 @@ export function useTransactionHistory(
 
   /**
    * Fetch transaction history for the given public key and cursor
+   *
+   * The Horizon call goes through the shared client-side rate limiter so the
+   * live stream and the polling loop spend from one budget. The request is
+   * counted exactly once, in the traffic class that triggered it (#1289).
    */
   const fetchTransactionHistory = useCallback(async (
     key: string, 
-    cursor?: string | null
+    cursor?: string | null,
+    trafficClass: HorizonTrafficClass = 'poll',
   ): Promise<{ records: OperationItem[]; next: string | null }> => {
-    if (!serverRef.current) {
+    const server = serverRef.current;
+    if (!server) {
       throw new Error('Horizon server not initialized');
     }
 
@@ -160,13 +174,13 @@ export function useTransactionHistory(
       
       // Build the appropriate request based on type
       if (type === 'payments') {
-        builder = serverRef.current
+        builder = server
           .payments()
           .forAccount(key)
           .order('desc')
           .limit(pageSize);
       } else {
-        builder = serverRef.current
+        builder = server
           .operations()
           .forAccount(key)
           .order('desc')
@@ -178,7 +192,10 @@ export function useTransactionHistory(
         builder = builder.cursor(cursor);
       }
 
-      const response = await builder.call();
+      const response = await globalHorizonRateLimiter.execute(
+        () => builder.call(),
+        trafficClass,
+      );
       
       // Validate response structure
       if (!response || !Array.isArray(response.records)) {
@@ -224,9 +241,15 @@ export function useTransactionHistory(
   }, [isValidPublicKey, type, pageSize]);
 
   /**
-   * Refresh transaction history from the beginning
+   * Refresh transaction history from the beginning.
+   *
+   * `source` records what triggered the refresh so the shared rate-limit
+   * budget can charge it to the right traffic class: a live stream event is
+   * `stream`, a scheduled refresh is `poll` (#1289).
    */
-  const refresh = useCallback(async (): Promise<void> => {
+  const runRefresh = useCallback(async (
+    source: HorizonUpdateSource = 'poll',
+  ): Promise<void> => {
     // If no public key, clear state and return
     if (!publicKey) {
       setItems([]);
@@ -237,11 +260,6 @@ export function useTransactionHistory(
       return;
     }
 
-    // Prevent duplicate refresh requests
-    if (globalRefreshInFlight || isRequestInFlightRef.current) {
-      return;
-    }
-
     // Browser environment check
     if (typeof window === 'undefined') {
       setError(new Error('Browser environment required'));
@@ -249,36 +267,67 @@ export function useTransactionHistory(
       return;
     }
 
+    // A refresh for this account is already in flight: coalesce the trigger
+    // into a single follow-up request instead of dropping it, so a live
+    // stream update is never swallowed by a poll (or the other way round).
+    if (inFlightRefreshes.has(publicKey)) {
+      pendingRefreshes.add(publicKey);
+      return;
+    }
+
+    inFlightRefreshes.add(publicKey);
     setLoading(true);
     setError(null);
-    globalRefreshInFlight = true;
-    isRequestInFlightRef.current = true;
-    
+
     try {
-      const result = await fetchTransactionHistory(publicKey, null);
-      
-      setItems(result.records);
-      nextCursorRef.current = result.next;
-      setHasMore(result.records.length === pageSize && !!result.next);
-      setError(null);
-      currentPublicKeyRef.current = publicKey;
-    } catch (err) {
-      const error = err instanceof Error ? err : new Error('Failed to fetch transaction history');
-      setError(error);
-      console.error('Error fetching transaction history:', error);
-      // Keep previous items on error (don't wipe them)
+      do {
+        pendingRefreshes.delete(publicKey);
+        try {
+          const result = await fetchTransactionHistory(publicKey, null, source);
+
+          setItems(result.records);
+          nextCursorRef.current = result.next;
+          setHasMore(result.records.length === pageSize && !!result.next);
+          setError(null);
+          currentPublicKeyRef.current = publicKey;
+        } catch (err) {
+          if (err instanceof HorizonRateLimitError) {
+            // The shared client-side guard blocked this request. That is our
+            // own throttle, not a Horizon failure: keep the items we already
+            // have and retry on the next tick.
+            continue;
+          }
+          const error = err instanceof Error ? err : new Error('Failed to fetch transaction history');
+          setError(error);
+          console.error('Error fetching transaction history:', error);
+          // Keep previous items on error (don't wipe them)
+        }
+      } while (pendingRefreshes.has(publicKey));
     } finally {
+      inFlightRefreshes.delete(publicKey);
+      pendingRefreshes.delete(publicKey);
       setLoading(false);
-      globalRefreshInFlight = false;
-      isRequestInFlightRef.current = false;
     }
   }, [publicKey, fetchTransactionHistory, pageSize]);
 
-  useHorizonStreaming(publicKey, refresh, {
-    horizonUrl,
-    enabled: enableStreaming,
-    streamType: type === 'payments' ? 'payments' : 'operations',
-  });
+  /**
+   * Public refresh entry point — always a scheduled (poll class) refresh.
+   */
+  const refresh = useCallback(async (): Promise<void> => {
+    await runRefresh('poll');
+  }, [runRefresh]);
+
+  useHorizonStreaming(
+    publicKey,
+    (source) => {
+      void runRefresh(source);
+    },
+    {
+      horizonUrl,
+      enabled: enableStreaming,
+      streamType: type === 'payments' ? 'payments' : 'operations',
+    },
+  );
 
   /**
    * Fetch the next page of transaction history
@@ -289,8 +338,8 @@ export function useTransactionHistory(
       return;
     }
 
-    // Prevent duplicate fetch requests
-    if (globalFetchNextInFlight || isRequestInFlightRef.current) {
+    // Prevent duplicate fetch requests for this account
+    if (inFlightPageFetches.has(publicKey)) {
       return;
     }
 
@@ -302,11 +351,10 @@ export function useTransactionHistory(
 
     setLoading(true);
     setError(null);
-    globalFetchNextInFlight = true;
-    isRequestInFlightRef.current = true;
-    
+    inFlightPageFetches.add(publicKey);
+
     try {
-      const result = await fetchTransactionHistory(publicKey, nextCursorRef.current);
+      const result = await fetchTransactionHistory(publicKey, nextCursorRef.current, 'poll');
       
       setItems(prevItems => {
         // De-duplicate by paging_token (falling back to id): Horizon's cursor
@@ -336,13 +384,16 @@ export function useTransactionHistory(
       setHasMore(result.records.length === pageSize && !!result.next);
       setError(null);
     } catch (err) {
+      if (err instanceof HorizonRateLimitError) {
+        // Locally throttled by the shared guard — not a Horizon failure.
+        return;
+      }
       const error = err instanceof Error ? err : new Error('Failed to fetch next page');
       setError(error);
       console.error('Error fetching next page:', error);
     } finally {
       setLoading(false);
-      globalFetchNextInFlight = false;
-      isRequestInFlightRef.current = false;
+      inFlightPageFetches.delete(publicKey);
     }
   }, [publicKey, hasMore, fetchTransactionHistory, pageSize]);
 
@@ -386,14 +437,13 @@ export function useTransactionHistory(
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      // Reset global state on unmount
-      if (isRequestInFlightRef.current) {
-        globalRefreshInFlight = false;
-        globalFetchNextInFlight = false;
-        isRequestInFlightRef.current = false;
+      // Drop any coalesced refresh for this account so a pending trigger
+      // cannot fire another request after the hook is gone.
+      if (publicKey) {
+        pendingRefreshes.delete(publicKey);
       }
     };
-  }, []);
+  }, [publicKey]);
 
   return {
     items,
