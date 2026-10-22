@@ -11,7 +11,8 @@
  *
  * Setup: create a project at https://cloud.reown.com (formerly WalletConnect
  * Cloud), then set NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID. See
- * docs/custom-wallet-adapter-guide.md.
+ * docs/walletconnect-guide.md for the full setup guide (project ID, relay
+ * configuration, and env vars).
  */
 
 import type { ModuleInterface, ModuleType } from '@creit.tech/stellar-wallets-kit';

@@ -212,6 +212,9 @@ Network and environment configuration (Horizon/Soroban, testnet/mainnet, Network
 Authoring a custom wallet adapter (the `ModuleInterface`, a worked example, and where to register it):  
 🔗 [docs/custom-wallet-adapter-guide.md](docs/custom-wallet-adapter-guide.md)
 
+WalletConnect adapter setup (obtaining a project ID and configuring the relay):  
+🔗 [docs/walletconnect-guide.md](docs/walletconnect-guide.md)
+
 Soroban contracts overlay guide (`--with-contracts`):  
 🔗 [docs/soroban-contracts-overlay-guide.md](docs/soroban-contracts-overlay-guide.md)
 
@@ -220,6 +223,9 @@ Anchor discovery & KYC fields (SEP-1 / SEP-9 / SEP-38):
 
 Web authentication & payment request URIs (SEP-7 / SEP-45):  
 🔗 [docs/web-auth-and-payments.md](docs/web-auth-and-payments.md)
+
+WalletConnect adapter setup (obtaining a project ID and configuring the relay):  
+🔗 [docs/walletconnect-guide.md](docs/walletconnect-guide.md)
 
 Doctor diagnostic & troubleshooting guide:  
 🔗 [docs/troubleshooting.md](docs/troubleshooting.md)

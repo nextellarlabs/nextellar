@@ -14,13 +14,15 @@ These variables are consumed by Next.js client-side code and must be prefixed wi
 | `NEXT_PUBLIC_FRIENDBOT_URL` | `https://friendbot.stellar.org` | Friendbot API URL for funding test accounts on testnet. |
 | `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` | Canonical web application URL used for OpenGraph images and OAuth redirects. |
 | `NEXT_PUBLIC_WALLET_NETWORK_PASSPHRASE` | `Test SDF Network ; July 2015` | Network passphrase passed to Stellar Wallet Kit and transaction builders. |
+| `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | (none) | WalletConnect Cloud project ID used by the WalletConnect adapter. See [docs/walletconnect-guide.md](walletconnect-guide.md). |
+| `NEXT_PUBLIC_WALLETCONNECT_RELAY_URL` | `wcs://relay.walletconnect.com/` | WalletConnect relay server URL used by the WalletConnect adapter. |
 
 ## CLI & Development Environment Variables
 
-These variables configure the Nextellar CLI tool behavior and telemetry during project scaffolding.
+These variables configure Nextellar CLI tool behavior and telemetry during project scaffolding.
 
 | Variable Name | Default Value | Description |
 |---|---|---|
 | `NEXTELLAR_TELEMETRY_DISABLED` | `0` | Set to `1` or `true` to opt out of anonymous CLI usage telemetry collection. |
 | `NEXTELLAR_VERBOSE_LOGS` | `0` | Set to `1` to enable detailed debug logging during contract code binding generation. |
-| `NEXTELLAR_TEMPLATE_CACHE_DIR` | `~/.nextellar/cache` | Local directory path where project templates are cached. |
+| `NEXTELLAR_TEMPLATE_CACHE_DIR` | `~/1.nextellar/cache` | Local directory path where project templates are cached. |
