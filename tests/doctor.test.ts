@@ -1,8 +1,12 @@
 import { jest } from "@jest/globals";
+import fs from "fs-extra";
+import os from "os";
+import path from "path";
 import {
   runDoctor,
   setCommandRunnerForTest,
   setFreeMemoryProviderForTest,
+  setPackageResolverForTest,
   type CommandRunner,
 } from "../src/lib/doctor.js";
 import { confirm } from "@clack/prompts";
@@ -203,6 +207,7 @@ describe("doctor", () => {
           "rustc",
           "soroban",
           "stellar-cli",
+          "wallet-adapter-sdks",
           "wasm32",
           "yarn",
         ].sort(),
@@ -365,6 +370,150 @@ describe("doctor", () => {
       expect(
         parsed.checks.find((c: { id: string }) => c.id === "yarn").ok,
       ).toBe(false);
+    });
+  });
+
+  describe("wallet adapter SDK check (#1279)", () => {
+    const origCwd = process.cwd();
+    const tmpDirs: string[] = [];
+
+    const projectWithWallets = async (wallets: string[]) => {
+      const dir = await fs.mkdtemp(
+        path.join(os.tmpdir(), "nextellar-doctor-wallets-"),
+      );
+      tmpDirs.push(dir);
+      await fs.outputJson(path.join(dir, ".nextellar/config.json"), {
+        schemaVersion: 1,
+        nextellarVersion: "1.1.0",
+        template: "default",
+        createdAt: new Date().toISOString(),
+        wallets,
+      });
+      process.chdir(dir);
+    };
+
+    afterEach(async () => {
+      process.chdir(origCwd);
+      setPackageResolverForTest(undefined);
+      await Promise.all(tmpDirs.map((d) => fs.remove(d).catch(() => {})));
+      tmpDirs.length = 0;
+    });
+
+    it("passes as not-applicable when no project config exists", async () => {
+      const dir = await fs.mkdtemp(
+        path.join(os.tmpdir(), "nextellar-doctor-noconfig-"),
+      );
+      tmpDirs.push(dir);
+      process.chdir(dir);
+      let captured = "";
+      console.log = jest.fn((line: string) => {
+        captured += line;
+      });
+
+      await runDoctor({ json: true });
+
+      const parsed = JSON.parse(captured);
+      const check = parsed.checks.find(
+        (c: { id: string }) => c.id === "wallet-adapter-sdks",
+      );
+      expect(check.ok).toBe(true);
+      expect(check.detail).toMatch(/not configured/i);
+    });
+
+    it("passes as not-applicable when configured wallets don't include ledger or walletconnect", async () => {
+      await projectWithWallets(["freighter", "albedo"]);
+      let captured = "";
+      console.log = jest.fn((line: string) => {
+        captured += line;
+      });
+
+      await runDoctor({ json: true });
+
+      const parsed = JSON.parse(captured);
+      const check = parsed.checks.find(
+        (c: { id: string }) => c.id === "wallet-adapter-sdks",
+      );
+      expect(check.ok).toBe(true);
+      expect(check.detail).toMatch(/not configured/i);
+    });
+
+    it("passes when ledger is configured and its peer packages resolve", async () => {
+      await projectWithWallets(["ledger"]);
+      setPackageResolverForTest(() => true);
+      let captured = "";
+      console.log = jest.fn((line: string) => {
+        captured += line;
+      });
+
+      await runDoctor({ json: true });
+
+      const parsed = JSON.parse(captured);
+      const check = parsed.checks.find(
+        (c: { id: string }) => c.id === "wallet-adapter-sdks",
+      );
+      expect(check.ok).toBe(true);
+      expect(check.detail).toMatch(/ledger/i);
+    });
+
+    it("fails (but is optional, not required) when ledger is configured and its peer packages are missing", async () => {
+      await projectWithWallets(["ledger"]);
+      setPackageResolverForTest(() => false);
+      let captured = "";
+      console.log = jest.fn((line: string) => {
+        captured += line;
+      });
+
+      const code = await runDoctor({ json: true });
+
+      const parsed = JSON.parse(captured);
+      const check = parsed.checks.find(
+        (c: { id: string }) => c.id === "wallet-adapter-sdks",
+      );
+      expect(check.required).toBe(false);
+      expect(check.ok).toBe(false);
+      expect(check.detail).toMatch(/@ledgerhq\/hw-transport-webusb/);
+      expect(check.detail).toMatch(/@ledgerhq\/hw-app-str/);
+      expect(check.fix).toMatch(/npm install/);
+      // An optional check failing must never fail the overall doctor run.
+      expect(code).toBe(0);
+    });
+
+    it("fails when walletconnect is configured and the kit's walletconnect module doesn't resolve", async () => {
+      await projectWithWallets(["walletconnect"]);
+      setPackageResolverForTest(
+        (specifier) => !specifier.includes("walletconnect"),
+      );
+      let captured = "";
+      console.log = jest.fn((line: string) => {
+        captured += line;
+      });
+
+      await runDoctor({ json: true });
+
+      const parsed = JSON.parse(captured);
+      const check = parsed.checks.find(
+        (c: { id: string }) => c.id === "wallet-adapter-sdks",
+      );
+      expect(check.ok).toBe(false);
+      expect(check.detail).toMatch(/stellar-wallets-kit/i);
+    });
+
+    it("reports both ledger and walletconnect when both are configured and both are missing", async () => {
+      await projectWithWallets(["ledger", "walletconnect"]);
+      setPackageResolverForTest(() => false);
+      let captured = "";
+      console.log = jest.fn((line: string) => {
+        captured += line;
+      });
+
+      await runDoctor({ json: true });
+
+      const parsed = JSON.parse(captured);
+      const check = parsed.checks.find(
+        (c: { id: string }) => c.id === "wallet-adapter-sdks",
+      );
+      expect(check.ok).toBe(false);
+      expect(check.detail).toMatch(/ledger, walletconnect/i);
     });
   });
 });
