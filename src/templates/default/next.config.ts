@@ -24,6 +24,8 @@ import type { NextConfig } from "next";
 // - `img-src` allows `data:` and `blob:` for wallet-icon data URIs the
 //   wallets-kit renders, plus `https:` broadly since wallet icons come
 //   from many different wallet providers' own CDNs.
+// - `frame-src` allowlists `https://connect.ledger.com` in case the Ledger
+//   adapter loads an external iframe/connect-kit origin during connection.
 // - `frame-ancestors 'none'` blocks this app from being embedded in an
 //   iframe on another site (clickjacking protection) — remove this only
 //   if you have a legitimate embedding use case, and prefer a specific
@@ -35,6 +37,7 @@ const CSP_DIRECTIVES = [
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
   "connect-src 'self' https://horizon-testnet.stellar.org https://horizon.stellar.org https://soroban-testnet.stellar.org https://soroban.stellar.org https://relay.walletconnect.com https://relay.walletconnect.org wss://relay.walletconnect.com wss://relay.walletconnect.org wss: chrome-extension: moz-extension:",
+  "frame-src 'self' https://connect.ledger.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
