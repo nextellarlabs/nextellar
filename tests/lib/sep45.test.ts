@@ -272,6 +272,32 @@ describe("fetchSep45Challenge", () => {
     ).rejects.toThrow('missing "authorization_entries"');
   });
 
+  it("surfaces a clear, actionable error (not a cryptic RPC failure) when the contract account doesn't implement web_auth_verify", async () => {
+    // A server that tries to build the challenge against a contract lacking
+    // the well-known `web_auth_verify` entrypoint cannot simulate the
+    // invocation at all; it must reject the challenge request itself
+    // (there is no authorization entry to return). This asserts the client
+    // surfaces that server-reported reason verbatim rather than falling
+    // back to a generic "HTTP 400" or leaking an unparsed simulation
+    // error/trap message to the caller.
+    const fetchImpl = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({
+        error: `contract ${contractId} does not implement the web_auth_verify entrypoint required for SEP-45`,
+      }),
+    });
+
+    await expect(
+      fetchSep45Challenge({
+        endpoint: "https://auth.example.com/webauth",
+        account: contractId,
+        homeDomain: HOME_DOMAIN,
+        fetchImpl,
+      }),
+    ).rejects.toThrow("does not implement the web_auth_verify entrypoint");
+  });
+
   it("throws when authorization_entries has trailing bytes past the declared entry count", async () => {
     const { clientEntry } = buildValidEntryPair();
     const raw = encodeEntriesForFixture([clientEntry]);
