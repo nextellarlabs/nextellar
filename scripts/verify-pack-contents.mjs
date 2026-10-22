@@ -20,7 +20,17 @@ const templateEntries = listFiles("src/templates")
   )
   .map((entry) => entry.replaceAll(path.sep, "/"));
 
-const requiredEntries = ["dist/bin/nextellar.js", ...templateEntries];
+// Every template ships .nextellar/config.json; require it per template so a
+// missing or ignored file cannot slip through the walk above.
+const configEntries = readdirSync("src/templates", { withFileTypes: true })
+  .filter((entry) => entry.isDirectory())
+  .map((entry) => `src/templates/${entry.name}/.nextellar/config.json`);
+
+const requiredEntries = [
+  "dist/bin/nextellar.js",
+  ...templateEntries,
+  ...configEntries,
+];
 
 const forbiddenDirectories = ["tests", "backend", "routes-d"];
 const isWindows = process.platform === "win32";
@@ -65,6 +75,6 @@ if (missingEntries.length || forbiddenEntries.length) {
   process.exitCode = 1;
 } else {
   console.log(
-    `Pack contents verified: ${packedEntries.size} entries; required template hooks, environment examples, and CLI binary are present.`,
+    `Pack contents verified: ${packedEntries.size} entries; required template hooks, environment examples, .nextellar/config.json files, and CLI binary are present.`,
   );
 }
