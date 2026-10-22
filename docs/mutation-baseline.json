@@ -1,6 +1,6 @@
 {
   "tool": "stryker",
-  "scope": "src/lib/**/*.ts",
+  "scope": "src/lib/**/*.ts, src/templates/default/src/lib/sep*.ts",
   "recordedAt": null,
   "score": null,
   "detected": null,

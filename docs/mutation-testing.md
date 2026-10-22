@@ -1,10 +1,11 @@
-# Mutation testing pilot (`src/lib`)
+# Mutation testing pilot (`src/lib`, SEP compliance libs)
 
 Line and branch coverage (see `jest.config.mjs`, #936/#960) tell us which
 code ran during the tests, not whether a test would notice if that code were
 wrong. Mutation testing does: [Stryker](https://stryker-mutator.io/) makes
-small changes ("mutants") to `src/lib/**/*.ts` (flip a condition, drop a
-statement, change a literal), reruns the related Jest tests, and records
+small changes ("mutants") to `src/lib/**/*.ts` and the SEP compliance libs
+under `src/templates/default/src/lib/sep*.ts` (#1259) (flip a condition, drop
+a statement, change a literal), reruns the related Jest tests, and records
 whether any test failed. A mutant that survives points at a missing or
 too-weak assertion. Tautological tests, for example, show up as files with
 high coverage and a low mutation score.
@@ -20,8 +21,9 @@ npm run mutation:score         # per-file + total score, compared with the basel
 ```
 
 - Config: `stryker.config.mjs` (Jest runner, native ESM node args,
-  `mutate: src/lib/**/*.ts`, `findRelatedTests` so each mutant only runs the
-  tests that import the mutated file).
+  `mutate: src/lib/**/*.ts` plus `src/templates/default/src/lib/sep*.ts`,
+  `findRelatedTests` so each mutant only runs the tests that import the
+  mutated file).
 - Reports: `reports/mutation/mutation.html` (open in a browser) and
   `reports/mutation/mutation.json`. `reports/` is gitignored.
 - Incremental: `reports/mutation/stryker-incremental.json` lets reruns skip
