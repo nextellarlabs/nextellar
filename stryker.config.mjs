@@ -15,7 +15,14 @@ export default {
     // doesn't pay for the whole template component suite.
     enableFindRelatedTests: true,
   },
-  mutate: ["src/lib/**/*.ts", "!src/lib/**/*.d.ts"],
+  mutate: [
+    "src/lib/**/*.ts",
+    "!src/lib/**/*.d.ts",
+    // SEP compliance libs (#1259): sep1/sep7/sep9/sep24/sep30/sep38/sep45
+    // under the default template, same mutation rules as src/lib.
+    "src/templates/default/src/lib/sep*.ts",
+    "!src/templates/default/src/lib/sep*.d.ts",
+  ],
   // perTest coverage analysis relies on instrumenting the Jest environment,
   // which is not reliable under native ESM; findRelatedTests keeps "off" fast.
   coverageAnalysis: "off",
