@@ -2,7 +2,7 @@
 
 ## Overview
 
-Each app template (`default`, `minimal`, `defi`, `js-template`, `js-defi`) ships as the
+Each app template (`default`, `minimal`, `defi`, `full`, `js-template`, `js-defi`, `js-full`) ships as the
 starting point for someone else's production app, so its shipped bundle size matters —
 bloat baked into the template is bloat every scaffolded project inherits. This doc
 describes the analyzer that measures each template's real production bundle and the
@@ -11,7 +11,7 @@ size budget it's checked against.
 ## Running it
 
 ```bash
-npm run analyze:bundles                  # all 5 app templates
+npm run analyze:bundles                  # all 7 app templates
 node scripts/analyze-template-bundles.mjs --template=default   # just one
 node scripts/analyze-template-bundles.mjs --json                # machine-readable output
 node scripts/analyze-template-bundles.mjs --keep                # keep scratch dirs for debugging
@@ -39,8 +39,10 @@ is meant to guard.
 | `minimal`     |                 3.40 MB |                                2.29 MB |    ~1.5x |
 | `default`     |                 3.45 MB |                                2.31 MB |    ~1.5x |
 | `defi`        |                 3.45 MB | _(currently unmeasurable — see below)_ |        — |
+| `full`        |         _(not set yet)_ | _(currently unmeasurable — see below)_ |        — |
 | `js-template` |                 3.40 MB |                                2.31 MB |    ~1.5x |
 | `js-defi`     |                 3.40 MB |                                2.31 MB |    ~1.5x |
+| `js-full`     |         _(not set yet)_ | _(currently unmeasurable — see below)_ |        — |
 
 Re-measured after `qrcode` (#964) and the `ContractCallForm`/`ContractCallPreview`
 components landed in `default` (and `defi`/`minimal`, where `qrcode` is also a
@@ -79,6 +81,20 @@ called out explicitly so it isn't lost:
 
 Run `npm run analyze:bundles` after that's fixed to get `defi`'s real baseline and
 fill in the table above.
+
+- **`full`/`js-full` templates: `analyze:bundles` itself can't run at all right now.**
+  Both are wired into `APP_TEMPLATES` (#1270), but the analyzer's `scaffoldTemplate()`
+  needs `dist/src/lib/scaffold.js`, built via `npm run build` (`tsc -p
+  tsconfig.build.json`) — and that build currently fails outright with a pre-existing,
+  unrelated syntax error in `bin/nextellar.ts` (`error TS1005: '}' expected`), on a
+  clean checkout of `main`, blocking every template's measurement, not just these two.
+  Fixing that CLI-wide build break is out of scope here — filing it as its own issue is
+  the right next step. No budget number is guessed in its place: `full`/`js-full` show
+  as "not set yet" above, and `BUDGETS_BYTES` has them set to `null` (reported as a
+  `no-budget` SKIP row, not a false pass or fail) rather than a fabricated figure.
+
+Run `npm run analyze:bundles --template=full` (and `--template=js-full`) once the CLI
+build is fixed to get real baselines and fill in both rows above.
 
 ### Additional build-blocking bugs found and fixed while re-measuring (2026-09-26)
 
