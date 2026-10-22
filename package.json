@@ -6,8 +6,8 @@
     "nextellar": "dist/bin/nextellar.js"
   },
   "scripts": {
-    "build": "npx tsc -p tsconfig.build.json",
-    "start": "ts-node bin/nextellar.ts",
+    "build": "node api.js && npx tsc -p tsconfig.build.json",
+    "start": "node api.js && ts-node bin/nextellar.ts",
     "test": "cross-env NODE_OPTIONS=\"--experimental-vm-modules --no-warnings\" jest",
     "test:coverage": "cross-env NODE_OPTIONS=\"--experimental-vm-modules --no-warnings\" jest --coverage --json --testLocationInResults --outputFile=coverage/report.json",
     "test:e2e": "cross-env NEXTELLAR_E2E=1 NODE_OPTIONS=\"--experimental-vm-modules --no-warnings\" jest tests/e2e",
