@@ -544,7 +544,7 @@ program.action(async (projectName, options) => {
   // The interactive prompt path performs its own inline validation via prompts.ts.
   if (!shouldPrompt) {
     try {
-      validateProjectName(path.basename(projectName));
+      validateProjectName(projectName);
     } catch (err: any) {
       printError(err.message);
       return await exitWithTelemetry(1);
