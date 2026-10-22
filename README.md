@@ -230,6 +230,9 @@ Testing guide for generated apps (Storybook interaction tests, and adding Jest/V
 Horizon rate limiter configuration and tuning:  
 🔗 [docs/horizon-rate-limiter-guide.md](docs/horizon-rate-limiter-guide.md)
 
+Cookbook: deploying and upgrading a Soroban contract end-to-end:  
+🔗 [docs/cookbook/contract-deploy-and-upgrade.md](docs/cookbook/contract-deploy-and-upgrade.md)
+
 ---
 
 ## 🚀 Backend & Stellar Wave Routes
