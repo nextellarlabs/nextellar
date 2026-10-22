@@ -221,6 +221,9 @@ Anchor discovery & KYC fields (SEP-1 / SEP-9 / SEP-38):
 Web authentication & payment request URIs (SEP-7 / SEP-45):  
 🔗 [docs/web-auth-and-payments.md](docs/web-auth-and-payments.md)
 
+SEP-24 interactive deposit/withdraw flow (`useSep24Interactive` / `Sep24InteractiveFrame`):  
+🔗 [docs/sep24-guide.md](docs/sep24-guide.md)
+
 Doctor diagnostic & troubleshooting guide:  
 🔗 [docs/troubleshooting.md](docs/troubleshooting.md)
 
@@ -229,6 +232,9 @@ Testing guide for generated apps (Storybook interaction tests, and adding Jest/V
 
 Horizon rate limiter configuration and tuning:  
 🔗 [docs/horizon-rate-limiter-guide.md](docs/horizon-rate-limiter-guide.md)
+
+SEP-24 interactive deposit/withdraw usage guide:  
+🔗 [docs/sep24-guide.md](docs/sep24-guide.md)
 
 Cookbook: deploying and upgrading a Soroban contract end-to-end:  
 🔗 [docs/cookbook/contract-deploy-and-upgrade.md](docs/cookbook/contract-deploy-and-upgrade.md)
