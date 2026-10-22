@@ -11,14 +11,27 @@ function listFiles(directory) {
   });
 }
 
-const templateEntries = listFiles("src/templates")
-  .filter(
-    (entry) =>
-      path.basename(entry) === ".env.example" ||
-      (path.basename(path.dirname(entry)) === "hooks" &&
-        [".js", ".ts"].includes(path.extname(entry))),
-  )
-  .map((entry) => entry.replaceAll(path.sep, "/"));
+const templateFiles = listFiles("src/templates").map((entry) =>
+  entry.replaceAll(path.sep, "/"),
+);
+const hookEntries = templateFiles.filter(
+  (entry) =>
+    path.posix.basename(path.posix.dirname(entry)) === "hooks" &&
+    [".js", ".ts"].includes(path.posix.extname(entry)),
+);
+const envExampleEntries = templateFiles.filter(
+  (entry) => path.posix.basename(entry) === ".env.example",
+);
+
+// An empty walk would make the required list vacuous and the guard a no-op.
+if (!hookEntries.length || !envExampleEntries.length) {
+  console.error(
+    `Template discovery failed: found ${hookEntries.length} hook file(s) and ${envExampleEntries.length} .env.example file(s) under src/templates; expected at least one of each.`,
+  );
+  process.exit(1);
+}
+
+const templateEntries = [...hookEntries, ...envExampleEntries];
 
 // Every template ships .nextellar/config.json; require it per template so a
 // missing or ignored file cannot slip through the walk above.
@@ -51,6 +64,11 @@ const packedEntries = new Set(
   ),
 );
 
+const packedHooks = hookEntries.filter((entry) => packedEntries.has(entry));
+const packedEnvExamples = envExampleEntries.filter((entry) =>
+  packedEntries.has(entry),
+);
+
 const missingEntries = requiredEntries.filter(
   (entry) => !packedEntries.has(entry),
 );
@@ -60,8 +78,21 @@ const forbiddenEntries = [...packedEntries].filter((entry) =>
   ),
 );
 
-if (missingEntries.length || forbiddenEntries.length) {
+if (
+  missingEntries.length ||
+  forbiddenEntries.length ||
+  !packedHooks.length ||
+  !packedEnvExamples.length
+) {
   const failures = [];
+
+  if (!packedHooks.length) {
+    failures.push("No template hooks found in npm pack output.");
+  }
+
+  if (!packedEnvExamples.length) {
+    failures.push("No .env.example files found in npm pack output.");
+  }
 
   if (missingEntries.length) {
     failures.push(`Missing required entries:\n${missingEntries.join("\n")}`);
