@@ -8,6 +8,7 @@ import {
   type Sep30RecoverResponse,
   type Sep30RecoveryServer,
 } from '../lib/sep30';
+import { appendAuditLogEntry } from '../lib/auditLog';
 
 export interface UseSep30RecoveryOptions {
   homeDomain?: string;
@@ -82,6 +83,12 @@ export function useSep30Recovery(
           authToken: params.authToken,
           signers: params.signers,
         });
+        appendAuditLogEntry({
+          type: 'sep30-register',
+          accountId: params.accountId,
+          serverUrl: url,
+          signers: params.signers,
+        });
       } catch (err) {
         const e = err instanceof Error ? err : new Error(String(err));
         setError(e);
@@ -109,11 +116,18 @@ export function useSep30Recovery(
         const url =
           serverUrl ??
           (await discoverSep30RecoveryServer(opts.homeDomain!)).serverUrl;
-        return await recoverSep30Account({
+        const result = await recoverSep30Account({
           serverUrl: url,
           accountId: params.accountId,
           recoveryToken: params.recoveryToken,
         });
+        appendAuditLogEntry({
+          type: 'sep30-recovery',
+          accountId: params.accountId,
+          serverUrl: url,
+        submitted: result.submitted ?? false,
+        });
+        return result;
       } catch (err) {
         const e = err instanceof Error ? err : new Error(String(err));
         setError(e);

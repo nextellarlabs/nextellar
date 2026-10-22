@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { appendAuditLogEntry } from '../lib/auditLog';
 import {
   buildSep24InteractiveUrl,
   fetchSep24Transaction,
@@ -151,6 +152,14 @@ export function useSep24Interactive(
       const next = statusFor(tx);
       if (!next) return;
       setStatus(next);
+      appendAuditLogEntry({
+        action: 'sep24',
+        status: next,
+        transactionId: tx.id,
+        kind: tx.kind,
+        assetCode: tx.asset_code,
+        account: tx.account,
+      });
       if (next === 'pending' && closePopupOnComplete && s.popup && !s.popup.closed) {
         try {
           s.popup.close();
@@ -243,6 +252,14 @@ export function useSep24Interactive(
         };
         setUrl(interactiveUrl);
         setTransactionId(res.id);
+        appendAuditLogEntry({
+          action: 'sep24',
+          status: 'started',
+          transactionId: res.id,
+          kind: opts.kind,
+          assetCode: opts.assetCode,
+          account: opts.account,
+        });
 
         if ((opts.mode ?? 'popup') === 'popup' && !popup) {
           setStatus('error');
