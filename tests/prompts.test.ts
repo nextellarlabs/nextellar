@@ -151,4 +151,69 @@ describe("runInteractivePrompts", () => {
     expect(mockedMultiselect).not.toHaveBeenCalled();
     expect(mockedConfirm).not.toHaveBeenCalled();
   });
+
+  describe("cancellation at each prompt", () => {
+    const promptSequence = [
+      "Project name",
+      "Which Stellar network?",
+      "Horizon URL",
+      "Soroban RPC URL",
+      "Which wallet adapters?",
+      "Package manager",
+      "Install dependencies?",
+    ];
+
+    function promptMessages(): string[] {
+      return [
+        ...mockedText.mock.calls,
+        ...mockedSelect.mock.calls,
+        ...mockedMultiselect.mock.calls,
+        ...mockedConfirm.mock.calls,
+      ]
+        .map(([options]) => (options as { message: string }).message)
+        .sort((a, b) => promptSequence.indexOf(a) - promptSequence.indexOf(b));
+    }
+
+    beforeEach(() => {
+      mockedText.mockImplementation((options: { message?: string }) =>
+        Promise.resolve(
+          options?.message === "Project name"
+            ? "my-app"
+            : options?.message === "Horizon URL"
+              ? "https://horizon.example.com"
+              : "https://soroban.example.com"
+        )
+      );
+      mockedSelect.mockImplementation((options: { message?: string }) =>
+        Promise.resolve(
+          options?.message === "Package manager" ? "npm" : "custom"
+        )
+      );
+    });
+
+    it.each(promptSequence.map((message, index) => [message, index + 1] as const))(
+      "returns null and stops further prompts when %s is cancelled",
+      async (message, position) => {
+        let calls = 0;
+        mockedIsCancel.mockImplementation(() => ++calls === position);
+
+        const result = await runInteractivePrompts(buildContext());
+
+        expect(result).toBeNull();
+        expect(mockedOutro).toHaveBeenCalledTimes(1);
+        expect(mockedOutro).toHaveBeenCalledWith(
+          expect.stringContaining("Cancelled")
+        );
+        expect(promptMessages()).toEqual(promptSequence.slice(0, position));
+        expect(promptSequence[position - 1]).toBe(message);
+      }
+    );
+
+    it("runs every prompt when nothing is cancelled", async () => {
+      const result = await runInteractivePrompts(buildContext());
+
+      expect(result).not.toBeNull();
+      expect(promptMessages()).toEqual(promptSequence);
+    });
+  });
 });
