@@ -18,7 +18,11 @@ export const Default: Story = {
   },
 };
 
-/** With a close button, as used while a deposit/withdraw flow is open. */
+/**
+ * With a close button, as used while a deposit/withdraw flow is open.
+ * Passing `onClose` renders this as a modal dialog (#1278): a dimmed
+ * overlay, focus trapped inside, and Escape calling `onClose`.
+ */
 export const WithCloseButton: Story = {
   args: {
     url: 'https://anchor.example.com/sep24/interactive?token=story-demo',
