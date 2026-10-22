@@ -368,32 +368,9 @@ export function useTransactionHistory(
       return;
     }
 
-    // Initial load
-    refresh();
+    // Initial load or refresh when publicKey changes
+    void refresh();
   }, [publicKey, refresh]);
-
-  // Effect to handle options changes (type, pageSize, horizonUrl)
-  useEffect(() => {
-    // If we have a publicKey and the options changed, refresh
-    if (publicKey && currentPublicKeyRef.current === publicKey) {
-      // Reset state and refresh with new options
-      nextCursorRef.current = null;
-      setHasMore(true);
-      refresh();
-    }
-  }, [type, pageSize, horizonUrl, publicKey, refresh]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      // Reset global state on unmount
-      if (isRequestInFlightRef.current) {
-        globalRefreshInFlight = false;
-        globalFetchNextInFlight = false;
-        isRequestInFlightRef.current = false;
-      }
-    };
-  }, []);
 
   return {
     items,
