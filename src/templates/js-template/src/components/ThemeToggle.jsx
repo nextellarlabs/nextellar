@@ -37,7 +37,7 @@ export default function ThemeToggle() {
             aria-label="Toggle theme"
             aria-pressed={isDark}
             title={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
-            className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+            className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors motion-reduce:transition-none"
         >
             <Icon className="w-5 h-5" aria-hidden="true" />
         </button>

@@ -29,8 +29,10 @@ This project uses a fully automated release pipeline via GitHub Actions.
 Test the pipeline without publishing by triggering the workflow manually:
 
 1. Go to **Actions** > **Release** > **Run workflow**
-2. Check **dry-run** and run on the target branch
-3. The tarball will be uploaded as a build artifact
+2. Set the **dry-run** workflow input to `true` and run it on the target branch
+3. Download the `nextellar-<ref>` artifact, which contains the packed `.tgz`
+   file. The workflow also uploads an `sbom-<ref>` artifact containing
+   `bom.json`.
 
 ## Versioning
 

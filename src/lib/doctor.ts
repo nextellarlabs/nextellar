@@ -1,4 +1,5 @@
 import { exec as execCb } from "child_process";
+import { createRequire } from "module";
 import util from "util";
 import os from "os";
 import path from "path";
@@ -249,6 +250,128 @@ async function checkWasmTarget(): Promise<CheckResult> {
   };
 }
 
+export type PackageResolver = (specifier: string) => boolean;
+
+function defaultPackageResolver(specifier: string): boolean {
+  try {
+    const require = createRequire(path.join(process.cwd(), "package.json"));
+    require.resolve(specifier);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+let packageResolver: PackageResolver = defaultPackageResolver;
+
+/**
+ * Test-only seam (#1279): substitutes how checkWalletAdapterSdks()
+ * resolves peer packages, so tests can simulate an installed/missing SDK
+ * without a real node_modules tree. Pass `undefined` to restore the real,
+ * require.resolve-based resolver.
+ */
+export function setPackageResolverForTest(
+  resolver: PackageResolver | undefined,
+): void {
+  packageResolver = resolver ?? defaultPackageResolver;
+}
+
+function configuredWallets(): string[] {
+  const configPath = path.join(process.cwd(), ".nextellar", "config.json");
+  if (!fs.existsSync(configPath)) return [];
+  try {
+    const config = fs.readJsonSync(configPath);
+    return Array.isArray(config.wallets) ? config.wallets : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Verifies the Ledger/WalletConnect wallet-adapter peer dependencies are
+ * installed when the project's `.nextellar/config.json` lists those wallets
+ * (issue #1279). `nextellar doctor` otherwise has no visibility into
+ * these: both are lazy-loaded only when the user actually picks that wallet
+ * (see stellar-wallet-kit.ts), so a missing/incompatible SDK would
+ * otherwise surface as a runtime import error deep in the wallet flow
+ * instead of a clear, upfront diagnostic.
+ */
+async function checkWalletAdapterSdks(): Promise<CheckResult> {
+  const wallets = configuredWallets();
+  const wantsLedger = wallets.includes("ledger");
+  const wantsWalletConnect = wallets.includes("walletconnect");
+
+  if (!wantsLedger && !wantsWalletConnect) {
+    return {
+      id: "wallet-adapter-sdks",
+      name: "Wallet adapter SDKs",
+      required: false,
+      ok: true,
+      detail:
+        "Not configured (no ledger/walletconnect in .nextellar/config.json)",
+    };
+  }
+
+  // npm-installable specifiers (feed `npm install` for the fix command)
+  // vs. a human-readable label for a dep that can't be fixed by installing
+  // a single package (the walletconnect module ships inside the kit itself,
+  // so a missing resolve there means an incompatible/corrupt kit install,
+  // not a separate package to add).
+  const missingInstallable: string[] = [];
+  const missingLabels: string[] = [];
+
+  if (wantsLedger) {
+    for (const pkg of [
+      "@ledgerhq/hw-transport-webusb",
+      "@ledgerhq/hw-app-str",
+    ]) {
+      if (!packageResolver(pkg)) {
+        missingInstallable.push(pkg);
+        missingLabels.push(pkg);
+      }
+    }
+  }
+  if (wantsWalletConnect) {
+    if (
+      !packageResolver(
+        "@creit.tech/stellar-wallets-kit/modules/walletconnect.module",
+      )
+    ) {
+      missingLabels.push(
+        "@creit.tech/stellar-wallets-kit (walletconnect module)",
+      );
+    }
+  }
+
+  const ok = missingLabels.length === 0;
+  const configured = [
+    wantsLedger ? "ledger" : null,
+    wantsWalletConnect ? "walletconnect" : null,
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  return {
+    id: "wallet-adapter-sdks",
+    name: "Wallet adapter SDKs",
+    required: false,
+    ok,
+    detail: ok
+      ? `${configured} dependencies installed`
+      : `Missing for ${configured}: ${missingLabels.join(", ")}`,
+    fix: ok
+      ? undefined
+      : missingInstallable.length > 0
+        ? `Install: npm install ${missingInstallable.join(" ")}`
+        : "Reinstall @creit.tech/stellar-wallets-kit",
+    fixCommand:
+      !ok && missingInstallable.length === missingLabels.length
+        ? `npm install ${missingInstallable.join(" ")}`
+        : undefined,
+    link: "https://github.com/Creit-Tech/Stellar-Wallets-Kit",
+  };
+}
+
 async function checkHorizon(horizonUrl: string): Promise<CheckResult> {
   try {
     const controller = new AbortController();
@@ -408,6 +531,7 @@ export async function runDoctor(opts?: DoctorOptions) {
     checkRustc(),
     checkStellarCli(),
     checkWasmTarget(),
+    checkWalletAdapterSdks(),
     checkHorizon(horizonUrl),
     checkSoroban(sorobanUrl),
     checkDisk(),
@@ -457,6 +581,7 @@ export async function runDoctor(opts?: DoctorOptions) {
             checkRustc(),
             checkStellarCli(),
             checkWasmTarget(),
+            checkWalletAdapterSdks(),
             checkHorizon(horizonUrl),
             checkSoroban(sorobanUrl),
             checkDisk(),

@@ -133,11 +133,15 @@ a prerequisite for this PR's re-measurement, not a goal in themselves.
   error). `analyze:bundles`'s human-readable exit code only reflects budget violations
   for templates that could actually be measured; build failures are called out
   separately in the report.
-- **Not wired into CI as a required job in this PR.** `defi` currently cannot be
-  measured (see above), so a required CI job running this today would either have to
-  special-case `defi` (fragile) or block every PR on a pre-existing bug unrelated to
-  the PR's own changes. Once `defi`'s `@/lib/contracts` gap is fixed, wiring
-  `npm run analyze:bundles` into `scaffold-matrix.yml`'s PR-smoke job (which already
-  scaffolds+builds every template) is a small follow-up — it would only need to add a
-  measurement step after the existing `npm run build` step, reusing the same build
-  output instead of re-scaffolding.
+- **Wired into CI as its own job, `defi` excluded (#1286).** `scaffold-matrix.yml` now
+  runs a `bundle-budgets` job on every pull request that touches templates, checking
+  `default`, `minimal`, `js-template`, and `js-defi` against their budgets and failing
+  the PR on a regression. `defi` is deliberately left out of this job rather than
+  special-cased around its known `build-failed` status — the job calls the analyzer
+  once per measurable template (`--template=<name>`) instead of the single `npm run
+  analyze:bundles` invocation that covers all five, so adding `defi` back once its
+  `@/lib/contracts` gap is fixed is a one-line addition, not a job restructure.
+  It's a separate job rather than part of the matrixed `pr-smoke`/`nightly-full` jobs
+  above because the analyzer already iterates its own set of templates internally,
+  which doesn't map onto a per-variant matrix the same way the scaffold+build smoke
+  test does.

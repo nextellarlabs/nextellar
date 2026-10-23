@@ -59,6 +59,8 @@ interface WalletContextState {
   disconnect: () => void;
   refreshBalances: () => Promise<void>;
   sendPayment?: (opts: PaymentOptions) => Promise<Horizon.HorizonApi.SubmitTransactionResponse>;
+  /** Signs an unsigned transaction XDR with the connected wallet (used by swaps). */
+  signTransaction?: (unsignedXdr: string) => Promise<string>;
 }
 
 /**
@@ -297,6 +299,14 @@ export function WalletProvider({
     }
   }, [publicKey, connected, activeNetworkPassphrase, refreshBalances]);
 
+  const signTransaction = useCallback(async (unsignedXdr: string): Promise<string> => {
+    if (!publicKey || !connected) {
+      throw new Error('Wallet not connected');
+    }
+    const { signTransaction: kitSign } = await loadWalletKit();
+    return kitSign({ unsignedTransaction: unsignedXdr, address: publicKey });
+  }, [publicKey, connected]);
+
   // Auto-reconnect wallet on mount if previously connected
   useEffect(() => {
     const autoReconnect = async () => {
@@ -350,6 +360,7 @@ export function WalletProvider({
     disconnect,
     refreshBalances,
     sendPayment: connected ? sendPayment : undefined,
+    signTransaction: connected ? signTransaction : undefined,
   };
 
   const configValue: WalletConfigContextState = {

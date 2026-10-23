@@ -131,6 +131,15 @@ const FEATURES: Record<string, FeatureDef> = {
     npmDependencies: [],
     kind: "component",
   },
+  "network-mismatch-banner": {
+    id: "network-mismatch-banner",
+    description:
+      "NetworkMismatchBanner component (warns when the connected wallet's network differs from the app's configured network)",
+    files: ["components/NetworkMismatchBanner.tsx"],
+    dependsOn: ["wallet"],
+    npmDependencies: [],
+    kind: "component",
+  },
   "contract-call": {
     id: "contract-call",
     description:
@@ -157,6 +166,7 @@ const FEATURES: Record<string, FeatureDef> = {
     dependsOn: [
       "wallet",
       "network-switcher",
+      "network-mismatch-banner",
       "balance-display",
       "send-form",
       "receive-form",

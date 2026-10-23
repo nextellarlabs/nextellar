@@ -11,6 +11,9 @@ under `src/lib`:
 - **SEP-38** (`src/lib/sep38.ts`, `src/hooks/useSep38Quote.ts`) — indicative
   and firm anchor quotes. See the [Hooks Reference](hooks.md#sep-hooks) for
   `useSep38Quote`'s full API.
+- **SEP-24** (`src/lib/sep24.ts`, `src/hooks/useSep24Interactive.ts`,
+  `src/components/Sep24InteractiveFrame.tsx`) — hosted interactive
+  deposit/withdraw in a popup or iframe.
 
 None of these implement an anchor server. They are pure client-side
 building blocks for talking to one.
@@ -91,6 +94,19 @@ See the [Hooks Reference](hooks.md#sep-hooks) for `useSep38Quote`, and
   `quote.kind === 'indicative'` as executable.
 - **Firm** quotes (`POST /quote`) are binding until `quote.expiresAt`,
   which is taken as-is from the anchor's response.
+
+## SEP-24: interactive deposit & withdraw
+
+See the [Hooks Reference](hooks.md#sep-hooks) for `useSep24Interactive` and
+`<Sep24InteractiveFrame>`.
+
+- `discoverSep24TransferServer(homeDomain)` resolves `TRANSFER_SERVER_SEP0024`.
+- `startSep24Interactive()` needs a SEP-10 JWT. Anchor URLs must be https;
+  `javascript:`/`data:` URLs are rejected before anything is opened.
+- `callback=postMessage` is appended to the URL. Messages are accepted only
+  from the anchor URL's origin and only for the started transaction id.
+- If the anchor never posts messages, polling `GET /transaction` still
+  reaches the final status.
 
 ## See also
 

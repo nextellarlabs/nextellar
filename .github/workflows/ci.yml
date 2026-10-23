@@ -160,6 +160,52 @@ jobs:
         env:
           LHCI_BUILD_CONTEXT__CURRENT_HASH: ${{ github.sha }}
 
+  visual-regression:
+    name: Visual regression — default template Storybook
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+
+      # Builds the default template's Storybook the way an end user would get
+      # it (scaffold -> install -> build-storybook), then screenshots every
+      # component story with Playwright and compares it to the committed
+      # baselines in tests/visual/__screenshots__/default (#1083). Stories
+      # without a baseline are reported as "new" and do not fail the job; see
+      # docs/visual-regression.md for how to record or update baselines.
+      - name: Scaffold default app
+        run: node dist/bin/nextellar.js vr-app --defaults --skip-install --template default
+
+      - name: Install scaffolded app dependencies
+        working-directory: vr-app
+        run: npm install
+
+      - name: Build Storybook
+        working-directory: vr-app
+        run: npm run build-storybook
+
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Compare story screenshots to baselines
+        run: npm run test:visual -- --storybook-dir vr-app/storybook-static
+
+      - name: Upload screenshots and diffs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-regression
+          path: reports/visual
+          if-no-files-found: ignore
+
   coverage:
     name: Test coverage report
     runs-on: ubuntu-latest

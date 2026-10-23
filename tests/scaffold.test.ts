@@ -410,6 +410,8 @@ describe('scaffold integration', () => {
       { useTs: true,  template: 'minimal'  },
       { useTs: false, template: 'default'  }, // → js-template
       { useTs: false, template: 'defi'     }, // → js-defi
+      { useTs: true,  template: 'full'     }, // default + full overlay (#1112)
+      { useTs: false, template: 'full'     }, // js-template + js-full overlay
     ];
 
     // The --with-contracts overlay is copied over the chosen template and then
@@ -422,6 +424,8 @@ describe('scaffold integration', () => {
       { useTs: true,  template: 'minimal'  },
       { useTs: false, template: 'default'  }, // → js-template
       { useTs: false, template: 'defi'     }, // → js-defi
+      { useTs: true,  template: 'full'     },
+      { useTs: false, template: 'full'     },
     ];
 
     /**
