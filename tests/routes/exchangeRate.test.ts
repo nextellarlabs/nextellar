@@ -39,9 +39,8 @@ describe("GET /exchange-rate", () => {
         }),
     ) as unknown as typeof fetch;
 
-    const { default: exchangeRateRouter } = await import(
-      "../../backend/routes/exchangeRate"
-    );
+    const { default: exchangeRateRouter } =
+      await import("../../backend/routes/exchangeRate");
     const app = buildApp(exchangeRateRouter);
 
     const res = await request(app).get("/exchange-rate?base=XLM&quote=USD");
@@ -49,7 +48,9 @@ describe("GET /exchange-rate", () => {
     expect(res.status).toBe(504);
     expect(res.body.error).toBeDefined();
     expect(res.body.error.code).toBe("UPSTREAM_TIMEOUT");
-    expect(res.body.error.message).toBe("Upstream exchange rate request timed out");
+    expect(res.body.error.message).toBe(
+      "Upstream exchange rate request timed out",
+    );
   });
 
   it("returns 200 when upstream responds before timeout", async () => {
@@ -58,9 +59,8 @@ describe("GET /exchange-rate", () => {
       json: async () => ({ result: 0.12 }),
     }) as unknown as typeof fetch;
 
-    const { default: exchangeRateRouter } = await import(
-      "../../backend/routes/exchangeRate"
-    );
+    const { default: exchangeRateRouter } =
+      await import("../../backend/routes/exchangeRate");
     const app = buildApp(exchangeRateRouter);
 
     const res = await request(app).get("/exchange-rate?base=XLM&quote=USD");

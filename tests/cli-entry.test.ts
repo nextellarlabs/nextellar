@@ -157,7 +157,9 @@ describe("nextellar CLI", () => {
 
     expect(exitCode).toBe(0);
 
-    const summaryIndex = stdout.indexOf("Scaffolding with the following options:");
+    const summaryIndex = stdout.indexOf(
+      "Scaffolding with the following options:",
+    );
     const completeIndex = stdout.indexOf("✔ Nextellar scaffold complete!");
     // Summary must print, and must print before scaffolding actually
     // completes (issue #1082: before any files are written).

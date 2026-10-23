@@ -21,14 +21,18 @@ export interface CleanResult {
  * files, `.nextellar/config.json`, or any other `.nextellar/*` state (e.g.
  * `deploy/`, `install.log`). Safe to run when the directory doesn't exist.
  */
-export async function runClean(options: CleanOptions = {}): Promise<CleanResult> {
+export async function runClean(
+  options: CleanOptions = {},
+): Promise<CleanResult> {
   const cwd = options.cwd || process.cwd();
   const targetDir = path.join(cwd, ".nextellar", "build");
 
   const exists = await fs.pathExists(targetDir);
 
   if (!exists) {
-    console.log(pc.yellow("ℹ️  Nothing to clean — .nextellar/build does not exist."));
+    console.log(
+      pc.yellow("ℹ️  Nothing to clean — .nextellar/build does not exist."),
+    );
     return { targetDir, removed: false };
   }
 

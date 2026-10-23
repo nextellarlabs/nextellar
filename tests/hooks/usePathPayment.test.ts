@@ -36,7 +36,8 @@ const { Keypair, Account, Transaction, Networks } =
 const { usePathPayment } =
   await import("../../src/templates/defi/src/hooks/usePathPayment.js");
 
-type PathQuote = import("../../src/templates/defi/src/lib/pathPayment").PathQuote;
+type PathQuote =
+  import("../../src/templates/defi/src/lib/pathPayment").PathQuote;
 
 const SENDER_KP = Keypair.fromRawEd25519Seed(Buffer.alloc(32, 7));
 const FROM = SENDER_KP.publicKey();
@@ -235,7 +236,9 @@ describe("usePathPayment", () => {
     });
 
     it("surfaces a Horizon server error", async () => {
-      mockStrictSendPathsCall.mockRejectedValue(horizonError(503, "unavailable"));
+      mockStrictSendPathsCall.mockRejectedValue(
+        horizonError(503, "unavailable"),
+      );
       const { findPaths } = renderPathPayment();
 
       await expect(
@@ -310,10 +313,18 @@ describe("usePathPayment", () => {
       const { buildPathPaymentXDR } = renderPathPayment();
 
       const send = decodeSingleOp(
-        await buildPathPaymentXDR({ mode: "strict-send", from: FROM, quote: makeQuote() }),
+        await buildPathPaymentXDR({
+          mode: "strict-send",
+          from: FROM,
+          quote: makeQuote(),
+        }),
       ) as unknown as { destMin: string };
       const receive = decodeSingleOp(
-        await buildPathPaymentXDR({ mode: "strict-receive", from: FROM, quote: makeQuote() }),
+        await buildPathPaymentXDR({
+          mode: "strict-receive",
+          from: FROM,
+          quote: makeQuote(),
+        }),
       ) as unknown as { sendMax: string };
 
       expect(send.destMin).toBe("12.3750000");
@@ -324,7 +335,11 @@ describe("usePathPayment", () => {
       const { buildPathPaymentXDR } = renderPathPayment();
 
       const op = decodeSingleOp(
-        await buildPathPaymentXDR({ mode: "strict-send", from: FROM, quote: makeQuote() }),
+        await buildPathPaymentXDR({
+          mode: "strict-send",
+          from: FROM,
+          quote: makeQuote(),
+        }),
       ) as unknown as { destination: string };
 
       expect(op.destination).toBe(FROM);
@@ -363,7 +378,11 @@ describe("usePathPayment", () => {
       const { buildPathPaymentXDR } = renderPathPayment();
 
       await expect(
-        buildPathPaymentXDR({ mode: "strict-send", from: FROM, quote: makeQuote() }),
+        buildPathPaymentXDR({
+          mode: "strict-send",
+          from: FROM,
+          quote: makeQuote(),
+        }),
       ).rejects.toThrow("not found");
     });
   });
@@ -373,7 +392,11 @@ describe("usePathPayment", () => {
       mockSubmitTransaction.mockResolvedValue({ hash: "abc123" });
       const { buildPathPaymentXDR, submitSignedXDR } = renderPathPayment();
       const tx = new Transaction(
-        await buildPathPaymentXDR({ mode: "strict-send", from: FROM, quote: makeQuote() }),
+        await buildPathPaymentXDR({
+          mode: "strict-send",
+          from: FROM,
+          quote: makeQuote(),
+        }),
         Networks.TESTNET,
       );
       tx.sign(SENDER_KP);

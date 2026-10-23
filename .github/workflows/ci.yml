@@ -73,6 +73,10 @@ jobs:
       - name: Verify package contents
         run: npm run verify:pack
 
+      # Pack size thresholds (~2× clean main): max 5 MB tarball, 25 MB unpacked, 1000 files
+      - name: Check pack size
+        run: node scripts/check-pack-size.mjs
+
   e2e-default:
     name: E2E — default scaffold + next build
     runs-on: ubuntu-latest
@@ -114,24 +118,6 @@ jobs:
       - name: Run E2E test (minimal template scaffold -> install -> next build)
         run: RUN_E2E=1 NODE_OPTIONS="--experimental-vm-modules --no-warnings" npx jest tests/e2e/scaffold-templates.e2e.test.ts --testNamePattern="minimal:"
         timeout-minutes: 15
-
-  pack-guard:
-    name: npm pack size guard
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: npm
-
-      - run: npm ci
-
-      - run: npm run build
-
-      # Pack size thresholds (~2× clean main): max 5 MB tarball, 25 MB unpacked, 1000 files
-      - run: node scripts/check-pack-size.mjs
 
   lighthouse-default:
     name: Lighthouse CI — default scaffold

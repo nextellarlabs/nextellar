@@ -31,7 +31,9 @@ describe("HorizonRateLimiter (#1121)", () => {
     await limiter.execute(fn);
 
     expect(limiter.isRateLimited()).toBe(true);
-    await expect(limiter.execute(fn)).rejects.toThrow("Client rate-limit guard active");
+    await expect(limiter.execute(fn)).rejects.toThrow(
+      "Client rate-limit guard active",
+    );
     expect(fn).toHaveBeenCalledTimes(3);
   });
 

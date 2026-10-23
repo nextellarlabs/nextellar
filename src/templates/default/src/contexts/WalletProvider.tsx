@@ -115,7 +115,6 @@ interface WalletContextState {
   refreshBalances: () => Promise<void>;
   switchAccount: (address: string) => Promise<void>;
   sendPayment?: (opts: PaymentOptions) => Promise<Horizon.HorizonApi.SubmitTransactionResponse | UnsignedFeeBumpResult>;
-  sendPayment?: (opts: PaymentOptions) => Promise<Horizon.HorizonApi.SubmitTransactionResponse>;
   /**
    * The network passphrase the connected wallet itself reports, or undefined
    * if not connected or the wallet couldn't answer getNetwork(). Compare

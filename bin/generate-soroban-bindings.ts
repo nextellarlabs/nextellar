@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 /**
  * Soroban Contract Binding Generator
- * 
+ *
  * Generates typed TypeScript client bindings from Soroban contract specs.
- * 
+ *
  * Usage:
  *   npx ts-node bin/generate-soroban-bindings.ts <spec-file> [--output <path>]
- * 
+ *
  * Example:
  *   npx ts-node bin/generate-soroban-bindings.ts contracts/hello_world/spec.json --output src/lib/bindings/hello_world.ts
  */
 
-import { readFileSync, writeFileSync, mkdirSync } from 'fs';
-import { dirname, resolve } from 'path';
+import { readFileSync, writeFileSync, mkdirSync } from "fs";
+import { dirname, resolve } from "path";
 
 interface ContractSpec {
   type?: string;
@@ -50,39 +50,42 @@ interface BindingGeneratorOptions {
  */
 function sorobanTypeToTs(sorobanType: string): string {
   const typeMap: Record<string, string> = {
-    'u32': 'number',
-    'i32': 'number',
-    'u64': 'bigint',
-    'i64': 'bigint',
-    'u128': 'bigint',
-    'i128': 'bigint',
-    'bool': 'boolean',
-    'string': 'string',
-    'symbol': 'string',
-    'address': 'string',
-    'bytes': 'Uint8Array',
-    'timepoint': 'number',
-    'duration': 'number',
+    u32: "number",
+    i32: "number",
+    u64: "bigint",
+    i64: "bigint",
+    u128: "bigint",
+    i128: "bigint",
+    bool: "boolean",
+    string: "string",
+    symbol: "string",
+    address: "string",
+    bytes: "Uint8Array",
+    timepoint: "number",
+    duration: "number",
   };
 
   // Handle generic types
-  if (sorobanType.startsWith('vec<')) {
+  if (sorobanType.startsWith("vec<")) {
     const inner = sorobanType.slice(4, -1);
     return `${sorobanTypeToTs(inner)}[]`;
   }
-  if (sorobanType.startsWith('option<')) {
+  if (sorobanType.startsWith("option<")) {
     const inner = sorobanType.slice(7, -1);
     return `${sorobanTypeToTs(inner)} | null`;
   }
-  if (sorobanType.startsWith('result<')) {
+  if (sorobanType.startsWith("result<")) {
     // result<T, E> -> { ok: T } | { err: E }
-    const parts = sorobanType.slice(7, -1).split(',').map(s => s.trim());
+    const parts = sorobanType
+      .slice(7, -1)
+      .split(",")
+      .map((s) => s.trim());
     const okType = sorobanTypeToTs(parts[0]);
-    const errType = parts[1] ? sorobanTypeToTs(parts[1]) : 'string';
+    const errType = parts[1] ? sorobanTypeToTs(parts[1]) : "string";
     return `{ ok: ${okType} } | { err: ${errType} }`;
   }
 
-  return typeMap[sorobanType] || 'unknown';
+  return typeMap[sorobanType] || "unknown";
 }
 
 /**
@@ -90,25 +93,25 @@ function sorobanTypeToTs(sorobanType: string): string {
  */
 function sorobanTypeToHint(sorobanType: string): string {
   const hintMap: Record<string, string> = {
-    'u32': '"u32"',
-    'i32': '"i32"',
-    'u64': '"u64"',
-    'i64': '"i64"',
-    'u128': '"u128"',
-    'i128': '"i128"',
-    'bool': '"bool"',
-    'string': '"string"',
-    'symbol': '"symbol"',
-    'address': '"address"',
-    'bytes': '"bytes"',
-    'timepoint': '"timepoint"',
-    'duration': '"duration"',
+    u32: '"u32"',
+    i32: '"i32"',
+    u64: '"u64"',
+    i64: '"i64"',
+    u128: '"u128"',
+    i128: '"i128"',
+    bool: '"bool"',
+    string: '"string"',
+    symbol: '"symbol"',
+    address: '"address"',
+    bytes: '"bytes"',
+    timepoint: '"timepoint"',
+    duration: '"duration"',
   };
 
-  if (sorobanType.startsWith('vec<')) {
+  if (sorobanType.startsWith("vec<")) {
     return '"vec"';
   }
-  if (sorobanType.startsWith('map<')) {
+  if (sorobanType.startsWith("map<")) {
     return '"map"';
   }
 
@@ -120,17 +123,17 @@ function sorobanTypeToHint(sorobanType: string): string {
  */
 function generateFunctionArgs(fn: ContractFunction): string {
   if (fn.inputs.length === 0) {
-    return 'Record<string, never>';
+    return "Record<string, never>";
   }
 
   const fields = fn.inputs
     .map(
       (param) =>
         `  ${param.name}: ${sorobanTypeToTs(param.type)}; ${
-          param.doc ? `// ${param.doc}` : ''
-        }`
+          param.doc ? `// ${param.doc}` : ""
+        }`,
     )
-    .join('\n');
+    .join("\n");
 
   return `{\n${fields}\n}`;
 }
@@ -138,7 +141,10 @@ function generateFunctionArgs(fn: ContractFunction): string {
 /**
  * Generate TypeScript binding code
  */
-function generateBindings(spec: ContractSpec, contractName: string = 'Contract'): string {
+function generateBindings(
+  spec: ContractSpec,
+  contractName: string = "Contract",
+): string {
   const timestamp = new Date().toISOString();
 
   let code = `/**
@@ -176,7 +182,7 @@ import type { SorobanContractReturn, TypedArg } from '@/hooks/useSorobanContract
  */
 export enum ${contractName}Errors {\n`;
     for (const err of spec.errorCodes) {
-      code += `  /** ${err.doc || 'Error'} */\n`;
+      code += `  /** ${err.doc || "Error"} */\n`;
       code += `  ${err.name} = ${err.code},\n`;
     }
     code += `}\n\n`;
@@ -206,7 +212,7 @@ export enum ${contractName}Errors {\n`;
       } else {
         const fields = fn.outputs
           .map((output, i) => `  field${i}: ${sorobanTypeToTs(output.type)};`)
-          .join('\n');
+          .join("\n");
         code += `export interface ${returnInterfaceName} {\n${fields}\n}\n\n`;
       }
     }
@@ -222,14 +228,15 @@ export class ${contractName}Client {\n`;
   // Generate typed methods
   for (const fn of spec.functions) {
     const argsInterface = `${capitalizeFirst(fn.name)}Args`;
-    const returnInterface = fn.outputs.length > 0 ? `${capitalizeFirst(fn.name)}Result` : 'void';
+    const returnInterface =
+      fn.outputs.length > 0 ? `${capitalizeFirst(fn.name)}Result` : "void";
     const hasArgs = fn.inputs.length > 0;
 
     code += `  /**\n   * ${fn.doc || `Call ${fn.name} function`}\n`;
     code += `   * @param args - Function arguments\n`;
     code += `   * @returns ${returnInterface}\n   */\n`;
 
-    code += `  async ${fn.name}(${hasArgs ? `args: ${argsInterface}` : ''}): Promise<${returnInterface}> {\n`;
+    code += `  async ${fn.name}(${hasArgs ? `args: ${argsInterface}` : ""}): Promise<${returnInterface}> {\n`;
     code += `    const callArgs: TypedArg[] = [\n`;
 
     for (const input of fn.inputs) {
@@ -260,18 +267,22 @@ function capitalizeFirst(str: string): string {
  */
 function parseArgs(args: string[]): BindingGeneratorOptions {
   if (args.length < 2) {
-    console.error('Usage: generate-soroban-bindings <spec-file> [--output <path>] [--name <contractName>]');
+    console.error(
+      "Usage: generate-soroban-bindings <spec-file> [--output <path>] [--name <contractName>]",
+    );
     process.exit(1);
   }
 
   const specPath = resolve(args[0]);
-  let outputPath = specPath.replace('.json', '.ts').replace('/spec', '/bindings');
+  let outputPath = specPath
+    .replace(".json", ".ts")
+    .replace("/spec", "/bindings");
   let contractName: string | undefined;
 
   for (let i = 1; i < args.length; i++) {
-    if (args[i] === '--output' && args[i + 1]) {
+    if (args[i] === "--output" && args[i + 1]) {
       outputPath = resolve(args[++i]);
-    } else if (args[i] === '--name' && args[i + 1]) {
+    } else if (args[i] === "--name" && args[i + 1]) {
       contractName = args[++i];
     }
   }
@@ -284,15 +295,19 @@ function parseArgs(args: string[]): BindingGeneratorOptions {
  */
 async function main() {
   try {
-    const { specPath, outputPath, contractName: customName } = parseArgs(process.argv.slice(2));
+    const {
+      specPath,
+      outputPath,
+      contractName: customName,
+    } = parseArgs(process.argv.slice(2));
 
     // Read spec file
-    const specContent = readFileSync(specPath, 'utf-8');
+    const specContent = readFileSync(specPath, "utf-8");
     const spec: ContractSpec = JSON.parse(specContent);
 
     // Validate spec
     if (!spec.functions || !Array.isArray(spec.functions)) {
-      throw new Error('Invalid spec: missing functions array');
+      throw new Error("Invalid spec: missing functions array");
     }
 
     // Infer contract name from file path if not provided
@@ -306,7 +321,7 @@ async function main() {
     mkdirSync(outputDir, { recursive: true });
 
     // Write bindings file
-    writeFileSync(outputPath, bindings, 'utf-8');
+    writeFileSync(outputPath, bindings, "utf-8");
 
     console.log(`✓ Generated bindings for ${contractName}`);
     console.log(`  Output: ${outputPath}`);
@@ -315,7 +330,10 @@ async function main() {
       console.log(`  Error codes: ${spec.errorCodes.length}`);
     }
   } catch (error) {
-    console.error('Error generating bindings:', error instanceof Error ? error.message : error);
+    console.error(
+      "Error generating bindings:",
+      error instanceof Error ? error.message : error,
+    );
     process.exit(1);
   }
 }
@@ -326,9 +344,9 @@ async function main() {
 function inferContractName(specPath: string): string {
   const match = specPath.match(/\/([a-z_]+)\/spec\.json/);
   if (match) {
-    return capitalizeFirst(match[1].replace(/_/g, ''));
+    return capitalizeFirst(match[1].replace(/_/g, ""));
   }
-  return 'Contract';
+  return "Contract";
 }
 
 main();

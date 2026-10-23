@@ -423,21 +423,24 @@ describe("NetworkSwitcher", () => {
   });
 
   describe("custom RPC URL validation (#1134, matches doctor #831)", () => {
-    it.each([
-      "http://localhost:8000",
-      "https://soroban-testnet.stellar.org",
-    ])("accepts %s", (url) => {
-      expect(() => assertValidNetworkUrl(url, "Soroban RPC URL")).not.toThrow();
-    });
-
-    it.each(["ftp://rpc.example.org", "file:///etc/passwd", "javascript:alert(1)"])(
-      "rejects non-http(s) URL %s",
+    it.each(["http://localhost:8000", "https://soroban-testnet.stellar.org"])(
+      "accepts %s",
       (url) => {
-        expect(() => assertValidNetworkUrl(url, "Soroban RPC URL")).toThrow(
-          /must use http or https/,
-        );
+        expect(() =>
+          assertValidNetworkUrl(url, "Soroban RPC URL"),
+        ).not.toThrow();
       },
     );
+
+    it.each([
+      "ftp://rpc.example.org",
+      "file:///etc/passwd",
+      "javascript:alert(1)",
+    ])("rejects non-http(s) URL %s", (url) => {
+      expect(() => assertValidNetworkUrl(url, "Soroban RPC URL")).toThrow(
+        /must use http or https/,
+      );
+    });
 
     it.each(["not-a-url", "", "rpc.example.org"])(
       "rejects unparseable URL %j",

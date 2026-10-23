@@ -285,9 +285,7 @@ export async function upgrade(opts: UpgradeOptions = {}) {
     for (const c of changes) {
       const templateContent = await fs.readFile(c.templateFile, "utf8");
       const projectContent =
-        c.status === "added"
-          ? null
-          : await fs.readFile(c.projectFile, "utf8");
+        c.status === "added" ? null : await fs.readFile(c.projectFile, "utf8");
       console.log("");
       for (const line of renderFullFileDiff(
         c.file,

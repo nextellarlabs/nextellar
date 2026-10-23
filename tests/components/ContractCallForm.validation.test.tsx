@@ -15,32 +15,45 @@ import type { SimulateContractCallResult } from "../../src/templates/default/src
 import type { ContractFunctionSpec } from "../../src/templates/default/src/lib/contract-spec";
 
 const mockSimulateContractCall =
-  jest.fn<(name: string, args: unknown[]) => Promise<SimulateContractCallResult>>();
-const mockBuildInvokeXDR = jest.fn<(name: string, args: unknown[]) => Promise<string>>();
+  jest.fn<
+    (name: string, args: unknown[]) => Promise<SimulateContractCallResult>
+  >();
+const mockBuildInvokeXDR =
+  jest.fn<(name: string, args: unknown[]) => Promise<string>>();
 
-jest.unstable_mockModule("../../src/templates/default/src/hooks/useSorobanContract", () => ({
-  useSorobanContract: () => ({
-    simulateContractCall: mockSimulateContractCall,
-    buildInvokeXDR: mockBuildInvokeXDR,
-    callFunction: jest.fn(),
-    simulateBatchContractCall: jest.fn(),
-    buildBatchInvokeXDRs: jest.fn(),
-    submitInvokeWithSecret: jest.fn(),
-    loading: false,
-    error: null,
+jest.unstable_mockModule(
+  "../../src/templates/default/src/hooks/useSorobanContract",
+  () => ({
+    useSorobanContract: () => ({
+      simulateContractCall: mockSimulateContractCall,
+      buildInvokeXDR: mockBuildInvokeXDR,
+      callFunction: jest.fn(),
+      simulateBatchContractCall: jest.fn(),
+      buildBatchInvokeXDRs: jest.fn(),
+      submitInvokeWithSecret: jest.fn(),
+      loading: false,
+      error: null,
+    }),
   }),
-}));
+);
 
 const mockFetchContractSpec =
-  jest.fn<(...args: unknown[]) => Promise<{ functions: ContractFunctionSpec[] }>>();
+  jest.fn<
+    (...args: unknown[]) => Promise<{ functions: ContractFunctionSpec[] }>
+  >();
 
-jest.unstable_mockModule("../../src/templates/default/src/lib/contract-spec", () => ({
-  fetchContractSpec: (...args: unknown[]) => mockFetchContractSpec(...args),
-}));
-
-const { default: ContractCallForm, validateArgValue, validateFunctionName } = await import(
-  "../../src/templates/default/src/components/ContractCallForm"
+jest.unstable_mockModule(
+  "../../src/templates/default/src/lib/contract-spec",
+  () => ({
+    fetchContractSpec: (...args: unknown[]) => mockFetchContractSpec(...args),
+  }),
 );
+
+const {
+  default: ContractCallForm,
+  validateArgValue,
+  validateFunctionName,
+} = await import("../../src/templates/default/src/components/ContractCallForm");
 
 const CONTRACT_ID = "CAAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQC526";
 const ACCOUNT = "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5";
@@ -56,13 +69,20 @@ const SPEC_FUNCTIONS: ContractFunctionSpec[] = [
     outputsCount: 0,
     doc: "",
   },
-  { name: "set_flag", args: [{ name: "enabled", type: "bool" }], outputsCount: 0, doc: "" },
+  {
+    name: "set_flag",
+    args: [{ name: "enabled", type: "bool" }],
+    outputsCount: 0,
+    doc: "",
+  },
   { name: "get_admin", args: [], outputsCount: 1, doc: "" },
 ];
 
 /** The error element an input points at through aria-describedby. */
 function describedError(input: HTMLElement): HTMLElement | null {
-  const ids = (input.getAttribute("aria-describedby") ?? "").split(/\s+/).filter(Boolean);
+  const ids = (input.getAttribute("aria-describedby") ?? "")
+    .split(/\s+/)
+    .filter(Boolean);
   for (const id of ids) {
     const el = document.getElementById(id);
     if (el?.getAttribute("role") === "alert") return el;
@@ -87,10 +107,13 @@ function expectNoError(input: HTMLElement) {
 async function renderWithSpec() {
   mockFetchContractSpec.mockResolvedValue({ functions: SPEC_FUNCTIONS });
   render(<ContractCallForm contractId={CONTRACT_ID} useContractSpec />);
-  await waitFor(() => expect(screen.getByLabelText(/function name/i).tagName).toBe("SELECT"));
+  await waitFor(() =>
+    expect(screen.getByLabelText(/function name/i).tagName).toBe("SELECT"),
+  );
 }
 
-const preview = () => fireEvent.click(screen.getByRole("button", { name: /preview/i }));
+const preview = () =>
+  fireEvent.click(screen.getByRole("button", { name: /preview/i }));
 
 describe("ContractCallForm field-level errors (#1144)", () => {
   beforeEach(() => {
@@ -109,7 +132,9 @@ describe("ContractCallForm field-level errors (#1144)", () => {
   describe("spec-driven per-argument fields", () => {
     it("renders one labelled field per argument of the selected function", async () => {
       await renderWithSpec();
-      fireEvent.change(screen.getByLabelText(/function name/i), { target: { value: "transfer" } });
+      fireEvent.change(screen.getByLabelText(/function name/i), {
+        target: { value: "transfer" },
+      });
 
       expect(screen.getByLabelText(/^to/)).toBeInTheDocument();
       expect(screen.getByLabelText(/^amount/)).toBeInTheDocument();
@@ -119,10 +144,16 @@ describe("ContractCallForm field-level errors (#1144)", () => {
 
     it("associates and announces an error on each invalid argument field", async () => {
       await renderWithSpec();
-      fireEvent.change(screen.getByLabelText(/function name/i), { target: { value: "transfer" } });
+      fireEvent.change(screen.getByLabelText(/function name/i), {
+        target: { value: "transfer" },
+      });
 
-      fireEvent.change(screen.getByLabelText(/^to/), { target: { value: "not-an-address" } });
-      fireEvent.change(screen.getByLabelText(/^amount/), { target: { value: "12.5" } });
+      fireEvent.change(screen.getByLabelText(/^to/), {
+        target: { value: "not-an-address" },
+      });
+      fireEvent.change(screen.getByLabelText(/^amount/), {
+        target: { value: "12.5" },
+      });
       // memo left empty
       preview();
 
@@ -134,17 +165,25 @@ describe("ContractCallForm field-level errors (#1144)", () => {
 
     it("gives every error a unique id so each field points at its own message", async () => {
       await renderWithSpec();
-      fireEvent.change(screen.getByLabelText(/function name/i), { target: { value: "transfer" } });
+      fireEvent.change(screen.getByLabelText(/function name/i), {
+        target: { value: "transfer" },
+      });
       preview();
 
-      const ids = [/^to/, /^amount/, /^memo/].map((label) => describedError(screen.getByLabelText(label))?.id);
+      const ids = [/^to/, /^amount/, /^memo/].map(
+        (label) => describedError(screen.getByLabelText(label))?.id,
+      );
       expect(new Set(ids).size).toBe(3);
     });
 
     it("moves focus to the first invalid field", async () => {
       await renderWithSpec();
-      fireEvent.change(screen.getByLabelText(/function name/i), { target: { value: "transfer" } });
-      fireEvent.change(screen.getByLabelText(/^to/), { target: { value: ACCOUNT } });
+      fireEvent.change(screen.getByLabelText(/function name/i), {
+        target: { value: "transfer" },
+      });
+      fireEvent.change(screen.getByLabelText(/^to/), {
+        target: { value: ACCOUNT },
+      });
       preview();
 
       expect(screen.getByLabelText(/^amount/)).toHaveFocus();
@@ -152,8 +191,12 @@ describe("ContractCallForm field-level errors (#1144)", () => {
 
     it("leaves valid fields unmarked", async () => {
       await renderWithSpec();
-      fireEvent.change(screen.getByLabelText(/function name/i), { target: { value: "transfer" } });
-      fireEvent.change(screen.getByLabelText(/^to/), { target: { value: ACCOUNT } });
+      fireEvent.change(screen.getByLabelText(/function name/i), {
+        target: { value: "transfer" },
+      });
+      fireEvent.change(screen.getByLabelText(/^to/), {
+        target: { value: ACCOUNT },
+      });
       preview();
 
       expectNoError(screen.getByLabelText(/^to/));
@@ -162,12 +205,18 @@ describe("ContractCallForm field-level errors (#1144)", () => {
 
     it("clears a field's error as soon as it is edited", async () => {
       await renderWithSpec();
-      fireEvent.change(screen.getByLabelText(/function name/i), { target: { value: "set_flag" } });
-      fireEvent.change(screen.getByLabelText(/^enabled/), { target: { value: "yes" } });
+      fireEvent.change(screen.getByLabelText(/function name/i), {
+        target: { value: "set_flag" },
+      });
+      fireEvent.change(screen.getByLabelText(/^enabled/), {
+        target: { value: "yes" },
+      });
       preview();
       expectAnnouncedError(screen.getByLabelText(/^enabled/), /true or false/);
 
-      fireEvent.change(screen.getByLabelText(/^enabled/), { target: { value: "true" } });
+      fireEvent.change(screen.getByLabelText(/^enabled/), {
+        target: { value: "true" },
+      });
 
       expectNoError(screen.getByLabelText(/^enabled/));
       expect(screen.queryByRole("alert")).toBeNull();
@@ -175,12 +224,18 @@ describe("ContractCallForm field-level errors (#1144)", () => {
 
     it("simulates with typed values once every field is valid", async () => {
       await renderWithSpec();
-      fireEvent.change(screen.getByLabelText(/function name/i), { target: { value: "transfer" } });
-      fireEvent.change(screen.getByLabelText(/^to/), { target: { value: ACCOUNT } });
+      fireEvent.change(screen.getByLabelText(/function name/i), {
+        target: { value: "transfer" },
+      });
+      fireEvent.change(screen.getByLabelText(/^to/), {
+        target: { value: ACCOUNT },
+      });
       fireEvent.change(screen.getByLabelText(/^amount/), {
         target: { value: "170141183460469231731687303715884105727" },
       });
-      fireEvent.change(screen.getByLabelText(/^memo/), { target: { value: "rent_oct" } });
+      fireEvent.change(screen.getByLabelText(/^memo/), {
+        target: { value: "rent_oct" },
+      });
       preview();
 
       await waitFor(() =>
@@ -209,7 +264,9 @@ describe("ContractCallForm field-level errors (#1144)", () => {
   describe("free-text mode", () => {
     it("announces an empty comma-separated argument on the arguments field", () => {
       render(<ContractCallForm contractId={CONTRACT_ID} />);
-      fireEvent.change(screen.getByLabelText(/function name/i), { target: { value: "transfer" } });
+      fireEvent.change(screen.getByLabelText(/function name/i), {
+        target: { value: "transfer" },
+      });
       const args = screen.getByLabelText(/arguments/i);
       fireEvent.change(args, { target: { value: "GABC,,1000" } });
       preview();
@@ -235,7 +292,9 @@ describe("ContractCallForm field-level errors (#1144)", () => {
       render(<ContractCallForm contractId={CONTRACT_ID} />);
       const fn = screen.getByLabelText(/function name/i);
       fireEvent.change(fn, { target: { value: "transfer" } });
-      fireEvent.change(screen.getByLabelText(/arguments/i), { target: { value: "GABC, 1000" } });
+      fireEvent.change(screen.getByLabelText(/arguments/i), {
+        target: { value: "GABC, 1000" },
+      });
       preview();
 
       await waitFor(() => expect(mockSimulateContractCall).toHaveBeenCalled());

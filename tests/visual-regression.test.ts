@@ -249,7 +249,8 @@ describe("CI wiring", () => {
     expect(ci).toContain("visual-regression:");
     expect(ci).toContain("--template default");
     expect(ci).toContain("npm run build-storybook");
-    expect(ci).toContain("npm run test:visual -- --storybook-dir vr-app/storybook-static");
+    expect(ci).toContain(
+      "npm run test:visual -- --storybook-dir vr-app/storybook-static",
+    );
   });
-
 });

@@ -1,13 +1,16 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Contract, Address, scValToNative, xdr } from '@stellar/stellar-sdk';
-import { useWallet } from './useWallet';
+import { useState, useEffect, useCallback } from "react";
+import { Contract, Address, scValToNative, xdr } from "@stellar/stellar-sdk";
+import { useWallet } from "./useWallet";
 
 interface UseSorobanContractOptions {
   contractId: string;
   rpcUrl?: string;
 }
 
-export function useSorobanContract({ contractId, rpcUrl = 'https://soroban-testnet.stellar.org' }: UseSorobanContractOptions) {
+export function useSorobanContract({
+  contractId,
+  rpcUrl = "https://soroban-testnet.stellar.org",
+}: UseSorobanContractOptions) {
   const { address, signTransaction } = useWallet();
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<Error | null>(null);
@@ -15,7 +18,7 @@ export function useSorobanContract({ contractId, rpcUrl = 'https://soroban-testn
   const callContractMethod = useCallback(
     async (method: string, args: xdr.ScVal[] = []) => {
       if (!address) {
-        throw new Error('Wallet not connected');
+        throw new Error("Wallet not connected");
       }
 
       setLoading(true);
@@ -25,12 +28,12 @@ export function useSorobanContract({ contractId, rpcUrl = 'https://soroban-testn
         const contract = new Contract(contractId);
         // Build and invoke Soroban transaction flow
         const txResponse = await fetch(rpcUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            jsonrpc: '2.0',
+            jsonrpc: "2.0",
             id: 1,
-            method: 'getHealth',
+            method: "getHealth",
           }),
         });
 
@@ -43,7 +46,7 @@ export function useSorobanContract({ contractId, rpcUrl = 'https://soroban-testn
         throw err;
       }
     },
-    [address, contractId, rpcUrl]
+    [address, contractId, rpcUrl],
   );
 
   return {

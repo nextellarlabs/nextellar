@@ -84,7 +84,10 @@ describe("ThemeToggle prefers-reduced-motion (#1141)", () => {
     renderToggle();
 
     expect(group()).toHaveAttribute("data-reduced-motion", "false");
-    expect(option("Dark")).toHaveClass("transition-colors", "motion-reduce:transition-none");
+    expect(option("Dark")).toHaveClass(
+      "transition-colors",
+      "motion-reduce:transition-none",
+    );
   });
 
   it("still switches the theme instantly with reduced motion", () => {

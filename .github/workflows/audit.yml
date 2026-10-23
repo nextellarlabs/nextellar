@@ -4,17 +4,17 @@ on:
   push:
     branches: [main, develop]
     paths:
-      - 'package.json'
-      - 'package-lock.json'
-      - '.github/workflows/audit.yml'
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/audit.yml"
   pull_request:
     branches: [main, develop]
     paths:
-      - 'package.json'
-      - 'package-lock.json'
+      - "package.json"
+      - "package-lock.json"
   schedule:
     # Run daily at 2 AM UTC
-    - cron: '0 2 * * *'
+    - cron: "0 2 * * *"
   workflow_dispatch:
 
 jobs:
@@ -32,8 +32,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci
@@ -52,33 +52,33 @@ jobs:
           script: |
             const fs = require('fs');
             const audit = JSON.parse(fs.readFileSync('audit-report.json', 'utf8'));
-            
+
             const metadata = audit.metadata || {};
             const vulnerabilities = metadata.vulnerabilities || {};
-            
+
             const critical = vulnerabilities.critical || 0;
             const high = vulnerabilities.high || 0;
             const moderate = vulnerabilities.moderate || 0;
             const low = vulnerabilities.low || 0;
-            
+
             core.setOutput('critical', critical);
             core.setOutput('high', high);
             core.setOutput('moderate', moderate);
             core.setOutput('low', low);
-            
+
             const summary = `
             ### 📊 Dependency Audit Results
-            
+
             | Severity | Count |
             |----------|-------|
             | 🔴 Critical | ${critical} |
             | 🟠 High | ${high} |
             | 🟡 Moderate | ${moderate} |
             | 🔵 Low | ${low} |
-            
+
             **Total vulnerabilities**: ${critical + high + moderate + low}
             `;
-            
+
             core.setOutput('summary', summary);
 
       - name: Comment on PR
@@ -95,7 +95,7 @@ jobs:
             });
 
       - name: Upload audit report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: npm-audit-report
@@ -108,14 +108,14 @@ jobs:
           CRITICAL=${{ steps.parse.outputs.critical }}
           HIGH=${{ steps.parse.outputs.high }}
           MODERATE=${{ steps.parse.outputs.moderate }}
-          
+
           # Policy: fail on critical or high vulnerabilities
           if [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ]; then
             echo "FAIL_BUILD=true" >> $GITHUB_OUTPUT
             echo "❌ Security policy violation: Found $CRITICAL critical and $HIGH high severity vulnerabilities"
             exit 1
           fi
-          
+
           # Warn on moderate vulnerabilities
           if [ "$MODERATE" -gt 0 ]; then
             echo "⚠️ Warning: Found $MODERATE moderate severity vulnerabilities - remediate within 30 days"
@@ -152,7 +152,7 @@ jobs:
         if: github.event_name == 'pull_request'
         with:
           fail-on-severity: moderate
-          allow-licenses: Apache-2.0, Apache-2.0+, Apache License 2.0, MIT, MIT+, ISC, BSD, BSD-2-Clause, BSD-3-Clause, 0BSD, Unlicense, MPL-2.0, LGPL-2.1, LGPL-3.0
+          allow-licenses: Apache-2.0, Apache-2.0+, MIT, MIT+, ISC, BSD-2-Clause, BSD-3-Clause, 0BSD, Unlicense, MPL-2.0, LGPL-2.1, LGPL-3.0
 
   codeql:
     runs-on: ubuntu-latest
@@ -164,14 +164,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: ['javascript']
+        language: ["javascript"]
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v2
+        uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
           queries: security-and-quality
@@ -179,8 +179,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci
@@ -190,7 +190,7 @@ jobs:
         continue-on-error: true
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v2
+        uses: github/codeql-action/analyze@v3
         with:
           category: "/language:javascript"
 
@@ -207,8 +207,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci
@@ -216,4 +216,3 @@ jobs:
       - name: Run license checker
         run: |
           npx license-checker --onlyallow "MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC;0BSD;Unlicense;MPL-2.0;LGPL-2.1;LGPL-3.0"
-

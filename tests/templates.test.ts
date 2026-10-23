@@ -242,7 +242,9 @@ describe("full template (#1112)", () => {
     ["js-full", "src/app/page.jsx"],
   ])("%s landing page renders CounterDemo", async (dir, rel) => {
     const page = await fs.readFile(path.join(TEMPLATES_ROOT, dir, rel), "utf8");
-    expect(page).toContain("import CounterDemo from '../components/CounterDemo';");
+    expect(page).toContain(
+      "import CounterDemo from '../components/CounterDemo';",
+    );
     expect(page).toContain("<CounterDemo />");
   });
 

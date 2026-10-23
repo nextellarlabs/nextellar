@@ -10,7 +10,10 @@ import {
   text,
 } from "@clack/prompts";
 import { isValidUrl } from "./validate.js";
-import { PROJECT_CONFIG_SCHEMA_VERSION, validateProjectConfig } from "./project-config.js";
+import {
+  PROJECT_CONFIG_SCHEMA_VERSION,
+  validateProjectConfig,
+} from "./project-config.js";
 
 export interface InitOptions {
   /** Project root (default: process.cwd()) */

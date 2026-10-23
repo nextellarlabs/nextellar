@@ -10,9 +10,12 @@ import {
 
 function buildApp(errFactory: () => Error) {
   const app = express();
-  app.get("/__error_test", (_req: Request, _res: Response, next: NextFunction) => {
-    next(errFactory());
-  });
+  app.get(
+    "/__error_test",
+    (_req: Request, _res: Response, next: NextFunction) => {
+      next(errFactory());
+    },
+  );
   app.use(globalErrorHandler);
   return app;
 }
@@ -32,7 +35,9 @@ describe("Global Error Handler", () => {
   // ─── existing contract tests ───────────────────────────────────────────────
 
   it("should leak stack trace when NODE_ENV is development", async () => {
-    const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const consoleSpy = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
     const app = buildApp(() => new Error("Test Error"));
     const res = await request(app).get("/__error_test");
 
@@ -47,7 +52,9 @@ describe("Global Error Handler", () => {
 
   it("should hide stack trace and return generic message when NODE_ENV is production", async () => {
     process.env.NODE_ENV = "production";
-    const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const consoleSpy = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
     const app = buildApp(() => new Error("Test Error"));
     const res = await request(app).get("/__error_test");
 
@@ -79,7 +86,9 @@ describe("Global Error Handler", () => {
   it("logs operational errors at console.warn level", async () => {
     const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
     const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
-    const app = buildApp(() => createOperationalError("DB connection lost", 503));
+    const app = buildApp(() =>
+      createOperationalError("DB connection lost", 503),
+    );
 
     await request(app).get("/__error_test");
 
@@ -113,7 +122,9 @@ describe("Global Error Handler", () => {
   it("does NOT call the alert hook for operational errors", async () => {
     jest.spyOn(console, "warn").mockImplementation(() => {});
     const notifySpy = jest.spyOn(alertingService, "notify");
-    const app = buildApp(() => createOperationalError("service unavailable", 503));
+    const app = buildApp(() =>
+      createOperationalError("service unavailable", 503),
+    );
 
     await request(app).get("/__error_test");
 
