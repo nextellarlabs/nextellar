@@ -513,7 +513,7 @@ function Deposit({ jwt, account }: { jwt: string; account: string }) {
 }
 ```
 
-`<Sep24InteractiveFrame url onClose? closeLabel? title? height?>` only renders https URLs (or http://localhost). It sandboxes the iframe to `allow-scripts allow-same-origin allow-forms allow-popups`.
+`<Sep24InteractiveFrame url onClose? closeLabel? title? height?>` only renders https URLs (or http://localhost). It sandboxes the iframe to `allow-scripts allow-same-origin allow-forms allow-popups`. Passing `onClose` (as above) renders it as a modal dialog over a dimmed overlay, with focus trapped inside and Escape calling `onClose`; without `onClose` it stays a plain inline embed.
 
 ---
 
