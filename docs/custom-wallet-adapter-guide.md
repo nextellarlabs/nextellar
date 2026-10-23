@@ -24,6 +24,10 @@ adding `ledger` and/or `walletconnect` to the wallet list (scaffold prompt,
 
 `src/lib/wallets/ledger-module.ts` → `LedgerWalletModule`
 
+For device, browser and OS setup (including Linux udev rules), the connect
+and signing flow, and a troubleshooting table, see
+[ledger-wallet-guide.md](ledger-wallet-guide.md).
+
 - Uses the Ledger **Stellar** app over WebUSB (`@ledgerhq/hw-transport-webusb`
   + `@ledgerhq/hw-app-str`, both already dependencies of the default template).
 - Requirements: a Chromium-based browser (WebUSB), served over https or
