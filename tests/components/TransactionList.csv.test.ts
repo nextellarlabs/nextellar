@@ -7,7 +7,8 @@ describe("TransactionList CSV Export", () => {
       id: "op-1",
       type: "payment",
       created_at: "2026-09-26T10:00:00Z",
-      source_account: "GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H",
+      source_account:
+        "GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H",
       paging_token: "100",
       transaction_successful: true,
       from: "GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H",
@@ -20,7 +21,8 @@ describe("TransactionList CSV Export", () => {
       id: "op-2",
       type: "payment",
       created_at: "2026-09-26T10:30:00Z",
-      source_account: "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
+      source_account:
+        "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
       paging_token: "101",
       transaction_successful: false,
       from: "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
@@ -37,7 +39,9 @@ describe("TransactionList CSV Export", () => {
     const csv = generateTransactionsCSV(mockOperations);
     const lines = csv.split("\n");
 
-    expect(lines[0]).toBe("id,type,created_at,amount,asset,from,to,transaction_hash,status");
+    expect(lines[0]).toBe(
+      "id,type,created_at,amount,asset,from,to,transaction_hash,status",
+    );
     expect(lines.length).toBe(3);
 
     expect(lines[1]).toContain('"op-1"');
@@ -53,6 +57,8 @@ describe("TransactionList CSV Export", () => {
 
   it("returns header only for empty operations list", () => {
     const csv = generateTransactionsCSV([]);
-    expect(csv).toBe("id,type,created_at,amount,asset,from,to,transaction_hash,status");
+    expect(csv).toBe(
+      "id,type,created_at,amount,asset,from,to,transaction_hash,status",
+    );
   });
 });

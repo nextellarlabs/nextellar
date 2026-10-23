@@ -79,7 +79,9 @@ describe("CopyButton", () => {
   it("fails gracefully when the clipboard write is rejected (permission denied)", async () => {
     const writeText = jest
       .fn()
-      .mockRejectedValue(new DOMException("Write permission denied.", "NotAllowedError"));
+      .mockRejectedValue(
+        new DOMException("Write permission denied.", "NotAllowedError"),
+      );
     Object.assign(navigator, { clipboard: { writeText } });
 
     render(<CopyButton value="GABC123" label="address" showConfirmationText />);

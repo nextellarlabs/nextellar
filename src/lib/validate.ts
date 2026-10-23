@@ -86,7 +86,7 @@ export function suggestProjectName(name: string): string | null {
     .trim()
     .toLowerCase()
     .replace(/\s+/g, "-")
-    .replace(/[^a-z0-9\-]/g, "")
+    .replace(/[^a-z0-9-]/g, "")
     .replace(/^[-]+/, "");
   if (!slug) return null;
   const result = validateNpmPackageName(slug);

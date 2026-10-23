@@ -1,5 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
-import { isAllowed, setAllowed, getPublicKey, signTransaction } from '@stellar/freighter-api';
+import { useState, useEffect, useCallback } from "react";
+import {
+  isAllowed,
+  setAllowed,
+  getPublicKey,
+  signTransaction,
+} from "@stellar/freighter-api";
 
 interface WalletState {
   isConnected: boolean;
@@ -22,11 +27,19 @@ export function useWalletAuth() {
       if (allowed) {
         const pk = await getPublicKey();
         if (pk) {
-          setState({ isConnected: true, publicKey: pk, error: null, isInstalling: false });
+          setState({
+            isConnected: true,
+            publicKey: pk,
+            error: null,
+            isInstalling: false,
+          });
         }
       }
     } catch (err: any) {
-      setState((prev) => ({ ...prev, error: err.message || 'Failed to check wallet connection' }));
+      setState((prev) => ({
+        ...prev,
+        error: err.message || "Failed to check wallet connection",
+      }));
     }
   }, []);
 
@@ -39,17 +52,33 @@ export function useWalletAuth() {
       await setAllowed();
       const pk = await getPublicKey();
       if (pk) {
-        setState({ isConnected: true, publicKey: pk, error: null, isInstalling: false });
+        setState({
+          isConnected: true,
+          publicKey: pk,
+          error: null,
+          isInstalling: false,
+        });
       } else {
-        setState((prev) => ({ ...prev, error: 'User denied wallet access or public key not found' }));
+        setState((prev) => ({
+          ...prev,
+          error: "User denied wallet access or public key not found",
+        }));
       }
     } catch (err: any) {
-      setState((prev) => ({ ...prev, error: err.message || 'Connection failed' }));
+      setState((prev) => ({
+        ...prev,
+        error: err.message || "Connection failed",
+      }));
     }
   };
 
   const disconnect = () => {
-    setState({ isConnected: false, publicKey: null, error: null, isInstalling: false });
+    setState({
+      isConnected: false,
+      publicKey: null,
+      error: null,
+      isInstalling: false,
+    });
   };
 
   return {

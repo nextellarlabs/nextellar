@@ -45,7 +45,9 @@ const BALANCES = [
   },
 ];
 
-const signTransaction = jest.fn() as jest.Mock<(xdr: string) => Promise<string>>;
+const signTransaction = jest.fn() as jest.Mock<
+  (xdr: string) => Promise<string>
+>;
 
 function renderForm(wallet: Record<string, unknown> = {}) {
   const value = {
@@ -69,7 +71,11 @@ function renderForm(wallet: Record<string, unknown> = {}) {
   );
 }
 
-function sendRecord(sourceAmount: string, destinationAmount: string, withHop = true) {
+function sendRecord(
+  sourceAmount: string,
+  destinationAmount: string,
+  withHop = true,
+) {
   return {
     source_asset_type: "native",
     source_amount: sourceAmount,
@@ -78,7 +84,13 @@ function sendRecord(sourceAmount: string, destinationAmount: string, withHop = t
     destination_asset_issuer: USDC_ISSUER,
     destination_amount: destinationAmount,
     path: withHop
-      ? [{ asset_type: "credit_alphanum4", asset_code: "BTC", asset_issuer: BTC_ISSUER }]
+      ? [
+          {
+            asset_type: "credit_alphanum4",
+            asset_code: "BTC",
+            asset_issuer: BTC_ISSUER,
+          },
+        ]
       : [],
   };
 }
@@ -100,7 +112,11 @@ describe("SwapForm (defi)", () => {
   });
 
   it("disables everything and prompts to connect when no wallet is connected", () => {
-    renderForm({ connected: false, publicKey: undefined, signTransaction: undefined });
+    renderForm({
+      connected: false,
+      publicKey: undefined,
+      signTransaction: undefined,
+    });
 
     expect(screen.getByText("Connect a wallet to swap.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Find route" })).toBeDisabled();
@@ -109,7 +125,10 @@ describe("SwapForm (defi)", () => {
 
   it("shows the chosen path, estimate and slippage-protected minimum (strict-send)", async () => {
     mockStrictSendPathsCall.mockResolvedValue({
-      records: [sendRecord("100.0000000", "12.0000000", false), sendRecord("100.0000000", "12.5000000")],
+      records: [
+        sendRecord("100.0000000", "12.0000000", false),
+        sendRecord("100.0000000", "12.5000000"),
+      ],
     });
     renderForm();
     fillForm();
@@ -117,11 +136,15 @@ describe("SwapForm (defi)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Find route" }));
 
     // The best (highest-output) route wins.
-    expect(await screen.findByTestId("swap-route")).toHaveTextContent("XLM → BTC → USDC");
+    expect(await screen.findByTestId("swap-route")).toHaveTextContent(
+      "XLM → BTC → USDC",
+    );
     expect(screen.getByText("You receive (estimated)")).toBeInTheDocument();
     expect(screen.getByText("12.5000000 USDC")).toBeInTheDocument();
     // 12.5 less the default 1% slippage.
-    expect(screen.getByTestId("swap-bound")).toHaveTextContent("12.3750000 USDC");
+    expect(screen.getByTestId("swap-bound")).toHaveTextContent(
+      "12.3750000 USDC",
+    );
     expect(screen.getByRole("button", { name: "Swap" })).toBeEnabled();
   });
 
@@ -137,7 +160,9 @@ describe("SwapForm (defi)", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Find route" }));
 
-    expect(await screen.findByTestId("swap-bound")).toHaveTextContent("12.2500000 USDC");
+    expect(await screen.findByTestId("swap-bound")).toHaveTextContent(
+      "12.2500000 USDC",
+    );
   });
 
   it("shows the maximum sent in strict-receive mode", async () => {
@@ -145,14 +170,18 @@ describe("SwapForm (defi)", () => {
       records: [sendRecord("98.0000000", "12.0000000")],
     });
     renderForm();
-    fireEvent.click(screen.getByRole("radio", { name: "Exact amount to receive" }));
+    fireEvent.click(
+      screen.getByRole("radio", { name: "Exact amount to receive" }),
+    );
     fillForm("12");
 
     fireEvent.click(screen.getByRole("button", { name: "Find route" }));
 
     expect(await screen.findByText("Maximum sent")).toBeInTheDocument();
     // 98 plus the default 1% slippage.
-    expect(screen.getByTestId("swap-bound")).toHaveTextContent("98.9800000 XLM");
+    expect(screen.getByTestId("swap-bound")).toHaveTextContent(
+      "98.9800000 XLM",
+    );
   });
 
   it("reports when no route is available and keeps Swap disabled", async () => {
@@ -162,7 +191,9 @@ describe("SwapForm (defi)", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Find route" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("No route found");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "No route found",
+    );
     expect(screen.getByRole("button", { name: "Swap" })).toBeDisabled();
   });
 
@@ -170,15 +201,23 @@ describe("SwapForm (defi)", () => {
     renderForm();
 
     fireEvent.change(screen.getByLabelText("To"), { target: { value: "XLM" } });
-    expect(screen.getByText("Choose two different assets.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Choose two different assets."),
+    ).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText(/Amount to send/), { target: { value: "-5" } });
-    expect(screen.getByText(/Enter an amount greater than 0/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/Amount to send/), {
+      target: { value: "-5" },
+    });
+    expect(
+      screen.getByText(/Enter an amount greater than 0/),
+    ).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Slippage tolerance (%)"), {
       target: { value: "80" },
     });
-    expect(screen.getByText(/Enter a slippage between 0 and 50%/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Enter a slippage between 0 and 50%/),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Find route" })).toBeDisabled();
   });
 
@@ -195,9 +234,12 @@ describe("SwapForm (defi)", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Swap" }));
 
-    expect(await screen.findByText("Swap submitted: swaphash")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Swap submitted: swaphash"),
+    ).toBeInTheDocument();
     const signedXdr = signTransaction.mock.calls[0][0];
-    const op = new Transaction(signedXdr, Networks.TESTNET).operations[0] as unknown as {
+    const op = new Transaction(signedXdr, Networks.TESTNET)
+      .operations[0] as unknown as {
       type: string;
       sendAmount: string;
       destMin: string;
@@ -219,7 +261,10 @@ describe("SwapForm (defi)", () => {
         status: 400,
         data: {
           extras: {
-            result_codes: { transaction: "tx_failed", operations: ["op_under_dest_min"] },
+            result_codes: {
+              transaction: "tx_failed",
+              operations: ["op_under_dest_min"],
+            },
           },
         },
       },
@@ -232,7 +277,9 @@ describe("SwapForm (defi)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Swap" }));
 
     await waitFor(() =>
-      expect(screen.getByRole("alert")).toHaveTextContent(/slippage tolerance exceeded/i),
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        /slippage tolerance exceeded/i,
+      ),
     );
   });
 
@@ -261,7 +308,9 @@ describe("SwapForm (defi)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Find route" }));
     await screen.findByTestId("swap-route");
 
-    fireEvent.change(screen.getByLabelText(/Amount to send/), { target: { value: "200" } });
+    fireEvent.change(screen.getByLabelText(/Amount to send/), {
+      target: { value: "200" },
+    });
 
     expect(screen.queryByTestId("swap-route")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Swap" })).toBeDisabled();

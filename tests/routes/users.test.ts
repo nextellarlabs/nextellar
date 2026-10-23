@@ -11,10 +11,12 @@ import request from "supertest";
 // dynamically afterwards so it resolves against the mocked module.
 await jest.unstable_mockModule("../../backend/middleware/auth.js", () => ({
   authenticate: (_req: Request, _res: Response, next: NextFunction) => next(),
-  requireRole: () => (_req: Request, _res: Response, next: NextFunction) => next(),
+  requireRole: () => (_req: Request, _res: Response, next: NextFunction) =>
+    next(),
 }));
 
-const { default: usersRouter, deps } = await import("../../backend/routes/users.js");
+const { default: usersRouter, deps } =
+  await import("../../backend/routes/users.js");
 
 const VALID_UUID = "123e4567-e89b-12d3-a456-426614174000";
 
@@ -91,9 +93,7 @@ describe("GET /users/:id", () => {
   });
 
   it("returns 500 without crashing on unexpected DB error", async () => {
-    jest
-      .spyOn(deps, "getUserById")
-      .mockRejectedValue(new Error("DB timeout"));
+    jest.spyOn(deps, "getUserById").mockRejectedValue(new Error("DB timeout"));
 
     const res = await request(app).get(`/users/${VALID_UUID}`);
 

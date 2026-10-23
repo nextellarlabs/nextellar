@@ -143,6 +143,10 @@ program
       await exitWithTelemetry(exitCode);
     } catch (err: any) {
       printError(`Failed to preview templates: ${err?.message || err}`);
+      await exitWithTelemetry(1);
+    }
+  });
+
 // Init subcommand: revisit/reconfigure an existing project's
 // .nextellar/config.json (network, wallets) without re-scaffolding.
 program
@@ -609,9 +613,7 @@ program.action(async (projectName, options) => {
       `  Language:        ${pc.cyan(useTs ? "TypeScript" : "JavaScript")}`,
     );
     console.log(`  Template:        ${pc.cyan(template)}`);
-    console.log(
-      `  Contracts:       ${pc.cyan(withContracts ? "Yes" : "No")}`,
-    );
+    console.log(`  Contracts:       ${pc.cyan(withContracts ? "Yes" : "No")}`);
     console.log(
       `  Wallets:         ${pc.cyan(finalWallets.length > 0 ? finalWallets.join(", ") : "none")}`,
     );

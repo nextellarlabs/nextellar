@@ -462,4 +462,3 @@ describe("useStellarPayment (default template)", () => {
     expect(xdr!).toBe("mock_feebump_xdr");
   });
 });
-

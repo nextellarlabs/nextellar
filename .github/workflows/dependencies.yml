@@ -3,11 +3,11 @@ name: Dependency Updates
 on:
   pull_request:
     paths:
-      - 'package.json'
-      - 'package-lock.json'
+      - "package.json"
+      - "package-lock.json"
   schedule:
     # Check for updates daily
-    - cron: '0 3 * * *'
+    - cron: "0 3 * * *"
   workflow_dispatch:
 
 jobs:
@@ -28,8 +28,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci
@@ -56,21 +56,21 @@ jobs:
           script: |
             const comment = `
             ✅ **Dependency Update Validation**
-            
+
             - ✓ Dependencies installed
             - ✓ Tests passed
             - ✓ Security audit passed
-            
+
             **Guidelines:**
             - Review changelog for breaking changes
             - Update type definitions if needed
             - Verify compatibility with minimum Node version (20+)
             - Test locally before merge
-            
+
             For security updates: auto-merge enabled
             For other updates: manual review required
             `;
-            
+
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
