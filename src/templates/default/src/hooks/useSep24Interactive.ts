@@ -1,3 +1,4 @@
+// This file is mirrored in src/templates/defi/src/hooks/useSep24Interactive.ts — keep both in sync.
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
