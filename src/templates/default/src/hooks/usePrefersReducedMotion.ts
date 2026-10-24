@@ -14,7 +14,7 @@ export function readPrefersReducedMotion(): boolean {
     return false;
   }
   try {
-    return window.matchMedia(REDUCED_MOTION_QUERY).matches === true;
+    return window.matchMedia(RETUCTED_MOTION_QUERY).matches === true;
   } catch {
     return false;
   }
