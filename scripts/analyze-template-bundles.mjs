@@ -60,6 +60,13 @@ const BUDGETS_BYTES = {
   defi: 3_450_000,
   "js-template": 3_400_000,
   "js-defi": 3_400_000,
+  // `full` composes `default`/`js-template` + the contracts overlay (#1270):
+  // currently unmeasurable, same as `defi` below, because `npm run build`
+  // (the CLI build this script's own scaffold() call needs) is blocked by an
+  // unrelated pre-existing syntax error in bin/nextellar.ts. Set once that's
+  // fixed and a real baseline can be measured; not guessed here.
+  full: null,
+  "js-full": null,
 };
 
 /** App templates that ship a Next.js app shell, and how to scaffold each. */
@@ -69,6 +76,12 @@ const APP_TEMPLATES = [
   { name: "defi", template: "defi", useTs: true },
   { name: "js-template", template: "default", useTs: false },
   { name: "js-defi", template: "defi", useTs: false },
+  // #1270: composed starter (default/js-template + the contracts overlay,
+  // withContracts always on — see templates.ts). Currently build-blocked,
+  // same as `defi` (see BUDGETS_BYTES above), so this is wired up ready to
+  // measure a real baseline once that's unblocked.
+  { name: "full", template: "full", useTs: true },
+  { name: "js-full", template: "full", useTs: false },
 ];
 
 function formatBytes(bytes) {
@@ -181,7 +194,16 @@ async function analyzeOne(spec) {
   result.totalBytes = sumAllBytes(staticDir);
   result.jsBytes = sumBytesByExt(staticDir, [".js"]);
   result.cssBytes = sumBytesByExt(staticDir, [".css"]);
-  result.status = result.totalBytes > result.budgetBytes ? "over-budget" : "ok";
+  // A null budget (no baseline measured yet, e.g. `full`/`js-full`) is
+  // neither a pass nor a fail — it just means there's nothing to compare
+  // against yet, so report it distinctly rather than always failing
+  // `totalBytes > null` (which coerces to 0 and would always be true).
+  result.status =
+    result.budgetBytes == null
+      ? "no-budget"
+      : result.totalBytes > result.budgetBytes
+        ? "over-budget"
+        : "ok";
 
   return { result, scratchRoot };
 }
@@ -208,10 +230,10 @@ function printHumanReport(results) {
       rows.push([
         pc.yellow("SKIP"),
         r.name,
-        "—",
-        "—",
-        "—",
-        formatBytes(r.budgetBytes),
+        r.status === "no-budget" ? formatBytes(r.totalBytes) : "—",
+        r.status === "no-budget" ? formatBytes(r.jsBytes) : "—",
+        r.status === "no-budget" ? formatBytes(r.cssBytes) : "—",
+        r.budgetBytes == null ? "—" : formatBytes(r.budgetBytes),
         r.status,
       ]);
     }
