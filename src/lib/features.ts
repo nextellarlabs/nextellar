@@ -86,6 +86,44 @@ const FEATURES: Record<string, FeatureDef> = {
     dependsOn: ["contracts"],
     npmDependencies: ["@stellar/stellar-sdk"],
   },
+  multisig: {
+    id: "multisig",
+    description:
+      "Multisig transaction builder: useMultisigTransaction hook (collect co-signer signatures until an account's signing threshold is met)",
+    // useMultisigTransaction imports lib/multisig.ts directly, which no
+    // other feature ships, so it must be bundled here rather than left to
+    // a dependsOn.
+    files: ["hooks/useMultisigTransaction.ts", "lib/multisig.ts"],
+    dependsOn: ["wallet"],
+    npmDependencies: ["@stellar/stellar-sdk"],
+  },
+  "ledger-wallet": {
+    id: "ledger-wallet",
+    description:
+      "Ledger hardware wallet adapter for stellar-wallet-kit (lib/wallets/ledger-module.ts)",
+    // lib/stellar-wallet-kit.ts (shipped by "wallet") imports this module
+    // unconditionally, but "wallet"'s own files list predates the
+    // wallets/ subdirectory and never copies it. A project scaffolded
+    // from an older template, or one that added "wallet" before this
+    // feature existed, is missing this file even though its code already
+    // references it. This feature backfills exactly that file.
+    files: ["lib/wallets/ledger-module.ts"],
+    dependsOn: ["wallet"],
+    npmDependencies: [
+      "@stellar/stellar-sdk",
+      "@creit.tech/stellar-wallets-kit",
+    ],
+  },
+  walletconnect: {
+    id: "walletconnect",
+    description:
+      "WalletConnect adapter for stellar-wallet-kit (lib/wallets/walletconnect-module.ts)",
+    // Same backfill rationale as "ledger-wallet" above: stellar-wallet-kit.ts
+    // already imports this module, "wallet" never ships it.
+    files: ["lib/wallets/walletconnect-module.ts"],
+    dependsOn: ["wallet"],
+    npmDependencies: ["@creit.tech/stellar-wallets-kit"],
+  },
 
   // UI components. Each one is addable on its own so a project can pull in a
   // single widget, and each depends on the hook feature it imports from — that
@@ -138,6 +176,23 @@ const FEATURES: Record<string, FeatureDef> = {
     files: ["components/NetworkMismatchBanner.tsx"],
     dependsOn: ["wallet"],
     npmDependencies: [],
+    kind: "component",
+  },
+  "sep24-interactive": {
+    id: "sep24-interactive",
+    description:
+      "SEP-24 interactive deposit/withdrawal: Sep24InteractiveFrame component + useSep24Interactive hook",
+    // Both the hook and the component import lib/sep24.ts directly, and
+    // sep24.ts itself imports lib/sep1.ts (for fetchStellarToml) — neither
+    // is shipped by any other feature, so both are bundled here.
+    files: [
+      "hooks/useSep24Interactive.ts",
+      "components/Sep24InteractiveFrame.tsx",
+      "lib/sep24.ts",
+      "lib/sep1.ts",
+    ],
+    dependsOn: ["wallet"],
+    npmDependencies: ["@stellar/stellar-sdk"],
     kind: "component",
   },
   "contract-call": {
