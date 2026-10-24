@@ -89,6 +89,44 @@ describe("feature registry", () => {
     });
   });
 
+  describe("network-mismatch-banner feature (#1280)", () => {
+    it("is registered", () => {
+      expect(getFeatureIds()).toContain("network-mismatch-banner");
+    });
+
+    it("appears in listFeatures as a component", () => {
+      const byId = Object.fromEntries(listFeatures().map((f) => [f.id, f]));
+      expect(byId["network-mismatch-banner"]).toBeDefined();
+      expect(byId["network-mismatch-banner"].kind).toBe("component");
+    });
+
+    it("points at NetworkMismatchBanner.tsx", () => {
+      expect(getFeature("network-mismatch-banner")?.files).toEqual([
+        "components/NetworkMismatchBanner.tsx",
+      ]);
+    });
+
+    it("depends on the wallet feature it reads network state from", () => {
+      expect(getFeature("network-mismatch-banner")?.dependsOn).toEqual([
+        "wallet",
+      ]);
+    });
+
+    it("resolves with wallet before the component", () => {
+      const ids = resolveFeatureWithDeps("network-mismatch-banner").map(
+        (f) => f.id,
+      );
+
+      expect(ids).toEqual(["wallet", "network-mismatch-banner"]);
+    });
+
+    it("is included in the components umbrella", () => {
+      expect(getFeature("components")?.dependsOn).toContain(
+        "network-mismatch-banner",
+      );
+    });
+  });
+
   describe("resolveFeatureWithDeps", () => {
     it("returns an empty list for an unknown feature", () => {
       expect(resolveFeatureWithDeps("nope")).toEqual([]);

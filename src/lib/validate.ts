@@ -101,10 +101,16 @@ export function validateProjectName(name: string): void {
   if (!name || typeof name !== "string" || name.trim().length === 0) {
     throw new Error("Project name is required");
   }
+  // The name doubles as the target directory, so path separators (including
+  // the "/" of a scoped name) are rejected rather than validated piecewise.
+  const hasPathSeparator = /[\\/]/.test(name);
   const result = validateNpmPackageName(name);
-  if (!result.validForNewPackages) {
+  if (hasPathSeparator || !result.validForNewPackages) {
     const suggestion = suggestProjectName(name);
     let message = `Invalid project name: "${name}"`;
+    if (hasPathSeparator) {
+      message += "\nProject name must not contain path separators.";
+    }
     if (suggestion) {
       message += `\n\nDid you mean:\n\n${suggestion}`;
     }
