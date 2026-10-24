@@ -253,6 +253,7 @@ export default function ContractCallForm({
       if (t === 'false') return false;
       const n = Number(t);
       if (t !== '' && !isNaN(n) && Number.isInteger(n)) return n;
+      // Empty tokens are rejected by validation before this point.
       return t;
     });
   }, []);

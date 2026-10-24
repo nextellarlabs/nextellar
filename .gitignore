@@ -11,14 +11,11 @@ dist/
 *.tsbuildinfo
 
 # Environment variables
-.env
-.env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
 # IDE/Editor files
-.vscode/
 .idea/
 *.swp
 *.swo
@@ -73,3 +70,4 @@ src/templates/**/coverage/
 .stryker-tmp/
 reports/
 vr-app/
+config.bat
