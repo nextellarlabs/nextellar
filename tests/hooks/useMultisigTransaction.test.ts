@@ -68,6 +68,34 @@ describe("useMultisigTransaction (#1059)", () => {
     ).toHaveLength(2);
   });
 
+  it("refuses submission (thresholdMet stays false) until enough signatures are collected (#1275)", () => {
+    const { result } = renderHook(() =>
+      useMultisigTransaction(account, Networks.TESTNET),
+    );
+    const xdr = unsignedXdr();
+
+    act(() => {
+      result.current.load(xdr);
+    });
+
+    // Required weight is 2 (med_threshold), but neither signer has signed
+    // yet: a caller following the documented `if (thresholdMet) submit(xdr)`
+    // pattern must not submit here.
+    expect(result.current.status?.requiredWeight).toBe(2);
+    expect(result.current.thresholdMet).toBe(false);
+
+    // One signature of weight 1 is still below the required weight of 2.
+    act(() => {
+      result.current.signWith(alice);
+    });
+
+    expect(result.current.thresholdMet).toBe(false);
+    expect(
+      TransactionBuilder.fromXDR(result.current.xdr!, Networks.TESTNET)
+        .signatures,
+    ).toHaveLength(1);
+  });
+
   it("exposes errors instead of throwing", () => {
     const { result } = renderHook(() =>
       useMultisigTransaction(account, Networks.TESTNET),
