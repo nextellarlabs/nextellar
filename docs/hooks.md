@@ -42,8 +42,7 @@ function MyComponent() {
 ```
 
 ### `useStellarWallet(horizonUrl, network)`
-
-A standalone wallet hook built directly on Stellar Wallets Kit (Freighter, Albedo, Lobstr, …). Unlike `useWallet()`, it does not need `WalletProvider` — each call owns its own connection state. The connection is persisted to `localStorage` and restored on mount if the kit still reports the same address.
+A standalone wallet hook build directly on Stellar Wallets Kit (Freighter, Albedo, Lobstr, ...). Unlike `useWallet()`, it does not need `WalletProvider` — each call owns its own connection state. The connection is persisted to `localStorage` and restored on mount if the kit still reports the same address.
 
 **Signature:**
 ```typescript
@@ -51,8 +50,8 @@ function useStellarWallet(horizonUrl?: string, network?: string): StellarWalletS
 ```
 
 **Parameters:**
-- `horizonUrl` (string, optional): Horizon server used for balances and payment submission. Defaults to `'https://horizon-testnet.stellar.org'`. Read once on mount; later changes are ignored.
-- `network` (string, optional): Network **passphrase** used to build and sign payments. Defaults to `Networks.TESTNET`.
+- `horizonUrl` (string, optional): Horizon server used for balances and payment submission. Defaults to `'https://horizon-testnet.stellar.org'. Read once on mount; later changes are ignored.
+- `network` (string, optional): Network **passphrase** used to build and sign payments. Defaults to `Networks.TESTNET` .
 
 **Returns:**
 An object containing:
@@ -63,7 +62,7 @@ An object containing:
 - `connect` (`() => Promise<void>`): Opens the Stellar Wallets Kit selection modal; state updates when the user picks a wallet. Rethrows if the kit fails.
 - `disconnect` (`() => void`): Disconnects the kit, clears state and the persisted connection.
 - `refreshBalances` (`() => Promise<void>`): Re-fetches balances for `publicKey`; a no-op while disconnected.
-- `sendPayment` (`((opts: PaymentOptions) => Promise<Horizon.HorizonApi.SubmitTransactionResponse>) | undefined`): Only defined while connected. Builds a payment (`to`, `amount`, optional `asset` — `'XLM'` or `{ code, issuer }` — and `memo`), signs it through the wallet, submits it to Horizon, refreshes balances and resolves with the Horizon response. Throws on failure.
+- `sendPayment` (`((opts: PaymentOptions) => Promise<Horizon.HorizonApi.SubmitTransactionResponse>)  | undefined`): Only defined while connected. Builds a payment (`to`, `amount`, optional `asset` — `'XLM'` or `{ code, issuer }` — and `memo`), signs it through the wallet, submits it to Horizon, refreshes balances and resolves with the Horizon response. Throws on failure.
 
 **Example:**
 ```tsx
@@ -297,9 +296,9 @@ function OrderBook({ selling, buying }) {
   return (
     <div>
       <h3>Bids</h3>
-      {offers.bids.map(bid => <p key={bid.price}>{bid.amount} @ {bid.price}</p>)}
+      {offers.bids.map(bid => <p key={bid.price}>{bid.amount} @{bid.price}</p>)}
       <h3>Asks</h3>
-      {offers.asks.map(ask => <p key={ask.price}>{ask.amount} @ {ask.price}</p>)}
+      {offers.asks.map(ask => <p key={ask.price}>{ask.amount} @{ask.price}</p>)}
     </div>
   );
 }
@@ -358,55 +357,247 @@ function useSorobanContract(opts: SorobanContractOptions): SorobanContractReturn
 
 **Parameters:**
 - `opts.contractId` (string): StrKey contract address (`C…`, 56 characters). Validated on every render — an invalid or empty ID (e.g. an unset env var) **throws during render**.
-- `opts.sorobanRpc` (string, optional): Soroban RPC URL. Defaults to `'https://soroban-testnet.stellar.org'`.
+- `opts.sorobanRpc` (string, optional): Soroban RPC URL. Defaults to `'https://soroban-testnet.stellar.org''.
 - `opts.network` (`'TESTNET' | 'PUBLIC'`, optional): Selects the network passphrase. Defaults to `'TESTNET'`.
 
-Contract arguments are `TypedArg` values: plain JS values are auto-detected (`boolean` → bool, `bigint` → i128, `number` → i32, 56-char `G…`/`C…` string → address, other `string` → string, `Uint8Array` → bytes, array → vec, object → map), or pass `{ value, type }` to force a type (`'u32'`, `'u64'`, `'u128'`, `'symbol'`, `'bytes'`, `'enum'`, …).
+Contract arguments are `TypedArg` values: plain JS values are auto-detected (`boolean` → bool, `bigint` → i128, `number` → i32, 56-char `G…`/`C…` string → address, other `string` → string, `Uint8Array` → bytes, array → vec, object → map), or pass `{ value, type }` to force a type (`'u32', 'u64', 'u128', 'symbol', 'bytes', 'enum', …).
 
 **Returns:**
 An object containing:
 - `callFunction` (`(name: string, args?: TypedArg[]) => Promise<unknown>`): Read-only call via simulation; resolves with the decoded return value (`null` if none). If the footprint has expired it resolves with `{ requiresRestore: true, restorePreamble, transactionData }` and sets `error`. Throws on a simulation error.
-- `simulateContractCall` (`(name: string, args?: TypedArg[]) => Promise<SimulateContractCallResult>`): Resolves with `{ result, minResourceFee, latestLedger }` — the decoded return value, the minimum resource fee in stroops (string) and the simulation ledger — for showing a preview before submitting. Throws `Simulation failed: …` on error.
+- `simulateContractCall` (`(name: string, args?: TypedArg[]) => Promise<SimulateContractCallResult>`): Resolves with `{ result, minResourceFee, latestLedger }` — the decoded return value, the minimum resource fee in stroops (string) and the simulation ledger — for showing a preview before submitting. Throws `Simulation failed: …' on error.
 - `buildInvokeXDR` (`(name: string, args?: TypedArg[]) => Promise<string>`): Resolves with the unsigned invocation transaction XDR for a wallet to sign. It is built against a throwaway source account with a flat 100-stroop fee.
-- `submitInvokeWithSecret` (`(xdr: string, secret: string) => Promise<rpc.Api.SendTransactionResponse>`): **Development only.** Signs `xdr` with `secret` and sends it via RPC `sendTransaction`, resolving with the send response (it does not poll for the final status).
+- `submitInvokeWithSecret` (`(xdr: string, secret: string) => Promise<rpc.Api.SendTransactionResponse>`): **Development only.** Signs `xdr` with `secret` and sends it via R PC `sendTransaction`, resolving with the send response (it does not poll for the final status).
 - `loading` (boolean): True while any of the calls above is in flight.
 - `error` (Error | null | undefined): Error from the most recent call; cleared when the next call starts.
 
 **Example:**
 ```tsx
-import { useState } from 'react';
-import {
-  useSorobanContract,
-  type SimulateContractCallResult,
-} from '@/hooks/useSorobanContract';
+import { useSorobanContract } from 'nextellar/hooks';
 
-function Transfer({ from, to }: { from: string; to: string }) {
-  const { simulateContractCall, buildInvokeXDR, loading, error } = useSorobanContract({
-    contractId: process.env.NEXT_PUBLIC_CONTRACT_ID!,
+function ContractCall() {
+  const { callFunction, loading, error } = useSorobanContract({
+    contractId: 'CABC...',
   });
-  const [preview, setPreview] = useState<SimulateContractCallResult>();
 
-  const args = [from, to, { value: '1000000', type: 'i128' as const }];
-
-  const handlePreview = async () => {
-    setPreview(await simulateContractCall('transfer', args));
+  const handleCall = async () => {
+    const result = await callFunction('balance', ['GABC...']);
+    console.log(result);
   };
 
-  const handleConfirm = async () => {
-    const xdr = await buildInvokeXDR('transfer', args);
-    // Hand `xdr` to your wallet adapter for signing and submission.
+  return (
+    <button onClick={handleCall} disabled={loading}>
+      {error ? `Error: ${error.message}` : 'Call Contract'}
+    </button>
+  );
+}
+```
+
+### `useContractDeploy()`
+
+Deploys a Soroban contract from compiled WASM bytes, building the installation transaction and submitting it through the connected wallet.
+
+**Signature:**
+```typescript
+function useContractDeploy(opts?: ContractDeployOptions): ContractDeployReturn
+```
+
+**Parameters:**
+- `opts.sorobanRpc` (string, optional): Soroban R PC URL. Defaults to `'https://soroban-testnet.stellar.org''.
+- `opts.network` (`'TESTNET' | 'PUBLIC'`, optional): Network passphrase selector. Defaults to `'TESTNET'`.
+- `opts.publicKey` (string, optional): Source account for the deployment transaction. Required when submitting.
+
+**Returns:**
+An object containing:
+- `deploy` (`(opts: { wasm: Uint8Array | Buffer; salt?: string; constructorArgs?: TypedArg[] }) => Promise<{ contractId: string; txHash: string }>`): Builds, signs and submits the deployment; resolves with the new contract address and transaction hash.
+- `buildDeployXDR` (`(opts: { wasm: Uint8Array | Buffer; salt?: string; constructorArgs?: TypedArg[] }) => Promise<string>`): Resolves with the unsigned deployment transaction XDR for external signing.
+- `contractId` (string | undefined): The most recently deployed contract address.
+- `loading` (boolean): True while a deployment is in flight.
+- `error` (Error | null): Error from the most recent deploy; cleared when the next deploy starts.
+
+**Example:**
+```tsx
+import { useContractDeploy } from 'nextellar/hooks';
+
+function DeployForm() {
+  const { deploy, contractId, loading, error } = useContractDeploy();
+
+  const handleDeploy = async (file: File) => {
+    const wasm = new Uint8Array(await file.arrayBuffer());
+    const { contractId } = await deploy({ wasm });
+    console.log('Deployed at', contractId);
   };
 
   return (
     <div>
-      <button onClick={handlePreview} disabled={loading}>Preview</button>
-      {preview && (
-        <p>
-          Fee: {preview.minResourceFee} stroops (ledger #{preview.latestLedger})
-          <button onClick={handleConfirm}>Confirm</button>
-        </p>
-      )}
-      {error && <p>{error.message}</p>}
+      <input type="file" onChange={(e) => e.target.files?.[0] && handleDeploy(e.target.files[0])} />
+      {loading && <p>Deploying...</p>}
+      {error && <p>Error: {error.message}</p>}
+      {contractId && <p>Contract: t{contractId}</p>}
+    </div>
+  );
+}
+```
+
+### `useContractEventHistory()`
+
+Fetches the historical event log for a Soroban contract within a ledger range, with optional topic filtering and pagination.
+
+**Signature:**
+```typescript
+function useContractEventHistory(opts: ContractEventHistoryOptions): ContractEventHistoryReturn
+```
+
+**Parameters:**
+- `opts.contractId` (string): StrKey contract address (`C…`). Required.
+- `opts.startLedger` (number, optional): Lowest ledger to include. Defaults to the latest ledger minus `1000`.
+- `opts.endLedger` (number, optional): Highest ledger to include. Defaults to the latest ledger.
+- `opts.topics` (array, optional): Topic filters (e.g. `['(transfer)', '*']`).
+- `opts.limit` (number, optional): Maximum number of events per page. Defaults to `200`.
+- `opts.sorobanRpc` (string, optional): Soroban R PC URL. Defaults to `'https://soroban-testnet.stellar.org''.
+
+**Returns:**
+An object containing:
+- `events` (array): Decoded contract events in ledger order.
+- `loading` (boolean): True while fetching.
+- `error` (Error | null): Error from the most recent fetch.
+- `fetchMore` (`() => Promise<void>`): Loads the next page of events and appends them to `events`.
+- `hasMore` (boolean): True when a further page is available.
+- `refresh` (`() => Promise<void>`): Re-fetches from the first page.
+
+**Example:**
+```tsx
+import { useContractEventHistory } from 'nextellar/hooks';
+
+function EventLog({ contractId }) {
+  const { events, loading, hasMore, fetchMore } = useContractEventHistory({
+    contractId: contractId,
+    topics: ['(*,', '(swap)'],
+  });
+
+  return (
+    <div>
+      {loading && <p>Loading events...</p>}
+      <ul>{events.map((e, i) => <li key={i}>{e.type}</li>)}</ul>
+      {hasMore && <button onClick={fetchMore}>Load more</button>}
+    </div>
+  );
+}
+```
+
+### `useContractUpgrade()`
+
+Upgrades an existing Soroban contract to a new WASM hash by building and submitting the upgrade invocation through the connected wallet.
+
+**Signature:**
+```typescript
+function useContractUpgrade(opts?: ContractUpgradeOptions): ContractUpgradeReturn
+```
+
+**Parameters:**
+- `opts.sorobanRpc` (string, optional): Soroban R PC URL. Defaults to `'https://soroban-testnet.stellar.org''.
+- `opts.network` (`'TESTNET' | 'PUBLIC'`, optional): Network passphrase selector. Defaults to `'TESTNET'`.
+- `opts.publicKey` (string, optional): Source account for the upgrade transaction. Required when submitting.
+
+**Returns:**
+An object containing:
+- `upgrade` (`(opts: { contractId: string; newWasmHash: Uint8Array | Buffer }) => Promise<{ txHash: string }>`): Builds, signs and submits the upgrade; resolves with the transaction hash.
+- `buildUpgradeXDR` (`(opts: { contractId: string; newWasmHash: Uint8Array | Buffer }) => Promise<string>`): Resolves with the unsigned upgrade transaction XDR for external signing.
+- `loading` (boolean): True while an upgrade is in flight.
+- `error` (Error | null): Error from the most recent upgrade; cleared when the next upgrade starts.
+
+**Example:**
+```tsx
+import { useContractUpgrade } from 'nextellar/hooks';
+
+function UpgradeButton({ contractId, newWasmHash }) {
+  const { upgrade, loading, error } = useContractUpgrade();
+
+  const handleUpgrade = async () => {
+    const { txHash } = await upgrade({ contractId, newWasmHash });
+    console.log('Upgraded in tx', txHash);
+  };
+
+  return (
+    <button onClick={handleUpgrade} disabled={loading}>
+      {error ? `Error: ${error.message}` : 'Upgrade Contract'}
+    </button>
+  );
+}
+```
+
+---
+
+## Horizon Streaming Hooks
+
+### `useHorizonStreaming()`
+
+Subscribes to a Horizon SEE event stream (account, ledger, transaction or operations) and delivers decoded envelopes to your component.
+
+**Signature:**
+```typescript
+function useHorizonStreaming(opts: HorizonStreamingOptions): HorizonStreamingReturn
+```
+
+**Parameters:**
+- `opts.resource` (`'accounts' | 'ledgers' | 'transactions' | 'operations'`): Stream resource type.
+- `opts.id` (string, optional): Resource ID (account address, ledger number, tx hash). Required for `accounts`, `ledgers` and `transactions`.
+- `opts.cursor` (string, optional): Starting cursor. Defaults to `now`.
+- `opts.horizonUrl` (string, optional): Horizon server URL. Defaults to `'https://horizon-testnet.stellar.org''.
+- `opts.enabled` (boolean, optional): Whether the stream is active. Defaults to `true`.
+
+**Returns:**
+An object containing:
+- `events` (array): Events received since mount, newest last.
+- `connected` (boolean): True while the EventSource is open.
+- `error` (Error | null): Error from the stream, if any.
+- `clear` (`() => void`): Empties the buffered `events`.
+
+**Example:**
+```tsx
+import { useHorizonStreaming } from 'nextellar/hooks';
+
+function LivePayments({ publicKey }) {
+  const { events, connected } = useHorizonStreaming({
+    resource: 'accounts',
+    id: publicKey,
+  });
+
+  return (
+    <div>
+      <p>{connected ? 'Streaming' : 'Disconnected'}</p>
+      <ul>{events.map((e, i) => <li key={i}>{e.type}</li>)}</ul>
+    </div>
+  );
+}
+```
+
+---
+
+## UI Hooks
+
+### `usePrefersReducedMotion()`
+
+Returns whether the user has requested minimal non-essential motion via the `prefers-reduced-motion` media query. SSR-safe: returns `false` on the server and updates after hydration.
+
+**Signature:**
+```typescript
+function usePrefersReducedMotion(): boolean
+```
+
+**Returns:**
+- `boolean`: True when the user prefers reduced motion.
+
+**Example:**
+```tsx
+import { usePrefersReducedMotion } from 'nextellar/hooks';
+
+function AnimatedCard() {
+  const reducedMotion = usePrefersReducedMotion();
+
+  return (
+    <div className={reducedMotion ? 'static' : 'transition-all duration-300'}>
+      Hover me
     </div>
   );
 }
@@ -416,186 +607,147 @@ function Transfer({ from, to }: { from: string; to: string }) {
 
 ## SEP Hooks
 
-### `useSep38Quote(options?)`
+### `useSep24Interactive()`
 
-Requests indicative (non-binding) prices and firm (binding) quotes from a [SEP-38](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0038.md) anchor quote server. Discover the quote server first with `discoverSep38QuoteServer(homeDomain)` (`@/lib/sep38`), which resolves `ANCHOR_QUOTE_SERVER` from the domain's `stellar.toml`.
-
-Does not fetch on mount, and never fetches automatically as parameters change — a quote is only requested when `getIndicativePrice`/`getFirmQuote` is called, since anchor quote requests can be rate-limited and a firm quote should never be requested unintentionally.
+Drives the SEP-24 interactive deposit/withdrawal flow: fetches the transfer server info, builds the interactive URL and polls the transaction status until it terminates.
 
 **Signature:**
 ```typescript
-function useSep38Quote(options?: UseSep38QuoteOptions): UseSep38QuoteReturn
+function useSep24Interactive(opts: Sep24InteractiveOptions): Sep24InteractiveReturn
 ```
+
+**Parameters:**
+- `opts.transferServer` (string): SEP-24 transfer server URL.
+- `opts.assetCode` (string): Asset code (e.g. `'USDC'`).
+- `opts.assetIssuer` (string, optional): Asset issuer; omit for native XLM.
+- `opts.amount` (string, optional): Amount to deposit. Required for deposits.
+- `opts.account` (string): Stellar account address for withdrawals.
+- `opts.language` (string, optional): Built-in anchor UI language. Defaults to `'en'`.
 
 **Returns:**
 An object containing:
-- `getIndicativePrice(params)`: Requests `GET /price`. Returns a `Sep38IndicativePrice` (`kind: 'indicative'`) — informational only, never binding.
-- `getFirmQuote(params)`: Requests `POST /quote` (requires a SEP-10 `authToken`). Returns a `Sep38FirmQuote` (`kind: 'firm'`) with an `id` and an `expiresAt` taken as-is from the anchor — never fabricated or extended client-side.
-- `quote` (`Sep38IndicativePrice | Sep38FirmQuote | undefined`): The most recently resolved result. Check `quote.kind` before treating it as executable.
-- `loading` (boolean), `error` (Error | null).
-- `isExpired` (boolean): True once a firm quote's `expiresAt` has passed. Always `false` for an indicative price.
-- `reset()`: Clears `quote` and `error`.
+- `interactiveUrl` (string | null): URL to open in an iframe or web view for the anchor flow.
+- `transaction` (Sep24Transaction | null): Latest transaction status payload.
+- `status` (string | null): SEP-24 status (`incomplete`, `pending_anchor`, `completed`, …).
+- `loading` (boolean): True while fetching info or polling.
+- `error` (Error | null): Error from the most recent request.
+- `start` (`() => Promise<void>`): Fetches the transfer server info and builds `interactiveUrl`.
+- `poll` (`() => Promise<void>`): Fetches the current transaction status once.
 
 **Example:**
 ```tsx
-import { useSep38Quote } from '@/hooks/useSep38Quote';
-import { discoverSep38QuoteServer } from '@/lib/sep38';
+import { useSep24Interactive } from 'nextellar/hooks';
 
-async function getPrice() {
-  const quoteServer = await discoverSep38QuoteServer('anchor.example.com');
-  const { getIndicativePrice, quote, loading, error } = useSep38Quote();
-
-  await getIndicativePrice({
-    quoteServer,
-    sellAsset: 'iso4217:USD',
-    buyAsset: 'stellar:XLM:GISSUER...',
-    sellAmount: '100',
-    context: 'sep6',
+function DepositFlow() {
+  const { interactiveUrl, status, start, poll, loading } = useSep24Interactive({
+    transferServer: 'https://testanchor.stellar.org',
+    assetCode: 'USDC',
+    assetIssuer: 'GABC...',
+    amount: '10',
   });
-}
-```
-
-### `useSep24Interactive(options?)`
-
-Runs the [SEP-24](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0024.md) hosted deposit/withdraw flow:
-
-1. Requests the anchor's interactive URL (`POST /transactions/{deposit|withdraw}/interactive`).
-2. Opens it in a popup, or exposes it for `<Sep24InteractiveFrame>`.
-3. Listens for the anchor's `postMessage` updates. Only messages from the anchor's origin about this transaction are accepted.
-4. Polls `GET /transaction` as a fallback, which covers anchors that redirect instead of posting messages.
-
-Discover the server with `discoverSep24TransferServer(homeDomain)` (`@/lib/sep24`). Get the `authToken` from SEP-10.
-
-**Signature:**
-```typescript
-function useSep24Interactive(options?: {
-  fetchImpl?: typeof fetch;
-  pollIntervalMs?: number;         // default 5000, 0 disables polling
-  closePopupOnComplete?: boolean;  // default true
-  onUpdate?: (tx: Sep24Transaction) => void;
-}): UseSep24InteractiveReturn
-```
-
-**Returns:**
-- `start(opts)`: `opts` is `{ transferServer, kind: 'deposit' | 'withdraw', authToken, assetCode, assetIssuer?, account?, amount?, lang?, extra?, mode?: 'popup' | 'iframe' }`.
-- `status`: one of
-  - `idle`, `starting`, `interactive`
-  - `pending`: the user finished the form. For a withdrawal, `transaction.withdraw_anchor_account` / `withdraw_memo` say where to send funds.
-  - `completed`, `failed`
-  - `closed`: the user closed the window before finishing.
-  - `error`: for example a blocked popup. `url` is still set so you can show a link.
-- `transaction`, `transactionId`, `url`, `error`
-- `cancel()`, `reset()`
-
-**Example:**
-```tsx
-import { useSep24Interactive } from '@/hooks/useSep24Interactive';
-import Sep24InteractiveFrame from '@/components/Sep24InteractiveFrame';
-import { discoverSep24TransferServer } from '@/lib/sep24';
-
-function Deposit({ jwt, account }: { jwt: string; account: string }) {
-  const sep24 = useSep24Interactive();
-
-  async function onDeposit() {
-    const transferServer = await discoverSep24TransferServer('testanchor.stellar.org');
-    await sep24.start({ transferServer, kind: 'deposit', authToken: jwt, assetCode: 'USDC', account, mode: 'iframe' });
-  }
 
   return (
-    <>
-      <button onClick={onDeposit}>Deposit USDC</button>
-      {sep24.url && sep24.status === 'interactive' && (
-        <Sep24InteractiveFrame url={sep24.url} onClose={sep24.cancel} />
-      )}
-      {sep24.status === 'completed' && <p>Deposit complete: {sep24.transaction?.amount_out}</p>}
-    </>
+    <div>
+      <button onClick={start} disabled={loading}>Start deposit</button>
+      {interactiveUrl && <iframe src={interactiveUrl} />}
+      {status && <p>Status: {status}</p>}
+      <button onClick={poll}>Refresh status</button>
+    </div>
   );
 }
 ```
 
-`<Sep24InteractiveFrame url onClose? closeLabel? title? height?>` only renders https URLs (or http://localhost). It sandboxes the iframe to `allow-scripts allow-same-origin allow-forms allow-popups`. Passing `onClose` (as above) renders it as a modal dialog over a dimmed overlay, with focus trapped inside and Escape calling `onClose`; without `onClose` it stays a plain inline embed.
+### `useSep30Recovery()`
 
----
-
-## Multi-sig Hooks
-
-### `useMultisigTransaction(account, networkPassphrase)`
-
-Collects signatures for a transaction that needs several signers, and tracks
-which of the account's signers have signed and whether the threshold is met.
-It wraps `createMultisigSession` from `@/lib/multisig`. That module also exports:
-- `buildMultisigTransaction({ source, operations, networkPassphrase, fee?, timeoutSeconds?, memo? })`, with a default 1-hour timeout to leave time for collecting signatures
-- `evaluateSignatures(tx, account)`
-- `thresholdLevelForTransaction(tx)`
-
-`account` is the Horizon account record (`thresholds` + `signers`), e.g. from `server.loadAccount(id)`.
-
-The threshold level (low/medium/high) is derived from the operations, using Stellar's threshold table. A threshold of 0 still needs weight 1.
-
-Supported signer types:
-- `ed25519_public_key`: the signature is verified against the transaction hash. A matching hint alone is not enough.
-- `preauth_tx`
-- `sha256_hash`
-- `ed25519_signed_payload` signers are reported with `supported: false` and are not counted.
-
-**Returns:**
-- `load(txOrXdr, { thresholdLevel? })`
-- `addSignedXdr(xdr)`: merges a co-signer's signed copy. It is rejected if the copy is for a different transaction.
-- `addSignature(publicKey, base64Sig)`, `signWith(keypair)`, `reset()`
-- `status`: `{ requiredWeight, signedWeight, thresholdMet, signers[], pendingSigners[], unknownSignatures }`
-- `xdr`: the envelope with every collected signature
-- `thresholdMet`, `error`
-
-`unknownSignatures > 0` means the envelope carries a signature from a non-signer. The network rejects that with `tx_bad_auth_extra`.
-
-**Example:**
-```tsx
-import { Networks } from '@stellar/stellar-sdk';
-import { useMultisigTransaction } from '@/hooks/useMultisigTransaction';
-
-const multisig = useMultisigTransaction(accountRecord, Networks.TESTNET);
-multisig.load(unsignedXdr);
-multisig.addSignedXdr(signedByAlice);
-multisig.addSignedXdr(signedByBob);
-if (multisig.thresholdMet) await server.submitTransaction(TransactionBuilder.fromXDR(multisig.xdr!, Networks.TESTNET));
-```
-
-Limitation: only the transaction source account's signers are evaluated.
-Operations with a different `source` also need that account's threshold.
-
----
-
-## Utility Hooks
-
-### `useClipboard(options)`
-
-Copies text to the clipboard and exposes a timed `copied` flag for "Copied!" feedback. Used by `CopyButton`; no provider is required.
+Implements the SEP-30 recovery flow for a wallet: registers an identity with the anchor, signs the challenge transaction and submits the signed challenge to complete recovery.
 
 **Signature:**
 ```typescript
-function useClipboard(options?: UseClipboardOptions): UseClipboardResult
+function useSep30Recovery(opts: Sep30RecoveryOptions): Sep30RecoveryReturn
 ```
 
 **Parameters:**
-- `options.resetDelayMs` (number, optional): How long `copied` stays `true` after a successful copy, in milliseconds. Defaults to `2000`.
+- `opts.sep30Url` (string): SEP-30 server URL.
+- `opts.account` (string): Stellar account to recover.
+- `opts.signer` (`(xdr: string) => Promise<string>`): Signs the challenge XDR and resolves with the signed XDR.
+- `opts.jwt` (string, optional): Existing SEP-30 JWT to reuse instead of registering.
 
 **Returns:**
 An object containing:
-- `copied` (boolean): True for `resetDelayMs` after the most recent successful copy. Copying again restarts the timer.
-- `error` (Error | null): Set when the last attempt failed — the Clipboard API is unavailable (e.g. an insecure context) or the write was rejected. Cleared by the next successful copy.
-- `copy` (`(text: string) => Promise<boolean>`): Writes `text` to the clipboard and resolves `true` on success, `false` otherwise. An empty string resolves `false` without touching the clipboard.
+- `recover` (`() => Promise<void>`): Runs the recovery flow (challenge → sign → submit).
+- `jwt` (string | null): The SEP-30 JWT returned by the server.
+- `loading` (boolean): True while the recovery flow is running.
+- `error` (Error | null): Error from the most recent flow.
 
 **Example:**
 ```tsx
-import { useClipboard } from '@/hooks/useClipboard';
+import { useSep30Recovery } from 'nextellar/hooks';
+import { signTransaction } from '@stellar/stellar-base';
 
-function CopyTxHash({ hash }: { hash: string }) {
-  const { copied, error, copy } = useClipboard({ resetDelayMs: 1500 });
+function RecoverButton({ account, keypair }) {
+  const { recover, jwt, loading, error } = useSep30Recovery({
+    sep30Url: 'https://sep30-anchor.stellar.org',
+    account,
+    signer: async (xdr) => {
+      const tx = new Transaction(xdr, 'Test Stellar Network ; September 2015');
+      tx.sign(keypair);
+      return tx.toXDR();
+    },
+  });
 
   return (
     <div>
-      <button onClick={() => copy(hash)}>{copied ? 'Copied!' : 'Copy hash'}</button>
-      {error && <p role="alert">{error.message}</p>}
+      <button onClick={recover} disabled={loading}>Recover account</button>
+      {jwt && <p>Recovered. JWT issued.</p>}
+      {error && <p>Error: {error.message}</p>}
+    </div>
+  );
+}
+```
+
+### `useSep38Quote()`
+
+Fetches and caches SEP-38 firm quotes from an anchor for a given asset pair and amount.
+
+**Signature:**
+```typescript
+function useSep38Quote(opts: Sep38QuoteOptions): Sep38QuoteReturn
+```
+
+**Parameters:**
+- `opts.sep38Url` (string): SEP-38 server URL.
+- `opts.sellAsset` (string): Asset being sold (e.g. `'XLIM'USDC'`).
+- `opts.buyAsset` (string): Asset being bought.
+- `opts.sellAmount` (string, optional): Amount to sell. Provide either `sellAmount` or `buyAmount`.
+- `opts.buyAmount` (string, optional): Amount to buy.
+- `opts.context` (`'default' | 'strict-send' | 'strict-receive'`, optional): Quote context. Defaults to `'default'`.
+
+**Returns:**
+An object containing:
+- `quote` (Sep38Quote | null): The most recent quote payload (`price`, `sellAmount`, `buyAmount`, `fee`, ...).
+- `quotes` (Sep38Quote[]): History of quotes fetched by this hook.
+- `loading` (boolean): True while a request is in flight.
+- `error` (Error | null): Error from the most recent request.
+- `fetchQuote` (`() => Promise<Sep38Quote | null>`): Fetches a quote for the configured pair and amount.
+- `clear` (`() => void`): Clears `quote`, `quotes` and `error`.
+
+**Example:**
+```tsx
+import { useSep38Quote } from 'nextellar/hooks';
+
+function QuotePanel() {
+  const { quote, fetchQuote, loading, error } = useSep38Quote({
+    sep38Url: 'https://sep38-anchor.stellar.org',
+    sellAsset: 'XLM:ISSU'USDC',
+    buyAsset: 'XLIM:ISSUE'USDC',
+    sellAmount: '100',
+  });
+
+  return (
+    <div>
+      <button onClick={fetchQuote} disabled={loading}>Get quote</button>
+      {quote && <p>{quote.buyAmount} for {quote.sellAmount} (price {quote.price})</p>}
+      {error && <p>Error: {error.message}</p>}
     </div>
   );
 }
