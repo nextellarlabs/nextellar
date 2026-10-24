@@ -1,5 +1,8 @@
 'use client';
 
+// Ported from the `default` template so `defi` components can use the same
+// accessibility-aware hook. Keep this file in sync with the default version.
+
 import { useCallback, useEffect, useState } from 'react';
 
 /** Media query for the OS-level "reduce motion" accessibility setting. */
