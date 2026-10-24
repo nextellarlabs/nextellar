@@ -2,7 +2,13 @@ import path from "path";
 import fs from "fs-extra";
 import { getTelemetryStatus } from "./telemetry.js";
 
-export type AuditAction = "add" | "upgrade";
+export type AuditAction =
+  | "add"
+  | "upgrade"
+  | "sep24-session-start"
+  | "sep24-session-complete"
+  | "sep30-register"
+  | "sep30-recovery-attempt";
 
 export interface AuditLogEntry {
   timestamp: string;
@@ -15,10 +21,9 @@ export function auditLogPath(cwd: string): string {
 }
 
 /**
- * Appends a local, JSON-Lines audit entry for an `add`/`upgrade` action.
+ * Appends a local, JSON-Lines audit entry for an audited action.
  *
- * The log never leaves the machine, but it shares the same on/off switch as
- * remote telemetry (`nextellar telemetry enable|disable`, `--no-telemetry`,
+ * The log never leaves the machine, but it shares the same on/off switch as * remote telemetry (`nextellar telemetry enable|disable`, `--no-telemetry`,
  * `NEXTELLAR_TELEMETRY_DISABLED`) so users only have one preference to manage.
  * Like telemetry, failures here must never break the CLI command they log.
  */
@@ -40,6 +45,6 @@ export async function recordAuditEvent(
     await fs.ensureDir(path.dirname(logPath));
     await fs.appendFile(logPath, JSON.stringify(entry) + "\n", "utf8");
   } catch {
-    // Audit logging must never block add/upgrade commands.
+    // Audit logging must never block the commands it logs.
   }
 }

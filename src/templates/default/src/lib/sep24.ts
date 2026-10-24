@@ -18,6 +18,7 @@
  */
 
 import { fetchStellarToml } from "./sep1";
+import { appendAuditLogEntry } from "./auditLog";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -184,6 +185,16 @@ export async function startSep24Interactive(
   if (!assetCode) throw new Sep24Error("startSep24Interactive: assetCode is required.");
 
   const body: Record<string, string> = { asset_code: assetCode };
+  appendAuditLogEntry({
+    action: "sep24_session_start",
+    actor: params.account ?? "unknown",
+    details: {
+      kind,
+      assetCode,
+      assetIssuer: params.assetIssuer,
+      amount: params.amount,
+    },
+  });
   if (params.assetIssuer) body.asset_issuer = params.assetIssuer;
   if (params.account) body.account = params.account;
   if (params.amount) body.amount = params.amount;
@@ -208,6 +219,15 @@ export async function startSep24Interactive(
     throw new Sep24Error("SEP-24: anchor did not return an interactive URL.");
   }
   assertSafeInteractiveUrl(json.url);
+  appendAuditLogEntry({
+    action: "sep24_session_started",
+    actor: params.account ?? "unknown",
+    details: {
+      kind,
+      transactionId: json.id,
+      assetCode,
+    },
+  });
   return { type: json.type, url: json.url, id: json.id };
 }
 
@@ -243,6 +263,16 @@ export async function fetchSep24Transaction(params: {
   if (!json.transaction?.id) {
     throw new Sep24Error("SEP-24: transaction response is missing `transaction`.");
   }
+  if (isSep24Terminal(json.transaction.status)) {
+    appendAuditLogEntry({
+      action: "sep24_session_completed",
+      actor: "unknown",
+      details: {
+        transactionId: json.transaction.id,
+        status: json.transaction.status,
+      },
+    });
+  }
   return json.transaction;
 }
 
@@ -269,6 +299,16 @@ export function parseSep24Message(
   const tx = (data as { transaction?: Sep24Transaction } | null)?.transaction;
   if (!tx || typeof tx !== "object" || typeof tx.status !== "string") return null;
   if (tx.id !== expected.transactionId) return null;
+  if (isSep24Terminal(tx.status)) {
+    appendAuditLogEntry({
+      action: "sep24_session_completed",
+      actor: "unknown",
+      details: {
+        transactionId: tx.id,
+        status: tx.status,
+      },
+    });
+  }
   return tx;
 }
 

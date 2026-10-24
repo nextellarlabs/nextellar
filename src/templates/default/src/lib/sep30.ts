@@ -36,6 +36,13 @@ export interface Sep30RecoverResponse {
   transaction: string;
 }
 
+export interface Sep30AuditHook {
+  record: (
+    action: 'sep30-register' | 'sep30-recovery-attempt',
+    details: Record<string, unknown>,
+  ) => void | Promise<void>;
+}
+
 async function sep30Fetch<T>(
   url: string,
   init: RequestInit & { authToken?: string } = {},
@@ -53,6 +60,19 @@ async function sep30Fetch<T>(
     throw new Error(`SEP-30 request failed (${response.status}): ${detail}`);
   }
   return (await response.json()) as T;
+}
+
+async function recordSep30Audit(
+  audit: Sep30AuditHook | undefined,
+  action: 'sep30-register' | 'sep30-recovery-attempt',
+  details: Record<string, unknown>,
+): Promise<void> {
+  if (!audit) return;
+  try {
+    await audit.record(action, details);
+  } catch {
+    // Audit logging must never break the recovery flow.
+  }
 }
 
 /**
@@ -78,28 +98,43 @@ export async function discoverSep30RecoveryServer(
  * Register (or update) recovery signers for `accountId` on a SEP-30 server.
  */
 export async function registerSep30Account(
-  request: Sep30RegisterRequest,
+  request: Sep30RegisterRequest & { audit?: Sep30AuditHook },
 ): Promise<void> {
   const base = request.serverUrl.replace(/\/$/, '');
-  await sep30Fetch(`${base}/accounts/${request.accountId}/signers`, {
-    method: 'POST',
-    authToken: request.authToken,
-    body: JSON.stringify({ signers: request.signers }),
-  });
+  try {
+    await sep30Fetch(`${base}/accounts/${request.accountId}/signers`, {
+      method: 'POST',
+      authToken: request.authToken,
+      body: JSON.stringify({ signers: request.signers }),
+    });
+  } finally {
+    await recordSep30Audit(request.audit, 'sep30-register', {
+      serverUrl: base,
+      accountId: request.accountId,
+      signerCount: request.signers.length,
+    });
+  }
 }
 
 /**
  * Request a signed recovery transaction from the SEP-30 server.
  */
 export async function recoverSep30Account(
-  request: Sep30RecoverRequest,
+  request: Sep30RecoverRequest & { audit?: Sep30AuditHook },
 ): Promise<Sep30RecoverResponse> {
   const base = request.serverUrl.replace(/\/$/, '');
-  return sep30Fetch<Sep30RecoverResponse>(
-    `${base}/accounts/${request.accountId}/recover`,
-    {
-      method: 'POST',
-      body: JSON.stringify({ recovery_token: request.recoveryToken }),
-    },
-  );
+  try {
+    return await sep30Fetch<Sep30RecoverResponse>(
+      `${base}/accounts/${request.accountId}/recover`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ recovery_token: request.recoveryToken }),
+      },
+    );
+  } finally {
+    await recordSep30Audit(request.audit, 'sep30-recovery-attempt', {
+      serverUrl: base,
+      accountId: request.accountId,
+    });
+  }
 }
