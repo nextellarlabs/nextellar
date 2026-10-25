@@ -40,9 +40,7 @@ describe("scoreMutants", () => {
   });
 
   it("rounds to two decimals", () => {
-    expect(scoreMutants(m("Killed", "Survived", "Survived")).score).toBe(
-      33.33,
-    );
+    expect(scoreMutants(m("Killed", "Survived", "Survived")).score).toBe(33.33);
   });
 });
 
@@ -142,14 +140,15 @@ describe("toBaseline / formatScoreTable", () => {
 });
 
 describe("pilot configuration", () => {
-  it("scopes Stryker to src/lib and never breaks the build", async () => {
+  it("scopes Stryker to src/lib and the SEP compliance libs, and never breaks the build", async () => {
     // Read as text: jest's moduleFileExtensions does not include .mjs.
     const config = await fs.readFile(
       path.join(ROOT, "stryker.config.mjs"),
       "utf8",
     );
     expect(config).toContain('testRunner: "jest"');
-    expect(config).toContain('mutate: ["src/lib/**/*.ts"');
+    expect(config).toContain('"src/lib/**/*.ts"');
+    expect(config).toContain('"src/templates/default/src/lib/sep*.ts"');
     expect(config).toMatch(/break:\s*null/);
     expect(config).toContain('"reports/mutation/mutation.json"');
   });
@@ -158,7 +157,10 @@ describe("pilot configuration", () => {
     const baseline = await fs.readJson(
       path.join(ROOT, "docs", "mutation-baseline.json"),
     );
-    expect(baseline).toMatchObject({ tool: "stryker", scope: "src/lib/**/*.ts" });
+    expect(baseline).toMatchObject({
+      tool: "stryker",
+      scope: "src/lib/**/*.ts, src/templates/default/src/lib/sep*.ts",
+    });
     expect(baseline).toHaveProperty("score");
     expect(baseline).toHaveProperty("files");
   });
