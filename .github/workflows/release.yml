@@ -12,9 +12,18 @@ on:
         required: false
         default: false
 
+# Release signing (#1127):
+# - id-token: write   lets npm publish with --provenance (Sigstore-signed
+#                     provenance tied to this workflow run) and lets
+#                     attest-build-provenance request a signing certificate.
+# - attestations: write  stores the signed build provenance for the tarball
+#                     and SBOM, verifiable with `gh attestation verify`.
+# - contents: write   creates the GitHub Release the signed artifacts and
+#                     checksums are attached to.
 permissions:
-  contents: read
+  contents: write
   id-token: write
+  attestations: write
 
 jobs:
   release:
@@ -44,6 +53,7 @@ jobs:
         run: npm run build
 
       - name: Verify tag matches package.json
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
         run: |
           TAG_VERSION="${GITHUB_REF_NAME#v}"
           PKG_VERSION=$(node -p "require('./package.json').version")
@@ -74,19 +84,65 @@ jobs:
           name: sbom-${{ github.ref_name }}
           path: bom.json
 
-      - name: Create tarball
-        if: ${{ inputs.dry-run }}
-        run: npm pack
+      # The exact tarball packed here is the one that is attested, attached
+      # to the GitHub Release, and published to npm, so every signature and
+      # checksum refers to the same bytes.
+      - name: Create tarball and checksums
+        id: pack
+        run: |
+          TARBALL=$(npm pack --silent | tail -n 1)
+          sha256sum "$TARBALL" bom.json > SHA256SUMS
+          cat SHA256SUMS
+          echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
 
       - name: Upload tarball
         if: ${{ inputs.dry-run }}
         uses: actions/upload-artifact@v4
         with:
           name: nextellar-${{ github.ref_name }}
-          path: "*.tgz"
+          path: |
+            ${{ steps.pack.outputs.tarball }}
+            SHA256SUMS
+
+      - name: Sign build provenance for release artifacts
+        if: ${{ !inputs.dry-run }}
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            ${{ steps.pack.outputs.tarball }}
+            bom.json
 
       - name: Publish to npm
         if: ${{ !inputs.dry-run }}
-        run: npm publish --provenance --access public
+        run: npm publish "${{ steps.pack.outputs.tarball }}" --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Verify npm provenance was recorded
+        if: ${{ !inputs.dry-run }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          for attempt in 1 2 3 4 5 6; do
+            ATTESTATIONS=$(npm view "nextellar@$VERSION" dist.attestations --json 2>/dev/null || true)
+            if [ -n "$ATTESTATIONS" ] && [ "$ATTESTATIONS" != "{}" ]; then
+              echo "npm provenance recorded for nextellar@$VERSION"
+              exit 0
+            fi
+            echo "Waiting for registry to report provenance (attempt $attempt)..."
+            sleep 10
+          done
+          echo "::error::nextellar@$VERSION was published without npm provenance attestations"
+          exit 1
+
+      - name: Attach signed artifacts to GitHub Release
+        if: ${{ !inputs.dry-run && startsWith(github.ref, 'refs/tags/v') }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "$TARBALL" bom.json SHA256SUMS --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "$TARBALL" bom.json SHA256SUMS \
+              --verify-tag --generate-notes --title "$GITHUB_REF_NAME"
+          fi
