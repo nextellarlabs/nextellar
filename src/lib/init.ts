@@ -41,6 +41,16 @@ const WALLET_OPTIONS = [
   { value: "lobstr", label: "Lobstr" },
   { value: "xbull", label: "xBull" },
   { value: "hana", label: "Hana" },
+  {
+    value: "ledger",
+    label: "Ledger",
+    hint: "hardware wallet, default template",
+  },
+  {
+    value: "walletconnect",
+    label: "WalletConnect",
+    hint: "needs a project ID, default template",
+  },
 ];
 
 /**

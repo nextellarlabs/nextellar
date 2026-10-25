@@ -1,173 +1,198 @@
 {
   "src/templates/default/src/components/AccountSwitcher.tsx": [
     {
-      "line": 87,
+      "line": 133,
       "text": "Available Accounts (",
       "kind": "jsx-text"
     }
   ],
   "src/templates/default/src/components/BalanceDisplay.tsx": [
     {
-      "line": 89,
+      "line": 141,
       "text": "Connect wallet to view balances",
       "kind": "prop:title"
     },
     {
-      "line": 112,
+      "line": 164,
       "text": "Failed to load balances",
       "kind": "jsx-text"
     },
     {
-      "line": 121,
+      "line": 173,
       "text": "Retry",
       "kind": "jsx-text"
     },
     {
-      "line": 134,
+      "line": 186,
       "text": "No balances yet",
       "kind": "prop:title"
     },
     {
-      "line": 153,
+      "line": 205,
       "text": "Balances",
       "kind": "jsx-text"
     },
     {
-      "line": 157,
+      "line": 209,
       "text": "Refresh balances",
       "kind": "prop:aria-label"
     },
     {
-      "line": 164,
+      "line": 216,
       "text": "Refresh",
       "kind": "jsx-text"
     },
     {
-      "line": 170,
+      "line": 222,
       "text": "Native",
       "kind": "jsx-text"
     },
     {
-      "line": 173,
+      "line": 225,
       "text": "XLM",
       "kind": "jsx-text"
     }
   ],
   "src/templates/default/src/components/ContractCallForm.tsx": [
     {
-      "line": 155,
+      "line": 400,
       "text": "Call Contract Function",
       "kind": "jsx-text"
     },
     {
-      "line": 164,
+      "line": 409,
       "text": "Function name",
       "kind": "jsx-text"
     },
     {
-      "line": 174,
-      "text": "e.g. transfer",
-      "kind": "prop:placeholder"
+      "line": 420,
+      "text": "Select a function…",
+      "kind": "jsx-text"
     },
     {
-      "line": 187,
+      "line": 452,
       "text": "Arguments",
       "kind": "jsx-text"
     },
     {
-      "line": 189,
+      "line": 498,
+      "text": "Arguments",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 500,
       "text": "(comma-separated, optional)",
       "kind": "jsx-text"
     },
     {
-      "line": 200,
+      "line": 513,
       "text": "e.g. GABC…, 1000, true",
       "kind": "prop:placeholder"
     },
     {
-      "line": 206,
-      "text": "Strings, integers, and booleans are auto-detected. For advanced types\n          (u128, bytes, etc.) use the",
+      "line": 519,
+      "text": "Strings, integers, and booleans are auto-detected. For advanced types\n            (u128, bytes, etc.) use the",
       "kind": "jsx-text"
     },
     {
-      "line": 208,
+      "line": 521,
       "text": "useSorobanContract",
       "kind": "jsx-text"
     },
     {
-      "line": 208,
+      "line": 521,
       "text": "hook directly.",
       "kind": "jsx-text"
     },
     {
-      "line": 240,
+      "line": 555,
       "text": "Building transaction…",
       "kind": "jsx-text"
     }
   ],
   "src/templates/default/src/components/ContractCallPreview.tsx": [
     {
-      "line": 160,
+      "line": 168,
       "text": "Simulating contract call…",
       "kind": "prop:aria-label"
     },
     {
-      "line": 165,
+      "line": 173,
       "text": "Simulating transaction…",
       "kind": "jsx-text"
     },
     {
-      "line": 194,
+      "line": 202,
       "text": "Simulation failed",
       "kind": "jsx-text"
     },
     {
-      "line": 208,
+      "line": 216,
       "text": "Go back",
       "kind": "jsx-text"
     },
     {
-      "line": 224,
+      "line": 236,
       "text": "Simulation preview",
       "kind": "prop:aria-label"
     },
     {
-      "line": 228,
+      "line": 240,
       "text": "Simulation Preview",
       "kind": "jsx-text"
     },
     {
-      "line": 234,
-      "text": "Estimated fee",
+      "line": 247,
+      "text": "Base fee",
       "kind": "jsx-text"
     },
     {
-      "line": 238,
+      "line": 251,
       "text": "stroops",
       "kind": "jsx-text"
     },
     {
-      "line": 241,
+      "line": 265,
+      "text": "stroops",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 268,
       "text": "XLM)",
       "kind": "jsx-text"
     },
     {
-      "line": 248,
+      "line": 276,
+      "text": "Total fee",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 280,
+      "text": "stroops",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 283,
+      "text": "XLM)",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 291,
       "text": "Return value",
       "kind": "jsx-text"
     },
     {
-      "line": 259,
+      "line": 302,
       "text": "Simulated at ledger",
       "kind": "jsx-text"
     },
     {
-      "line": 275,
+      "line": 318,
       "text": "Cancel",
       "kind": "jsx-text"
     },
     {
-      "line": 284,
+      "line": 327,
       "text": "Confirm &amp; Submit",
       "kind": "jsx-text"
     }
@@ -220,161 +245,278 @@
       "kind": "jsx-text"
     }
   ],
+  "src/templates/default/src/components/NetworkMismatchBanner.tsx": [
+    {
+      "line": 42,
+      "text": "Wallet network mismatch",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 45,
+      "text": "Your wallet is on",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 45,
+      "text": ", but this app is\n            configured for",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 46,
+      "text": ". Signing a transaction now\n            will target your wallet&apos;s network, not the app&apos;s. Switch your\n            wallet&apos;s network, or switch the app&apos;s network, before signing.",
+      "kind": "jsx-text"
+    }
+  ],
   "src/templates/default/src/components/NetworkSwitcher.tsx": [
     {
-      "line": 61,
+      "line": 177,
+      "text": "Add custom network",
+      "kind": "prop:aria-label"
+    },
+    {
+      "line": 182,
+      "text": "Add custom network",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 190,
+      "text": "Cancel adding custom network",
+      "kind": "prop:aria-label"
+    },
+    {
+      "line": 193,
+      "text": "&times;",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 204,
+      "text": "Network key",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 210,
+      "text": "e.g. futurenet",
+      "kind": "prop:placeholder"
+    },
+    {
+      "line": 216,
+      "text": "Display name",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 221,
+      "text": "e.g. Futurenet",
+      "kind": "prop:placeholder"
+    },
+    {
+      "line": 227,
+      "text": "Horizon URL",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 233,
+      "text": "https://horizon-futurenet.stellar.org",
+      "kind": "prop:placeholder"
+    },
+    {
+      "line": 239,
+      "text": "Soroban RPC URL",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 245,
+      "text": "https://rpc-futurenet.stellar.org",
+      "kind": "prop:placeholder"
+    },
+    {
+      "line": 251,
+      "text": "Network passphrase",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 257,
+      "text": "Test SDF Future Network ; October 2022",
+      "kind": "prop:placeholder"
+    },
+    {
+      "line": 266,
+      "text": "Add network",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 292,
       "text": "Network",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 314,
+      "text": "+ Add custom network...",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 329,
+      "text": "Use the arrow keys to choose a network, Enter to switch, Escape to cancel.",
       "kind": "jsx-text"
     }
   ],
   "src/templates/default/src/components/ReceiveForm.tsx": [
     {
-      "line": 127,
-      "text": "Receive Stellar Assets",
-      "kind": "jsx-text"
-    },
-    {
-      "line": 134,
-      "text": "QR code of Stellar address",
-      "kind": "prop:aria-label"
-    },
-    {
-      "line": 153,
+      "line": 217,
       "text": "Loading QR code",
       "kind": "prop:aria-label"
     },
     {
-      "line": 180,
+      "line": 226,
+      "text": "Download QR code as PNG",
+      "kind": "prop:aria-label"
+    },
+    {
+      "line": 231,
+      "text": "Download QR",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 237,
+      "text": "Requesting",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 272,
       "text": "Only send Stellar (XLM) and supported assets to this address.",
       "kind": "jsx-text"
     }
   ],
   "src/templates/default/src/components/SendForm.tsx": [
     {
-      "line": 110,
+      "line": 117,
       "text": "Send Payment",
       "kind": "jsx-text"
     },
     {
-      "line": 135,
+      "line": 142,
       "text": "To",
       "kind": "jsx-text"
     },
     {
-      "line": 142,
+      "line": 149,
       "text": "GABC...1234",
       "kind": "prop:placeholder"
     },
     {
-      "line": 161,
+      "line": 168,
       "text": "Asset",
       "kind": "jsx-text"
     },
     {
-      "line": 170,
+      "line": 177,
       "text": "XLM (Native)",
       "kind": "jsx-text"
     },
     {
-      "line": 184,
+      "line": 191,
       "text": "Amount (",
       "kind": "jsx-text"
     },
     {
-      "line": 210,
+      "line": 217,
       "text": "Memo (optional)",
       "kind": "jsx-text"
     },
     {
-      "line": 224,
+      "line": 231,
       "text": "Fee Sponsor (optional fee-bump)",
       "kind": "jsx-text"
     },
     {
-      "line": 231,
+      "line": 238,
       "text": "GSPONSOR...1234",
       "kind": "prop:placeholder"
     },
     {
-      "line": 248,
+      "line": 255,
       "text": "Connect a wallet to send a payment.",
       "kind": "jsx-text"
     },
     {
-      "line": 252,
+      "line": 259,
       "text": "The connected wallet adapter does not support sending payments.",
       "kind": "jsx-text"
     },
     {
-      "line": 270,
+      "line": 277,
       "text": "This transaction is signed and ready, but needs the fee sponsor&apos;s\n            signature before it can be submitted. This wallet has no way to sign\n            on the sponsor&apos;s behalf — copy the XDR below and have the sponsor\n            sign and submit it from their own wallet.",
       "kind": "jsx-text"
     },
     {
-      "line": 278,
+      "line": 285,
       "text": "Unsigned fee-bump transaction XDR",
       "kind": "prop:aria-label"
     }
   ],
   "src/templates/default/src/components/ThemeToggle.tsx": [
     {
-      "line": 29,
+      "line": 40,
       "text": "Theme",
       "kind": "prop:aria-label"
     }
   ],
   "src/templates/default/src/components/TransactionList.tsx": [
     {
-      "line": 275,
+      "line": 283,
       "text": "Failed",
       "kind": "jsx-text"
     },
     {
-      "line": 353,
+      "line": 361,
       "text": "Failed to load transactions",
       "kind": "jsx-text"
     },
     {
-      "line": 363,
+      "line": 371,
       "text": "Retry",
       "kind": "jsx-text"
     },
     {
-      "line": 401,
+      "line": 409,
       "text": "Retry",
       "kind": "jsx-text"
     },
     {
-      "line": 411,
+      "line": 419,
       "text": "Export transactions to CSV",
       "kind": "prop:aria-label"
     },
     {
-      "line": 414,
+      "line": 422,
       "text": "Export CSV",
       "kind": "jsx-text"
     },
     {
-      "line": 421,
+      "line": 429,
       "text": "Transaction history",
       "kind": "prop:aria-label"
     },
     {
-      "line": 466,
+      "line": 474,
       "text": "Loading...",
       "kind": "jsx-text"
     },
     {
-      "line": 471,
+      "line": 479,
       "text": "Load More",
       "kind": "jsx-text"
     }
   ],
   "src/templates/default/src/components/WalletConnectButton.tsx": [
     {
-      "line": 181,
+      "line": 121,
       "text": "Refresh balances",
       "kind": "prop:title"
+    },
+    {
+      "line": 139,
+      "text": "Retry",
+      "kind": "jsx-text"
     }
   ]
 }
