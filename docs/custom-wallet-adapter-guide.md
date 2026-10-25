@@ -12,6 +12,73 @@ If the wallet you want to support already has a module published for the kit
 and register that instead of writing your own — only write a custom module
 when none exists.
 
+## Built-in adapters shipped by Nextellar
+
+Besides the kit's own modules (Freighter, Albedo, Lobstr, xBull, Hana), the
+**default** template ships two adapters in `src/lib/wallets/`. Both are
+written against the same `ModuleInterface` described below. Enable them by
+adding `ledger` and/or `walletconnect` to the wallet list (scaffold prompt,
+`nextellar init`, or `INJECTED_WALLETS` in `src/lib/stellar-wallet-kit.ts`).
+
+### Ledger (hardware wallet)
+
+`src/lib/wallets/ledger-module.ts` → `LedgerWalletModule`
+
+- Uses the Ledger **Stellar** app over WebUSB (`@ledgerhq/hw-transport-webusb`
+  + `@ledgerhq/hw-app-str`, both already dependencies of the default template).
+- Requirements: a Chromium-based browser (WebUSB), served over https or
+  `localhost`, with the device unlocked and the Stellar app open.
+- Default account path is `44'/148'/0'` (SEP-0005). Pass `{ path }` to
+  `getAddress`/`signTransaction` to use another account.
+- If `signTransaction` is called with an `address` that the path does not
+  control, it refuses before the device is asked to sign.
+- Device status words become `LedgerError` codes: `REJECTED` (user
+  declined), `LOCKED`, `APP_NOT_OPEN`, `NOT_SUPPORTED`, `UNKNOWN`.
+- Requests are serialised, and the transport is closed after every call.
+- `signAuthEntry` works with Stellar app versions that support Soroban
+  authorization. `signMessage` is not supported.
+- `isAvailable()` only feature-detects WebUSB and never prompts for the device.
+
+The transport and app are injectable, for WebHID/Bluetooth or for tests:
+
+```ts
+new LedgerWalletModule({
+  network: { network: 'TESTNET', networkPassphrase: Networks.TESTNET },
+  createTransport: () => TransportWebHID.create(),
+});
+```
+
+### WalletConnect
+
+`src/lib/wallets/walletconnect-module.ts` → `WalletConnectWalletModule`
+
+It wraps the kit's `WalletConnectModule`, which loads lazily: the
+WalletConnect SDK is only downloaded when a user picks it.
+
+Setup:
+
+1. Create a project at <https://cloud.reown.com> (formerly WalletConnect Cloud)
+   and copy its **Project ID**.
+2. Add your dApp's domain to the project's allow-list.
+3. Set the env vars in `.env.local`:
+
+   ```bash
+   NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=0123456789abcdef0123456789abcdef
+   NEXT_PUBLIC_WALLETCONNECT_APP_URL=https://your-dapp.example   # optional, defaults to window.location.origin
+   NEXT_PUBLIC_WALLETCONNECT_ICON=https://your-dapp.example/icon.png  # optional
+   ```
+
+   The dApp name shown in wallets comes from `NEXT_PUBLIC_APP_NAME`.
+4. Add `walletconnect` to the wallet list.
+
+Behaviour:
+- Without a project ID, WalletConnect does not appear in the modal.
+- A malformed project ID or a non-https URL also keeps it hidden, and logs a
+  `[wallet] WalletConnect disabled: …` warning.
+- Rejected requests and expired sessions surface as clear errors.
+- `getNetwork()` reports the configured network, because the WalletConnect
+  protocol has no such call.
+
 ## Where wallets are wired up
 
 - `src/lib/stellar-wallet-kit.ts` builds the `StellarWalletsKit` instance:

@@ -72,7 +72,7 @@ Options:
   -v, --version                 output the current version
   -t, --typescript               generate a TypeScript project (default)
   -j, --javascript                generate a JavaScript project
-  --template <name>              project template to use (default, minimal, defi)
+  --template <name>              project template to use (default, minimal, defi, full)
   --horizon-url <url>            custom Horizon endpoint
   --soroban-url <url>            custom Soroban RPC endpoint
   -w, --wallets <list>           comma-separated wallet adapters (freighter, xbull)
@@ -99,7 +99,7 @@ Options:
 | `nextellar templates [name]` | Preview each template's file tree and description without scaffolding (name to preview just one, `--json` for machine-readable output) |
 | `nextellar doctor` | Run environment diagnostics (`--json` for CI, `--fix` to auto-remediate safe issues) |
 | `nextellar status` | Show a scaffolded project's health score: outdated deps, missing env vars, telemetry status, git init (`--json` for CI) |
-| `nextellar upgrade` | Upgrade an existing project to the latest template (`--dry-run` to preview, `--check` for a changelog preview, `--yes` to skip prompts) |
+| `nextellar upgrade` | Upgrade an existing project to the latest template (`--dry-run` to preview, `--check` for a changelog preview, `--diff` for a full file-by-file diff without applying anything, `--yes` to skip prompts) |
 | `nextellar deploy` | Validate and prepare a deployment bundle for Nextellar Cloud (`--dry-run` to preview) |
 | `nextellar clean` | Remove `.nextellar/` build artifacts |
 | `nextellar telemetry <status\|enable\|disable>` | Manage anonymous telemetry settings |
@@ -116,12 +116,14 @@ Options:
 | `default` | Full starter: wallet provider, network switcher, balances, transaction history  |     ✅     |     ✅     |
 | `minimal` | Bare starter: wallet connection only, no extra UI                               |     ✅     |     ✅     |
 | `defi`    | DeFi starter: swap, liquidity pool and price-feed components                    |     ✅     |     ✅     |
+| `full`    | Everything: the `default` component set plus defi's Soroban `CounterDemo`, with `--with-contracts` pre-enabled |     ✅     |     ✅     |
 
 ```bash
 npx nextellar my-app                          # default template, TypeScript
 npx nextellar my-app --template minimal       # minimal starter
 npx nextellar my-app --template minimal -j    # minimal starter, JavaScript
 npx nextellar my-app --template defi -j       # DeFi starter, JavaScript
+npx nextellar my-app --template full          # default + defi demo + contracts overlay
 ```
 
 An unrecognised name fails before anything is written, and the error lists
@@ -129,11 +131,25 @@ every valid option:
 
 ```bash
 $ npx nextellar my-app --template nope
-Unknown template "nope". Available templates: default, minimal, defi.
+Unknown template "nope". Available templates: default, minimal, defi, full.
 ```
 
 > Soroban smart contracts are added with `--with-contracts`, not with
 > `--template`. The two flags compose: `--template defi --with-contracts`.
+> The `full` template always includes the contracts overlay.
+
+`full` is composed rather than copied: it scaffolds `default` (or
+`js-template` with `-j`), then copies the small `src/templates/full` (or
+`src/templates/js-full`) overlay on top, which adds `CounterDemo` and renders
+it on the landing page, then applies the contracts overlay.
+
+### Previewing an upgrade
+
+`nextellar upgrade --diff` prints a complete, untruncated diff for every
+template file (`src/hooks`, `src/lib`) that differs from the latest template,
+plus Stellar package version changes in `package.json`. It never prompts and
+never writes, even with `--yes`. `--check` shows a shorter changelog (diffs
+are capped at 20 lines per file).
 
 ---
 
@@ -215,6 +231,12 @@ Doctor diagnostic & troubleshooting guide:
 
 Testing guide for generated apps (Storybook interaction tests, and adding Jest/Vitest if you need it):  
 🔗 [docs/testing-guide.md](docs/testing-guide.md)
+
+Horizon rate limiter configuration and tuning:  
+🔗 [docs/horizon-rate-limiter-guide.md](docs/horizon-rate-limiter-guide.md)
+
+Cookbook: deploying and upgrading a Soroban contract end-to-end:  
+🔗 [docs/cookbook/contract-deploy-and-upgrade.md](docs/cookbook/contract-deploy-and-upgrade.md)
 
 ---
 

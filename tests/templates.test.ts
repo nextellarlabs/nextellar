@@ -20,6 +20,8 @@ import {
   getTemplate,
   isValidTemplate,
   resolveTemplateDir,
+  resolveTemplateOverlayDir,
+  templateForcesContracts,
 } from "../src/lib/templates.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -28,16 +30,16 @@ const TEMPLATES_ROOT = path.resolve(__dirname, "../src/templates");
 
 describe("template registry", () => {
   it("exposes every shipped starter", () => {
-    expect(TEMPLATE_NAMES).toEqual(["default", "minimal", "defi"]);
+    expect(TEMPLATE_NAMES).toEqual(["default", "minimal", "defi", "full"]);
   });
 
   it("renders a comma-separated list for help text and errors", () => {
-    expect(TEMPLATE_LIST).toBe("default, minimal, defi");
+    expect(TEMPLATE_LIST).toBe("default, minimal, defi, full");
   });
 
   it("lists only the templates that have a JavaScript variant", () => {
-    expect(JS_TEMPLATE_NAMES).toEqual(["default", "defi"]);
-    expect(JS_TEMPLATE_LIST).toBe("default, defi");
+    expect(JS_TEMPLATE_NAMES).toEqual(["default", "defi", "full"]);
+    expect(JS_TEMPLATE_LIST).toBe("default, defi, full");
   });
 
   it("gives every template a non-empty description for --help", () => {
@@ -80,6 +82,7 @@ describe("resolveTemplateDir", () => {
       ["default", "default"],
       ["minimal", "minimal"],
       ["defi", "defi"],
+      ["full", "default"],
     ])("resolves --template %s to the %s starter", (name, dir) => {
       expect(resolveTemplateDir(name, true)).toBe(dir);
     });
@@ -89,6 +92,7 @@ describe("resolveTemplateDir", () => {
     it.each([
       ["default", "js-template"],
       ["defi", "js-defi"],
+      ["full", "js-template"],
     ])("resolves --template %s to the %s starter", (name, dir) => {
       expect(resolveTemplateDir(name, false)).toBe(dir);
     });
@@ -167,5 +171,86 @@ describe("registry matches what is on disk", () => {
 
   it("does not expose contracts-template as a --template value", () => {
     expect(isValidTemplate("contracts-template")).toBe(false);
+  });
+
+  it.each(
+    TEMPLATES.flatMap((t) =>
+      [t.tsOverlayDir, t.jsOverlayDir]
+        .filter((d): d is string => !!d)
+        .map((d) => [t.name, d]),
+    ),
+  )("%s overlay directory %s exists on disk", async (_name, dir) => {
+    expect(await fs.pathExists(path.join(TEMPLATES_ROOT, dir as string))).toBe(
+      true,
+    );
+  });
+
+  it("does not expose overlay directories as --template values", () => {
+    expect(isValidTemplate("js-full")).toBe(false);
+    expect(getTemplate("full")?.tsOverlayDir).toBe("full");
+  });
+});
+
+describe("full template (#1112)", () => {
+  it("is composed from default plus the full overlays", () => {
+    expect(getTemplate("full")).toMatchObject({
+      name: "full",
+      tsDir: "default",
+      jsDir: "js-template",
+      tsOverlayDir: "full",
+      jsOverlayDir: "js-full",
+      withContracts: true,
+    });
+  });
+
+  it("resolves an overlay for each language", () => {
+    expect(resolveTemplateOverlayDir("full", true)).toBe("full");
+    expect(resolveTemplateOverlayDir("full", false)).toBe("js-full");
+  });
+
+  it.each(["default", "minimal", "defi", "nope"])(
+    "has no overlay for %s",
+    (name) => {
+      expect(resolveTemplateOverlayDir(name, true)).toBeNull();
+      expect(resolveTemplateOverlayDir(name, false)).toBeNull();
+    },
+  );
+
+  it("forces contracts only for templates that declare it", () => {
+    expect(templateForcesContracts("full")).toBe(true);
+    expect(templateForcesContracts("default")).toBe(false);
+    expect(templateForcesContracts("minimal")).toBe(false);
+    // defi's contracts default lives in the CLI, not in scaffold().
+    expect(templateForcesContracts("defi")).toBe(false);
+    expect(templateForcesContracts("nope")).toBe(false);
+  });
+
+  it.each([
+    ["full", "src/components/CounterDemo.tsx"],
+    ["full", "src/components/CounterDemo.stories.tsx"],
+    ["full", "src/app/page.tsx"],
+    ["full", ".storybook/main.ts"],
+    ["full", ".storybook/mocks/contracts.ts"],
+    ["js-full", "src/components/CounterDemo.jsx"],
+    ["js-full", "src/app/page.jsx"],
+  ])("%s overlay ships %s", async (dir, rel) => {
+    expect(await fs.pathExists(path.join(TEMPLATES_ROOT, dir, rel))).toBe(true);
+  });
+
+  it.each([
+    ["full", "src/app/page.tsx"],
+    ["js-full", "src/app/page.jsx"],
+  ])("%s landing page renders CounterDemo", async (dir, rel) => {
+    const page = await fs.readFile(path.join(TEMPLATES_ROOT, dir, rel), "utf8");
+    expect(page).toContain("import CounterDemo from '../components/CounterDemo';");
+    expect(page).toContain("<CounterDemo />");
+  });
+
+  it("overlays never ship a package.json (they are not standalone starters)", async () => {
+    for (const dir of ["full", "js-full"]) {
+      expect(
+        await fs.pathExists(path.join(TEMPLATES_ROOT, dir, "package.json")),
+      ).toBe(false);
+    }
   });
 });

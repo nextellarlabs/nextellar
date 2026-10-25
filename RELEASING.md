@@ -102,6 +102,10 @@ Test the pipeline without publishing by triggering the workflow manually:
 3. The tarball and `SHA256SUMS` are uploaded as a build artifact. Nothing is
    attested, published, or attached to a release in a dry run, and the
    tag/version check is skipped because the run is not on a tag.
+2. Set the **dry-run** workflow input to `true` and run it on the target branch
+3. Download the `nextellar-<ref>` artifact, which contains the packed `.tgz`
+   file. The workflow also uploads an `sbom-<ref>` artifact containing
+   `bom.json`.
 
 ## Versioning
 

@@ -12,7 +12,11 @@ import { fileURLToPath } from "url";
 import { confirm } from "@clack/prompts";
 import { validateHorizonUrl, validateSorobanUrl } from "./validate.js";
 import { runPreflight } from "./preflight.js";
-import { resolveTemplateDir } from "./templates.js";
+import {
+  resolveTemplateDir,
+  resolveTemplateOverlayDir,
+  templateForcesContracts,
+} from "./templates.js";
 import { printError, printWarning } from "./feedback.js";
 import {
   assertPackageManagerMatches,
@@ -77,7 +81,7 @@ export async function scaffold(
     appName,
     useTs,
     template,
-    withContracts,
+    withContracts: withContractsOption,
     horizonUrl,
     sorobanUrl,
     wallets,
@@ -120,6 +124,11 @@ export async function scaffold(
   // throws with the list of valid options when the name is unknown or has
   // no variant for the requested language. See src/lib/templates.ts.
   const resolvedTemplateName = resolveTemplateDir(templateName, useTs);
+  // Composed starters (e.g. `full`, #1112) copy an overlay on top of the base
+  // starter and may force the contracts overlay on.
+  const overlayTemplateName = resolveTemplateOverlayDir(templateName, useTs);
+  const withContracts =
+    !!withContractsOption || templateForcesContracts(templateName);
 
   // Validate custom URL overrides if provided
   if (horizonUrl) {
@@ -142,6 +151,9 @@ export async function scaffold(
       fs.existsSync(path.join(candidate, resolvedTemplateName, "package.json")),
     ) || templateRoots[templateRoots.length - 1];
   const templateDir = path.join(templateRoot, resolvedTemplateName);
+  const overlayDir = overlayTemplateName
+    ? path.join(templateRoot, overlayTemplateName)
+    : null;
 
   // Workspace mode (#1117): resolve the workspace root first, so an invalid
   // or missing workspace fails before anything is written.
@@ -248,6 +260,16 @@ export async function scaffold(
       console.log(`    ${pc.green("+")} ${f}`);
     }
 
+    if (overlayDir && (await fs.pathExists(overlayDir))) {
+      console.log(
+        `    ${pc.blue("+")} ${pc.dim(`(${overlayTemplateName} overlay)`)}`,
+      );
+      const overlayFiles = await walkDir(overlayDir, "");
+      for (const f of overlayFiles) {
+        console.log(`    ${pc.blue("+")} ${f}`);
+      }
+    }
+
     if (withContracts) {
       const contractsDir = path.join(templateRoot, "contracts-template");
       if (await fs.pathExists(contractsDir)) {
@@ -328,6 +350,21 @@ export async function scaffold(
       },
       preserveTimestamps: true,
     });
+
+    if (overlayDir) {
+      if (!(await fs.pathExists(overlayDir))) {
+        throw new Error(
+          `Template overlay "${overlayTemplateName}" for "${templateName}" is missing from ${templateRoot}.`,
+        );
+      }
+      await fs.copy(overlayDir, targetDir, {
+        filter: (src) => {
+          const basename = path.basename(src);
+          return basename !== ".git" && basename !== "node_modules";
+        },
+        preserveTimestamps: true,
+      });
+    }
     filesScaffolded = true;
 
     // A workspace package must not carry its own lockfile: the root

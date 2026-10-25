@@ -45,6 +45,8 @@ const OPERATION_RESULT_CODES: Record<string, string> = {
   op_bad_auth: 'Operation requires authorization the submitting signer does not have.',
   op_no_account: 'The account referenced by this operation does not exist.',
   op_invalid_limit: 'The trustline limit is invalid (e.g. below the current balance).',
+  op_under_dest_min: 'The swap would deliver less than your minimum amount (slippage tolerance exceeded). Find a new route or increase slippage.',
+  op_over_source_max: 'The swap would cost more than your maximum amount (slippage tolerance exceeded). Find a new route or increase slippage.',
   op_already_exists: 'The trustline or entry this operation would create already exists.',
 };
 

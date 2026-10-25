@@ -17,6 +17,7 @@ const __dirname = path.dirname(__filename);
 // before the dynamic import below runs — a per-test tmpdir assigned inside
 // beforeEach would be undefined at that point. Each test still gets
 // isolation by clearing/removing this directory's contents around it.
+const realHome = os.homedir();
 const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'nextellar-telemetry-'));
 
 jest.unstable_mockModule('os', () => ({
@@ -150,6 +151,27 @@ describe('telemetry (#945)', () => {
       expect(config.telemetry?.enabled).toBe(false);
       expect(await getTelemetryStatus()).toBe('disabled');
     });
+
+    it('persists the setting to config.json inside the temp HOME, not the real one', async () => {
+      await setTelemetryEnabled(true);
+      await setTelemetryEnabled(false);
+
+      expect(telemetryConfigPath.startsWith(tmpHome)).toBe(true);
+      expect(telemetryConfigPath.startsWith(path.join(realHome, '.nextellar'))).toBe(false);
+
+      const onDisk = await fs.readJson(telemetryConfigPath);
+      expect(onDisk.telemetry.enabled).toBe(false);
+      expect(await getTelemetryStatus()).toBe('disabled');
+    });
+
+    it('env override wins even when the persisted config says enabled', async () => {
+      await setTelemetryEnabled(true);
+      expect(await getTelemetryStatus()).toBe('enabled');
+
+      process.env.NEXTELLAR_TELEMETRY_DISABLED = '1';
+      expect(await getTelemetryStatus()).toBe('disabled');
+      expect((await readTelemetryConfig()).telemetry?.enabled).toBe(true);
+    });
   });
 
   describe('no PII in the collected payload', () => {
@@ -271,7 +293,90 @@ describe('telemetry (#945)', () => {
     });
   });
 
+  describe('endpoint', () => {
+    it('posts to the default endpoint when no override is set', async () => {
+      await setTelemetryEnabled(true);
+      await trackScaffoldEvent(baseProperties);
+      await flushTelemetry();
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toBe('https://nextellar.dev/api/telemetry');
+      expect(init.method).toBe('POST');
+    });
+
+    it('honors the NEXTELLAR_TELEMETRY_ENDPOINT override', async () => {
+      process.env.NEXTELLAR_TELEMETRY_ENDPOINT = 'http://localhost:9999/custom-telemetry';
+      await setTelemetryEnabled(true);
+      await trackScaffoldEvent(baseProperties);
+      await flushTelemetry();
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect((mockFetch.mock.calls[0] as [string])[0]).toBe(
+        'http://localhost:9999/custom-telemetry',
+      );
+    });
+
+    it('makes no request to a custom endpoint when disabled', async () => {
+      process.env.NEXTELLAR_TELEMETRY_ENDPOINT = 'http://localhost:9999/custom-telemetry';
+      await setTelemetryEnabled(false);
+      await trackScaffoldEvent(baseProperties);
+      await flushTelemetry();
+
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+  });
+
   describe('reliability', () => {
+    it('does not throw when the endpoint responds with a 500', async () => {
+      mockFetch.mockResolvedValue(new Response('boom', { status: 500 }));
+      await setTelemetryEnabled(true);
+
+      await expect(trackScaffoldEvent(baseProperties)).resolves.toBeUndefined();
+      await expect(flushTelemetry()).resolves.toBeUndefined();
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not throw or hang when the endpoint times out', async () => {
+      // Shorten the CLI's 3s telemetry timeout so the test stays fast.
+      const realSetTimeout = global.setTimeout;
+      const setTimeoutSpy = jest
+        .spyOn(global, 'setTimeout')
+        .mockImplementation(((fn: () => void, ms?: number, ...args: unknown[]) =>
+          realSetTimeout(fn, ms === 3000 ? 10 : ms, ...args)) as typeof setTimeout);
+
+      // A fetch that never resolves on its own and only settles when aborted.
+      mockFetch.mockImplementation(
+        (_url: unknown, init: unknown) =>
+          new Promise((_resolve, reject) => {
+            (init as RequestInit).signal?.addEventListener('abort', () =>
+              reject(new Error('aborted')),
+            );
+          }),
+      );
+
+      try {
+        await setTelemetryEnabled(true);
+        await expect(trackScaffoldEvent(baseProperties)).resolves.toBeUndefined();
+        await expect(flushTelemetry()).resolves.toBeUndefined();
+        expect(mockFetch).toHaveBeenCalledTimes(1);
+        const signal = (mockFetch.mock.calls[0] as [string, RequestInit])[1].signal;
+        expect(signal?.aborted).toBe(true);
+      } finally {
+        setTimeoutSpy.mockRestore();
+      }
+    });
+
+    it('does not throw when fetch throws synchronously', async () => {
+      mockFetch.mockImplementation(() => {
+        throw new Error('fetch exploded');
+      });
+      await setTelemetryEnabled(true);
+
+      await expect(trackScaffoldEvent(baseProperties)).resolves.toBeUndefined();
+      await expect(flushTelemetry()).resolves.toBeUndefined();
+    });
+
     it('does not throw when the telemetry endpoint is unreachable', async () => {
       mockFetch.mockRejectedValue(new Error('network unreachable'));
       await setTelemetryEnabled(true);
