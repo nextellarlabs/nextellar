@@ -28,9 +28,13 @@ export const WalletConfigContext = createContext(undefined);
  */
 export function WalletProvider({
     children,
-    horizonUrl: initialHorizonUrl = process.env.NEXT_PUBLIC_HORIZON_URL || 'https://horizon-testnet.stellar.org',
-    sorobanUrl: initialSorobanUrl = process.env.NEXT_PUBLIC_SOROBAN_URL || 'https://soroban-testnet.stellar.org',
-    network: initialNetwork = (process.env.NEXT_PUBLIC_NETWORK === 'PUBLIC' ? Networks.PUBLIC : Networks.TESTNET),
+    // These fall back only as far as the env vars on purpose (#797): a
+    // hardcoded testnet default here always won over the per-network config
+    // below, so switching to mainnet kept building and signing transactions
+    // for testnet. The per-network defaults live in NETWORKS.
+    horizonUrl: initialHorizonUrl = process.env.NEXT_PUBLIC_HORIZON_URL,
+    sorobanUrl: initialSorobanUrl = process.env.NEXT_PUBLIC_SOROBAN_URL,
+    network: initialNetwork = (process.env.NEXT_PUBLIC_NETWORK === 'PUBLIC' ? Networks.PUBLIC : undefined),
 }) {
     const [activeNetworkKey, setActiveNetworkKey] = useState('testnet');
     const [connected, setConnected] = useState(false);
@@ -51,6 +55,9 @@ export function WalletProvider({
     const activeHorizonUrl = initialHorizonUrl || config.horizonUrl;
     const activeSorobanUrl = initialSorobanUrl || config.sorobanUrl;
     const activeNetworkPassphrase = initialNetwork || config.passphrase;
+    // The wallet-kit network matching the active network, used both to
+    // (re)build the kit and when signing.
+    const activeWalletNetwork = activeNetworkKey === 'mainnet' ? WalletNetwork.PUBLIC : WalletNetwork.TESTNET;
 
     const [server, setServer] = useState(() => new Server(activeHorizonUrl));
     const serverRef = useRef(server);
@@ -197,9 +204,14 @@ export function WalletProvider({
             else {
                 // Sign with wallet
                 const { signTransaction } = await import('../lib/stellar-wallet-kit');
+                // Pass the active network so a kit created before a network
+                // switch is re-pointed, and the wallet signs for the same
+                // passphrase the transaction was built with (#797).
                 signedTxXdr = await signTransaction({
                     unsignedTransaction: transaction.toXDR(),
                     address: publicKey,
+                    network: activeWalletNetwork,
+                    networkPassphrase: activeNetworkPassphrase,
                 });
             }
             const signedTransaction = TransactionBuilder.fromXDR(signedTxXdr, activeNetworkPassphrase);
@@ -211,7 +223,7 @@ export function WalletProvider({
             console.error('Payment failed:', error);
             throw error;
         }
-    }, [publicKey, connected, activeNetworkPassphrase, refreshBalances]);
+    }, [publicKey, connected, activeNetworkPassphrase, activeWalletNetwork, refreshBalances]);
 
     // Auto-reconnect wallet on mount if previously connected
     useEffect(() => {

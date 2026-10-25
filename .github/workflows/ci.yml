@@ -23,6 +23,12 @@ jobs:
           node-version: "20"
           cache: npm
 
+      # Fails fast with a readable list when package-lock.json drifted from
+      # package.json (#795), instead of every job's `npm ci` failing with
+      # "Missing: <pkg> from lock file". Needs no installed dependencies.
+      - name: Check package-lock.json is in sync
+        run: node scripts/check-lockfile-sync.mjs
+
       - run: npm ci
 
       - run: npm run lint

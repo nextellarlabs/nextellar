@@ -22,6 +22,7 @@
     "verify:pack": "node scripts/verify-pack-contents.mjs",
     "analyze:bundles": "node scripts/analyze-template-bundles.mjs",
     "lint:i18n": "node scripts/check-hardcoded-jsx-text.mjs --new-only",
+    "check:lockfile": "node scripts/check-lockfile-sync.mjs",
     "test:mutation": "npx --yes -p @stryker-mutator/core@9 -p @stryker-mutator/jest-runner@9 stryker run",
     "mutation:score": "node scripts/mutation-score.mjs",
     "test:visual": "node scripts/visual-regression.mjs",

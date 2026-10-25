@@ -2,9 +2,11 @@
 
 import { useState } from 'react';
 import { AlertCircle } from 'lucide-react';
-import { useWallet } from '../contexts';
+import { useWallet, type WalletOption } from '../contexts';
 import { useStellarBalances } from '../hooks/useStellarBalances';
 import AccountSwitcher from './AccountSwitcher';
+import WalletSelectModal from './WalletSelectModal';
+import DisconnectConfirmDialog from './DisconnectConfirmDialog';
 
 // Simple inline SVG icons
 const WalletIcon = () => (
@@ -39,6 +41,18 @@ const RefreshIcon = ({ spinning = false }: { spinning?: boolean }) => (
 
 interface WalletConnectButtonProps {
   theme?: 'light' | 'dark';
+  /**
+   * Which wallet picker "Connect Wallet" opens (#911):
+   * - 'kit' (default): the wallet kit's own modal, unchanged behaviour
+   * - 'builtin': this template's `WalletSelectModal`, listing each wallet's
+   *   icon and name with full keyboard support
+   */
+  walletSelector?: 'kit' | 'builtin';
+  /**
+   * Ask for confirmation before disconnecting (#910). Off by default so
+   * existing integrations keep their one-click disconnect.
+   */
+  confirmDisconnect?: boolean;
 }
 
 /**
@@ -49,10 +63,19 @@ interface WalletConnectButtonProps {
  * to switch between multiple connected accounts.
  * Follows the same design system as the main CTA buttons.
  */
-export default function WalletConnectButton({ theme = 'light' }: WalletConnectButtonProps) {
-  const { connected, connect, disconnect, walletName, accounts, publicKey } = useWallet();
+export default function WalletConnectButton({
+  theme = 'light',
+  walletSelector = 'kit',
+  confirmDisconnect = false,
+}: WalletConnectButtonProps) {
+  const { connected, connect, disconnect, walletName, accounts, publicKey, getWallets, reconnecting } =
+    useWallet();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectorOpen, setSelectorOpen] = useState(false);
+  const [wallets, setWallets] = useState<WalletOption[] | null>(null);
+  const [walletsError, setWalletsError] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const {
     loading: isRefreshing,
     refresh: refreshBalances,
@@ -61,15 +84,11 @@ export default function WalletConnectButton({ theme = 'light' }: WalletConnectBu
     ? `Disconnect ${walletName ?? 'wallet'}`
     : 'Connect Wallet';
 
-  const handleClick = async () => {
+  const runWalletAction = async (action: () => Promise<void> | void) => {
     setIsLoading(true);
     setError(null);
     try {
-      if (connected) {
-        await disconnect();
-      } else {
-        await connect();
-      }
+      await action();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Wallet operation failed';
       setError(message);
@@ -79,7 +98,48 @@ export default function WalletConnectButton({ theme = 'light' }: WalletConnectBu
     }
   };
 
+  const openWalletSelector = async () => {
+    setError(null);
+    setWallets(null);
+    setWalletsError(null);
+    setSelectorOpen(true);
+    try {
+      setWallets(await getWallets!());
+    } catch (error) {
+      setWalletsError(error instanceof Error ? error.message : 'Could not load wallets');
+    }
+  };
+
+  const handleClick = async () => {
+    if (connected) {
+      if (confirmDisconnect) {
+        setConfirmOpen(true);
+        return;
+      }
+      await runWalletAction(() => disconnect());
+      return;
+    }
+    // Fall back to the kit modal when the provider can't list wallets (e.g.
+    // an older provider or a hand-built context value).
+    if (walletSelector === 'builtin' && getWallets) {
+      await openWalletSelector();
+      return;
+    }
+    await runWalletAction(() => connect());
+  };
+
+  const handleWalletSelected = async (walletId: string) => {
+    setSelectorOpen(false);
+    await runWalletAction(() => connect(walletId));
+  };
+
+  const handleConfirmDisconnect = async () => {
+    setConfirmOpen(false);
+    await runWalletAction(() => disconnect());
+  };
+
   const getButtonText = () => {
+    if (reconnecting && !connected) return 'Reconnecting...';
     if (isLoading) return connected ? 'Disconnecting...' : 'Connecting...';
     if (connected) return `Disconnect ${walletName}`;
     return 'Connect Wallet';
@@ -96,9 +156,9 @@ export default function WalletConnectButton({ theme = 'light' }: WalletConnectBu
       <button 
         type="button"
         onClick={handleClick}
-        disabled={isLoading}
-        aria-label={isLoading ? (connected ? 'Disconnecting...' : 'Connecting...') : actionLabel}
-        aria-busy={isLoading}
+        disabled={isLoading || (reconnecting && !connected)}
+        aria-label={reconnecting && !connected ? 'Reconnecting...' : isLoading ? (connected ? 'Disconnecting...' : 'Connecting...') : actionLabel}
+        aria-busy={isLoading || (reconnecting && !connected)}
         className={`px-8 py-3 font-medium rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
           theme === 'light' 
             ? 'bg-black text-white hover:bg-gray-800 focus-visible:ring-gray-900 focus-visible:ring-offset-white' 
@@ -131,6 +191,21 @@ export default function WalletConnectButton({ theme = 'light' }: WalletConnectBu
 
       {connected && accounts.length > 0 && <AccountSwitcher />}
       </div>
+      <WalletSelectModal
+        open={selectorOpen}
+        wallets={wallets}
+        error={walletsError}
+        theme={theme}
+        onSelect={handleWalletSelected}
+        onClose={() => setSelectorOpen(false)}
+      />
+      <DisconnectConfirmDialog
+        open={confirmOpen}
+        walletName={walletName}
+        theme={theme}
+        onConfirm={handleConfirmDisconnect}
+        onCancel={() => setConfirmOpen(false)}
+      />
       {error && (
         <div role="alert" className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
           <AlertCircle className="h-4 w-4" aria-hidden="true" />
