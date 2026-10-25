@@ -3,12 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build",
-    "start": "next start",
+    "dev": "node init && next dev --turbopack",
+    "build": "node init && next build",
+    "start": "node init && next start",
     "lint": "next lint",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "build-storybook": "node init && storybook build"
   },
   "dependencies": {
     "react": "^19.0.0",
