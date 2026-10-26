@@ -34,11 +34,10 @@ jest.unstable_mockModule("../../src/mocks/wallet-contexts-mock", () => ({
 }));
 
 // ── Dynamic imports (must come after unstable_mockModule) ─────────────────────
-const [{ default: NetworkSwitcher }, { useWalletConfig, useWallet }] =
-  await Promise.all([
-    import("../../src/templates/default/src/components/NetworkSwitcher"),
-    import("../../src/mocks/wallet-contexts-mock"),
-  ]);
+const [{ default: NetworkSwitcher }, { useWalletConfig, useWallet }] = [
+  await import("../../src/templates/default/src/components/NetworkSwitcher"),
+  await import("../../src/mocks/wallet-contexts-mock"),
+];
 
 // ── Types & helpers ───────────────────────────────────────────────────────────
 

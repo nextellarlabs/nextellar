@@ -59,14 +59,14 @@ const [
   { default: TransactionStatusBadge },
   { default: WalletConnectButton },
   { useWallet },
-] = await Promise.all([
-  import("../src/templates/minimal/src/components/ErrorBoundary"),
-  import("../src/templates/minimal/src/components/ReceiveForm"),
-  import("../src/templates/minimal/src/components/TransactionList"),
-  import("../src/templates/minimal/src/components/TransactionStatusBadge"),
-  import("../src/templates/minimal/src/components/WalletConnectButton"),
-  import("../src/mocks/wallet-contexts-mock"),
-]);
+] = [
+  await import("../src/templates/minimal/src/components/ErrorBoundary"),
+  await import("../src/templates/minimal/src/components/ReceiveForm"),
+  await import("../src/templates/minimal/src/components/TransactionList"),
+  await import("../src/templates/minimal/src/components/TransactionStatusBadge"),
+  await import("../src/templates/minimal/src/components/WalletConnectButton"),
+  await import("../src/mocks/wallet-contexts-mock"),
+];
 
 describe("minimal template components smoke tests (#893)", () => {
   it("renders ErrorBoundary cleanly with children", () => {
