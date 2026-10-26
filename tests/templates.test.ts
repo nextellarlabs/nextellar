@@ -38,8 +38,8 @@ describe("template registry", () => {
   });
 
   it("lists only the templates that have a JavaScript variant", () => {
-    expect(JS_TEMPLATE_NAMES).toEqual(["default", "defi", "full"]);
-    expect(JS_TEMPLATE_LIST).toBe("default, defi, full");
+    expect(JS_TEMPLATE_NAMES).toEqual(["default", "minimal", "defi", "full"]);
+    expect(JS_TEMPLATE_LIST).toBe("default, minimal, defi, full");
   });
 
   it("gives every template a non-empty description for --help", () => {
@@ -97,13 +97,8 @@ describe("resolveTemplateDir", () => {
       expect(resolveTemplateDir(name, false)).toBe(dir);
     });
 
-    it("rejects a template with no JavaScript variant and lists the ones that have one", () => {
-      expect(() => resolveTemplateDir("minimal", false)).toThrow(
-        /not available for JavaScript/i,
-      );
-      expect(() => resolveTemplateDir("minimal", false)).toThrow(
-        /default, defi/,
-      );
+    it("resolves minimal to its js-minimal JavaScript variant", () => {
+      expect(resolveTemplateDir("minimal", false)).toBe("js-minimal");
     });
   });
 
@@ -242,7 +237,9 @@ describe("full template (#1112)", () => {
     ["js-full", "src/app/page.jsx"],
   ])("%s landing page renders CounterDemo", async (dir, rel) => {
     const page = await fs.readFile(path.join(TEMPLATES_ROOT, dir, rel), "utf8");
-    expect(page).toContain("import CounterDemo from '../components/CounterDemo';");
+    expect(page).toContain(
+      "import CounterDemo from '../components/CounterDemo';",
+    );
     expect(page).toContain("<CounterDemo />");
   });
 

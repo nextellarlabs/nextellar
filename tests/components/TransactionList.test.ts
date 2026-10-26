@@ -50,11 +50,11 @@ jest.unstable_mockModule(
 
 // ── Dynamic imports (must be after unstable_mockModule) ───────────────────────
 const [{ default: TransactionList }, { useTransactionHistory }, { useWallet }] =
-  await Promise.all([
-    import("../../src/templates/default/src/components/TransactionList"),
-    import("../../src/templates/default/src/hooks/useTransactionHistory"),
-    import("../../src/mocks/wallet-contexts-mock"),
-  ]);
+  [
+    await import("../../src/templates/default/src/components/TransactionList"),
+    await import("../../src/templates/default/src/hooks/useTransactionHistory"),
+    await import("../../src/mocks/wallet-contexts-mock"),
+  ];
 
 // ── Type helpers ──────────────────────────────────────────────────────────────
 

@@ -106,8 +106,7 @@ export async function fetchStellarToml(domain, opts = {}) {
                 allowHttp: opts.allowHttp,
                 timeout: opts.timeout,
             });
-        }
-        catch (err) {
+        } catch (err) {
             throw new StellarTomlError(
                 `Failed to fetch or parse stellar.toml for "${normalized}": ${err instanceof Error ? err.message : String(err)}`,
                 normalized,
@@ -124,8 +123,7 @@ export async function fetchStellarToml(domain, opts = {}) {
     inFlight.set(normalized, request);
     try {
         return await request;
-    }
-    finally {
+    } finally {
         inFlight.delete(normalized);
     }
 }

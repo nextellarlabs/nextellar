@@ -271,7 +271,12 @@ export default function ContractCallForm({
       const args = specArgs.map((arg, index) => {
         const value = argValues[index] ?? '';
         const argError = validateArgValue(value, arg.type);
-        if (argError) errors[argFieldId(index)] = argError;
+        if (argError) {
+          errors[argFieldId(index)] = argError;
+          // Don't coerce an invalid value (e.g. BigInt("12.5") throws); the
+          // args are discarded anyway once validation fails.
+          return value;
+        }
         return coerceTypedArg(value, arg.type);
       });
       return { args, errors };

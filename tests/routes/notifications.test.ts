@@ -1,7 +1,9 @@
-import { jest } from '@jest/globals';
-import express, { Request, Response, NextFunction } from 'express';
-import request from 'supertest';
-import notificationsRouter, { notificationDeps } from '../../backend/routes/notifications.js';
+import { jest } from "@jest/globals";
+import express, { Request, Response, NextFunction } from "express";
+import request from "supertest";
+import notificationsRouter, {
+  notificationDeps,
+} from "../../backend/routes/notifications.js";
 
 function buildApp() {
   const app = express();
@@ -13,12 +15,12 @@ function buildApp() {
   return app;
 }
 
-describe('POST /notifications', () => {
+describe("POST /notifications", () => {
   const app = buildApp();
   let consoleSpy: jest.SpyInstance;
 
   beforeEach(() => {
-    consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -26,25 +28,29 @@ describe('POST /notifications', () => {
     jest.clearAllMocks();
   });
 
-  it('returns 200 immediately when push succeeds', async () => {
-    notificationDeps.sendPushNotification = jest.fn().mockResolvedValue(undefined);
+  it("returns 200 immediately when push succeeds", async () => {
+    notificationDeps.sendPushNotification = jest
+      .fn()
+      .mockResolvedValue(undefined);
 
     const res = await request(app)
-      .post('/notifications')
-      .send({ userId: 'user-1', message: 'Hello' });
+      .post("/notifications")
+      .send({ userId: "user-1", message: "Hello" });
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(notificationDeps.sendPushNotification).toHaveBeenCalledTimes(1);
   });
 
-  it('returns 200 even when push service fails (fire-and-forget)', async () => {
-    const pushError = new Error('Push service unavailable');
-    notificationDeps.sendPushNotification = jest.fn().mockRejectedValue(pushError);
+  it("returns 200 even when push service fails (fire-and-forget)", async () => {
+    const pushError = new Error("Push service unavailable");
+    notificationDeps.sendPushNotification = jest
+      .fn()
+      .mockRejectedValue(pushError);
 
     const res = await request(app)
-      .post('/notifications')
-      .send({ userId: 'user-1', message: 'Hello' });
+      .post("/notifications")
+      .send({ userId: "user-1", message: "Hello" });
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
@@ -53,37 +59,37 @@ describe('POST /notifications', () => {
     await new Promise<void>((resolve) => setImmediate(resolve));
 
     expect(consoleSpy).toHaveBeenCalledWith(
-      '[notifications] push delivery failed:',
-      'Push service unavailable',
+      "[notifications] push delivery failed:",
+      "Push service unavailable",
     );
   });
 
-  it('does NOT propagate unhandled rejection when push fails', async () => {
-    notificationDeps.sendPushNotification = jest.fn().mockRejectedValue(
-      new Error('network error'),
-    );
+  it("does NOT propagate unhandled rejection when push fails", async () => {
+    notificationDeps.sendPushNotification = jest
+      .fn()
+      .mockRejectedValue(new Error("network error"));
 
     const unhandledRejectionSpy = jest.fn();
-    process.once('unhandledRejection', unhandledRejectionSpy);
+    process.once("unhandledRejection", unhandledRejectionSpy);
 
     await request(app)
-      .post('/notifications')
-      .send({ userId: 'user-2', message: 'Test' });
+      .post("/notifications")
+      .send({ userId: "user-2", message: "Test" });
 
     await new Promise<void>((resolve) => setImmediate(resolve));
 
     expect(unhandledRejectionSpy).not.toHaveBeenCalled();
-    process.removeListener('unhandledRejection', unhandledRejectionSpy);
+    process.removeListener("unhandledRejection", unhandledRejectionSpy);
   });
 
-  it('returns 400 when payload is not an object (array)', async () => {
+  it("returns 400 when payload is not an object (array)", async () => {
     // Arrays are typeof 'object' but not notification payloads we accept
     // We check the route handles non-plain-object bodies gracefully
-    notificationDeps.sendPushNotification = jest.fn().mockResolvedValue(undefined);
+    notificationDeps.sendPushNotification = jest
+      .fn()
+      .mockResolvedValue(undefined);
 
-    const res = await request(app)
-      .post('/notifications')
-      .send([1, 2, 3]); // arrays are valid JSON but not valid notification objects
+    const res = await request(app).post("/notifications").send([1, 2, 3]); // arrays are valid JSON but not valid notification objects
 
     // Arrays are still typeof 'object' so the route accepts and queues them —
     // payload validation is intentionally delegated to the push service layer.
@@ -92,11 +98,17 @@ describe('POST /notifications', () => {
     expect(res.body.success).toBe(true);
   });
 
-  it('passes the full payload to the push service', async () => {
-    notificationDeps.sendPushNotification = jest.fn().mockResolvedValue(undefined);
-    const payload = { userId: 'u-99', title: 'Alert', body: 'You have a new message' };
+  it("passes the full payload to the push service", async () => {
+    notificationDeps.sendPushNotification = jest
+      .fn()
+      .mockResolvedValue(undefined);
+    const payload = {
+      userId: "u-99",
+      title: "Alert",
+      body: "You have a new message",
+    };
 
-    await request(app).post('/notifications').send(payload);
+    await request(app).post("/notifications").send(payload);
 
     expect(notificationDeps.sendPushNotification).toHaveBeenCalledWith(payload);
   });

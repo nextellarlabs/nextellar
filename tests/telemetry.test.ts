@@ -1,8 +1,8 @@
-import { jest } from '@jest/globals';
-import fs from 'fs-extra';
-import os from 'os';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { jest } from "@jest/globals";
+import fs from "fs-extra";
+import os from "os";
+import path from "path";
+import { fileURLToPath } from "url";
 
 // Genuine ESM module, so this needs jest.unstable_mockModule rather than
 // the classic jest.mock (see tests/scaffold.test.ts for the same note).
@@ -17,9 +17,10 @@ const __dirname = path.dirname(__filename);
 // before the dynamic import below runs — a per-test tmpdir assigned inside
 // beforeEach would be undefined at that point. Each test still gets
 // isolation by clearing/removing this directory's contents around it.
-const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'nextellar-telemetry-'));
+const realHome = os.homedir();
+const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "nextellar-telemetry-"));
 
-jest.unstable_mockModule('os', () => ({
+jest.unstable_mockModule("os", () => ({
   default: {
     ...os,
     homedir: () => tmpHome,
@@ -39,23 +40,23 @@ const {
   flushTelemetry,
   telemetryConfigPath,
   ALLOWED_PROPERTY_KEYS,
-} = await import('../src/lib/telemetry');
+} = await import("../src/lib/telemetry");
 
 const baseProperties = {
-  template: 'default' as const,
-  language: 'typescript' as const,
-  network: 'testnet' as const,
-  wallets: ['freighter'],
-  packageManager: 'npm' as const,
+  template: "default" as const,
+  language: "typescript" as const,
+  network: "testnet" as const,
+  wallets: ["freighter"],
+  packageManager: "npm" as const,
   withContracts: false,
   skipInstall: false,
   success: true,
-  cliVersion: '1.0.0',
+  cliVersion: "1.0.0",
   nodeVersion: process.versions.node,
   os: process.platform,
 };
 
-describe('telemetry (#945)', () => {
+describe("telemetry (#945)", () => {
   const origEnv = { ...process.env };
   let consoleLogSpy: jest.SpiedFunction<typeof console.log>;
 
@@ -63,14 +64,14 @@ describe('telemetry (#945)', () => {
     // Fresh config each test — remove any config.json written by the
     // previous test, but keep tmpHome itself (it's baked into telemetry.ts's
     // module-level CONFIG_PATH, see the comment above the mock).
-    await fs.remove(path.join(tmpHome, '.nextellar'));
+    await fs.remove(path.join(tmpHome, ".nextellar"));
     process.env = { ...origEnv };
     delete process.env.NEXTELLAR_TELEMETRY_DISABLED;
     delete process.env.NEXTELLAR_TELEMETRY_ENDPOINT;
     mockFetch.mockReset();
     mockFetch.mockResolvedValue(new Response(null, { status: 200 }));
     global.fetch = mockFetch as unknown as typeof fetch;
-    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    consoleLogSpy = jest.spyOn(console, "log").mockImplementation(() => {});
   });
 
   afterAll(async () => {
@@ -81,25 +82,25 @@ describe('telemetry (#945)', () => {
     consoleLogSpy.mockRestore();
   });
 
-  describe('opt-in default', () => {
-    it('is disabled by default until explicitly enabled', async () => {
-      expect(await getTelemetryStatus()).toBe('disabled');
+  describe("opt-in default", () => {
+    it("is disabled by default until explicitly enabled", async () => {
+      expect(await getTelemetryStatus()).toBe("disabled");
     });
 
-    it('does not send an event when telemetry has never been enabled', async () => {
+    it("does not send an event when telemetry has never been enabled", async () => {
       await trackScaffoldEvent(baseProperties);
       await flushTelemetry();
       expect(mockFetch).not.toHaveBeenCalled();
     });
 
-    it('sends an event once explicitly enabled', async () => {
+    it("sends an event once explicitly enabled", async () => {
       await setTelemetryEnabled(true);
       await trackScaffoldEvent(baseProperties);
       await flushTelemetry();
       expect(mockFetch).toHaveBeenCalledTimes(1);
     });
 
-    it('stops sending events after being disabled again', async () => {
+    it("stops sending events after being disabled again", async () => {
       await setTelemetryEnabled(true);
       await setTelemetryEnabled(false);
       await trackScaffoldEvent(baseProperties);
@@ -108,52 +109,75 @@ describe('telemetry (#945)', () => {
     });
   });
 
-  describe('disable controls', () => {
-    it('NEXTELLAR_TELEMETRY_DISABLED env var forces telemetry off regardless of config', async () => {
+  describe("disable controls", () => {
+    it("NEXTELLAR_TELEMETRY_DISABLED env var forces telemetry off regardless of config", async () => {
       await setTelemetryEnabled(true);
-      process.env.NEXTELLAR_TELEMETRY_DISABLED = 'true';
+      process.env.NEXTELLAR_TELEMETRY_DISABLED = "true";
 
       expect(isTelemetryDisabledByEnv()).toBe(true);
-      expect(await getTelemetryStatus()).toBe('disabled');
+      expect(await getTelemetryStatus()).toBe("disabled");
 
       await trackScaffoldEvent(baseProperties);
       await flushTelemetry();
       expect(mockFetch).not.toHaveBeenCalled();
     });
 
-    it.each(['1', 'true', 'yes', 'on', 'TRUE', 'On'])(
-      'accepts %s as a truthy env override value',
+    it.each(["1", "true", "yes", "on", "TRUE", "On"])(
+      "accepts %s as a truthy env override value",
       (value) => {
         process.env.NEXTELLAR_TELEMETRY_DISABLED = value;
         expect(isTelemetryDisabledByEnv()).toBe(true);
       },
     );
 
-    it.each(['0', 'false', 'no', 'off', ''])(
-      'does not treat %s as a truthy env override value',
+    it.each(["0", "false", "no", "off", ""])(
+      "does not treat %s as a truthy env override value",
       (value) => {
         process.env.NEXTELLAR_TELEMETRY_DISABLED = value;
         expect(isTelemetryDisabledByEnv()).toBe(false);
       },
     );
 
-    it('the --no-telemetry flag (noTelemetryFlag) suppresses a single invocation', async () => {
+    it("the --no-telemetry flag (noTelemetryFlag) suppresses a single invocation", async () => {
       await setTelemetryEnabled(true);
       await trackScaffoldEvent(baseProperties, { noTelemetryFlag: true });
       await flushTelemetry();
       expect(mockFetch).not.toHaveBeenCalled();
     });
 
-    it('persistent disable via setTelemetryEnabled(false) survives across calls', async () => {
+    it("persistent disable via setTelemetryEnabled(false) survives across calls", async () => {
       await setTelemetryEnabled(false);
       const config = await readTelemetryConfig();
       expect(config.telemetry?.enabled).toBe(false);
-      expect(await getTelemetryStatus()).toBe('disabled');
+      expect(await getTelemetryStatus()).toBe("disabled");
+    });
+
+    it("persists the setting to config.json inside the temp HOME, not the real one", async () => {
+      await setTelemetryEnabled(true);
+      await setTelemetryEnabled(false);
+
+      expect(telemetryConfigPath.startsWith(tmpHome)).toBe(true);
+      expect(
+        telemetryConfigPath.startsWith(path.join(realHome, ".nextellar")),
+      ).toBe(false);
+
+      const onDisk = await fs.readJson(telemetryConfigPath);
+      expect(onDisk.telemetry.enabled).toBe(false);
+      expect(await getTelemetryStatus()).toBe("disabled");
+    });
+
+    it("env override wins even when the persisted config says enabled", async () => {
+      await setTelemetryEnabled(true);
+      expect(await getTelemetryStatus()).toBe("enabled");
+
+      process.env.NEXTELLAR_TELEMETRY_DISABLED = "1";
+      expect(await getTelemetryStatus()).toBe("disabled");
+      expect((await readTelemetryConfig()).telemetry?.enabled).toBe(true);
     });
   });
 
-  describe('no PII in the collected payload', () => {
-    it('sends only the documented, non-identifying properties', async () => {
+  describe("no PII in the collected payload", () => {
+    it("sends only the documented, non-identifying properties", async () => {
       await setTelemetryEnabled(true);
       await trackScaffoldEvent(baseProperties);
       await flushTelemetry();
@@ -162,8 +186,8 @@ describe('telemetry (#945)', () => {
       const [, requestInit] = mockFetch.mock.calls[0] as [string, RequestInit];
       const body = JSON.parse(requestInit.body as string);
 
-      expect(body.event).toBe('scaffold');
-      expect(typeof body.anonymousId).toBe('string');
+      expect(body.event).toBe("scaffold");
+      expect(typeof body.anonymousId).toBe("string");
       expect(body.properties).toEqual(baseProperties);
 
       // No project name, file paths, env vars, or other identifying data
@@ -173,27 +197,31 @@ describe('telemetry (#945)', () => {
       expect(serialized).not.toMatch(/HOME|USER|process\.env/i);
     });
 
-    it('payload contains only the allowlisted, non-identifying keys', async () => {
+    it("payload contains only the allowlisted, non-identifying keys", async () => {
       await setTelemetryEnabled(true);
       await trackScaffoldEvent(baseProperties);
       await flushTelemetry();
 
       expect(mockFetch).toHaveBeenCalledTimes(1);
       const body = JSON.parse(
-        (mockFetch.mock.calls[0] as [string, RequestInit])[1].body as string
+        (mockFetch.mock.calls[0] as [string, RequestInit])[1].body as string,
       );
-      expect(Object.keys(body).sort()).toEqual(['anonymousId', 'event', 'properties']);
+      expect(Object.keys(body).sort()).toEqual([
+        "anonymousId",
+        "event",
+        "properties",
+      ]);
       expect(Object.keys(body.properties).sort()).toEqual(
-        [...ALLOWED_PROPERTY_KEYS].sort()
+        [...ALLOWED_PROPERTY_KEYS].sort(),
       );
     });
 
-    it('strips any non-allowlisted field so accidental PII cannot be sent', async () => {
+    it("strips any non-allowlisted field so accidental PII cannot be sent", async () => {
       await setTelemetryEnabled(true);
       const leaky = {
         ...baseProperties,
-        projectName: 'secret-app',
-        cwd: '/Users/me/project',
+        projectName: "secret-app",
+        cwd: "/Users/me/project",
         home: os.homedir(),
       } as unknown as typeof baseProperties;
 
@@ -202,16 +230,16 @@ describe('telemetry (#945)', () => {
 
       expect(mockFetch).toHaveBeenCalledTimes(1);
       const body = JSON.parse(
-        (mockFetch.mock.calls[0] as [string, RequestInit])[1].body as string
+        (mockFetch.mock.calls[0] as [string, RequestInit])[1].body as string,
       );
-      expect(body.properties).not.toHaveProperty('projectName');
-      expect(body.properties).not.toHaveProperty('cwd');
-      expect(body.properties).not.toHaveProperty('home');
-      expect(JSON.stringify(body)).not.toContain('secret-app');
+      expect(body.properties).not.toHaveProperty("projectName");
+      expect(body.properties).not.toHaveProperty("cwd");
+      expect(body.properties).not.toHaveProperty("home");
+      expect(JSON.stringify(body)).not.toContain("secret-app");
       expect(JSON.stringify(body)).not.toContain(os.homedir());
     });
 
-    it('anonymousId is a random identifier, not derived from machine/user info', async () => {
+    it("anonymousId is a random identifier, not derived from machine/user info", async () => {
       await setTelemetryEnabled(true);
       const config = await readTelemetryConfig();
       const anonymousId = config.telemetry?.anonymousId;
@@ -222,7 +250,7 @@ describe('telemetry (#945)', () => {
       expect(anonymousId?.length).toBeGreaterThanOrEqual(32);
     });
 
-    it('reuses the same anonymousId across multiple events rather than one per event', async () => {
+    it("reuses the same anonymousId across multiple events rather than one per event", async () => {
       await setTelemetryEnabled(true);
       await trackScaffoldEvent(baseProperties);
       await trackScaffoldEvent(baseProperties);
@@ -239,12 +267,12 @@ describe('telemetry (#945)', () => {
     });
   });
 
-  describe('first-run notice', () => {
-    it('shows the transparency notice on first run and records noticeShown', async () => {
+  describe("first-run notice", () => {
+    it("shows the transparency notice on first run and records noticeShown", async () => {
       await maybeShowTelemetryNotice();
 
       expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('anonymous usage data'),
+        expect.stringContaining("anonymous usage data"),
       );
       const config = await readTelemetryConfig();
       expect(config.telemetry?.noticeShown).toBe(true);
@@ -252,36 +280,132 @@ describe('telemetry (#945)', () => {
       expect(config.telemetry?.enabled).toBe(false);
     });
 
-    it('does not show the notice again once already shown', async () => {
+    it("does not show the notice again once already shown", async () => {
       await maybeShowTelemetryNotice();
       consoleLogSpy.mockClear();
       await maybeShowTelemetryNotice();
       expect(consoleLogSpy).not.toHaveBeenCalled();
     });
 
-    it('skips the notice entirely when --no-telemetry is passed', async () => {
+    it("skips the notice entirely when --no-telemetry is passed", async () => {
       await maybeShowTelemetryNotice({ noTelemetryFlag: true });
       expect(consoleLogSpy).not.toHaveBeenCalled();
     });
 
-    it('skips the notice entirely when disabled by env', async () => {
-      process.env.NEXTELLAR_TELEMETRY_DISABLED = '1';
+    it("skips the notice entirely when disabled by env", async () => {
+      process.env.NEXTELLAR_TELEMETRY_DISABLED = "1";
       await maybeShowTelemetryNotice();
       expect(consoleLogSpy).not.toHaveBeenCalled();
     });
   });
 
-  describe('reliability', () => {
-    it('does not throw when the telemetry endpoint is unreachable', async () => {
-      mockFetch.mockRejectedValue(new Error('network unreachable'));
+  describe("endpoint", () => {
+    it("posts to the default endpoint when no override is set", async () => {
+      await setTelemetryEnabled(true);
+      await trackScaffoldEvent(baseProperties);
+      await flushTelemetry();
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toBe("https://nextellar.dev/api/telemetry");
+      expect(init.method).toBe("POST");
+    });
+
+    it("honors the NEXTELLAR_TELEMETRY_ENDPOINT override", async () => {
+      process.env.NEXTELLAR_TELEMETRY_ENDPOINT =
+        "http://localhost:9999/custom-telemetry";
+      await setTelemetryEnabled(true);
+      await trackScaffoldEvent(baseProperties);
+      await flushTelemetry();
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect((mockFetch.mock.calls[0] as [string])[0]).toBe(
+        "http://localhost:9999/custom-telemetry",
+      );
+    });
+
+    it("makes no request to a custom endpoint when disabled", async () => {
+      process.env.NEXTELLAR_TELEMETRY_ENDPOINT =
+        "http://localhost:9999/custom-telemetry";
+      await setTelemetryEnabled(false);
+      await trackScaffoldEvent(baseProperties);
+      await flushTelemetry();
+
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("reliability", () => {
+    it("does not throw when the endpoint responds with a 500", async () => {
+      mockFetch.mockResolvedValue(new Response("boom", { status: 500 }));
+      await setTelemetryEnabled(true);
+
+      await expect(trackScaffoldEvent(baseProperties)).resolves.toBeUndefined();
+      await expect(flushTelemetry()).resolves.toBeUndefined();
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not throw or hang when the endpoint times out", async () => {
+      // Shorten the CLI's 3s telemetry timeout so the test stays fast.
+      const realSetTimeout = global.setTimeout;
+      const setTimeoutSpy = jest
+        .spyOn(global, "setTimeout")
+        .mockImplementation(((
+          fn: () => void,
+          ms?: number,
+          ...args: unknown[]
+        ) =>
+          realSetTimeout(
+            fn,
+            ms === 3000 ? 10 : ms,
+            ...args,
+          )) as typeof setTimeout);
+
+      // A fetch that never resolves on its own and only settles when aborted.
+      mockFetch.mockImplementation(
+        (_url: unknown, init: unknown) =>
+          new Promise((_resolve, reject) => {
+            (init as RequestInit).signal?.addEventListener("abort", () =>
+              reject(new Error("aborted")),
+            );
+          }),
+      );
+
+      try {
+        await setTelemetryEnabled(true);
+        await expect(
+          trackScaffoldEvent(baseProperties),
+        ).resolves.toBeUndefined();
+        await expect(flushTelemetry()).resolves.toBeUndefined();
+        expect(mockFetch).toHaveBeenCalledTimes(1);
+        const signal = (mockFetch.mock.calls[0] as [string, RequestInit])[1]
+          .signal;
+        expect(signal?.aborted).toBe(true);
+      } finally {
+        setTimeoutSpy.mockRestore();
+      }
+    });
+
+    it("does not throw when fetch throws synchronously", async () => {
+      mockFetch.mockImplementation(() => {
+        throw new Error("fetch exploded");
+      });
+      await setTelemetryEnabled(true);
+
+      await expect(trackScaffoldEvent(baseProperties)).resolves.toBeUndefined();
+      await expect(flushTelemetry()).resolves.toBeUndefined();
+    });
+
+    it("does not throw when the telemetry endpoint is unreachable", async () => {
+      mockFetch.mockRejectedValue(new Error("network unreachable"));
       await setTelemetryEnabled(true);
       await expect(trackScaffoldEvent(baseProperties)).resolves.toBeUndefined();
       await expect(flushTelemetry()).resolves.toBeUndefined();
     });
 
-    it('config path lives under the home directory as documented', () => {
-      expect(telemetryConfigPath).toContain('.nextellar');
-      expect(telemetryConfigPath).toContain('config.json');
+    it("config path lives under the home directory as documented", () => {
+      expect(telemetryConfigPath).toContain(".nextellar");
+      expect(telemetryConfigPath).toContain("config.json");
     });
   });
 });

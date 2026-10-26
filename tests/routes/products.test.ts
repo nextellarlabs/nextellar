@@ -2,7 +2,10 @@ import { jest } from "@jest/globals";
 import express, { Request, Response, NextFunction } from "express";
 import request from "supertest";
 
-import productsRouter, { deps, generateETag } from "../../backend/routes/products.js";
+import productsRouter, {
+  deps,
+  generateETag,
+} from "../../backend/routes/products.js";
 
 const VALID_UUID = "123e4567-e89b-12d3-a456-426614174000";
 
@@ -84,7 +87,11 @@ describe("GET /products/:id — ETag / Last-Modified caching", () => {
 
   afterEach(() => jest.restoreAllMocks());
 
-  const product = { id: VALID_UUID, name: "Widget", updated_at: "2024-01-15T10:00:00.000Z" };
+  const product = {
+    id: VALID_UUID,
+    name: "Widget",
+    updated_at: "2024-01-15T10:00:00.000Z",
+  };
 
   it("200 response includes ETag and Last-Modified headers", async () => {
     jest.spyOn(deps, "getProductById").mockResolvedValue(product);
@@ -164,7 +171,11 @@ describe("GET /products/:id — ETag / Last-Modified caching", () => {
     jest.spyOn(deps, "getProductById").mockResolvedValue(product);
     const res1 = await request(app).get(`/products/${VALID_UUID}`);
 
-    const updatedProduct = { ...product, name: "Widget v2", updated_at: "2024-06-01T00:00:00.000Z" };
+    const updatedProduct = {
+      ...product,
+      name: "Widget v2",
+      updated_at: "2024-06-01T00:00:00.000Z",
+    };
     jest.spyOn(deps, "getProductById").mockResolvedValue(updatedProduct);
     const res2 = await request(app).get(`/products/${VALID_UUID}`);
 

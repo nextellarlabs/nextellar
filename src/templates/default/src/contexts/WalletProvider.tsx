@@ -115,7 +115,6 @@ interface WalletContextState {
   refreshBalances: () => Promise<void>;
   switchAccount: (address: string) => Promise<void>;
   sendPayment?: (opts: PaymentOptions) => Promise<Horizon.HorizonApi.SubmitTransactionResponse | UnsignedFeeBumpResult>;
-  sendPayment?: (opts: PaymentOptions) => Promise<Horizon.HorizonApi.SubmitTransactionResponse>;
   /**
    * The network passphrase the connected wallet itself reports, or undefined
    * if not connected or the wallet couldn't answer getNetwork(). Compare
@@ -235,6 +234,7 @@ export function WalletProvider({
   const [balances, setBalances] = useState<Balance[]>([]);
   const [accounts, setAccounts] = useState<WalletAccount[]>([]);
   const [currentAccountIndex, setCurrentAccountIndex] = useState(0);
+  const [customNetworks, setCustomNetworks] = useState<Record<string, NetworkConfig>>({});
   // The network passphrase the connected wallet itself reports (via the kit's
   // getNetwork()), as opposed to activeNetworkPassphrase below, which is the
   // app's configured network. They can disagree if the wallet extension is

@@ -23,12 +23,11 @@ jest.unstable_mockModule(
   }),
 );
 
-const [{ default: BalanceDisplay }, { useStellarBalances }, { useWallet }] =
-  await Promise.all([
-    import("../../src/templates/minimal/src/components/BalanceDisplay"),
-    import("../../src/templates/minimal/src/hooks/useStellarBalances"),
-    import("../../src/mocks/wallet-contexts-mock"),
-  ]);
+const [{ default: BalanceDisplay }, { useStellarBalances }, { useWallet }] = [
+  await import("../../src/templates/minimal/src/components/BalanceDisplay"),
+  await import("../../src/templates/minimal/src/hooks/useStellarBalances"),
+  await import("../../src/mocks/wallet-contexts-mock"),
+];
 
 const PUBLIC_KEY = "GABC1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234";
 
