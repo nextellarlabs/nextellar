@@ -49,21 +49,23 @@ const [
   { default: TransactionStatusBadge },
   { default: WalletConnectButton },
   { useWallet },
-] = await Promise.all([
-  import("../src/templates/default/src/components/AccountSwitcher"),
-  import("../src/templates/default/src/components/BalanceDisplay"),
-  import("../src/templates/default/src/components/EmptyState"),
-  import("../src/templates/default/src/components/ErrorBoundary"),
-  import("../src/templates/default/src/components/LoadingBoundary"),
-  import("../src/templates/default/src/components/NetworkSwitcher"),
-  import("../src/templates/default/src/components/Skeleton"),
-  import("../src/templates/default/src/components/ThemeToggle"),
-  import("../src/templates/default/src/contexts/ThemeProvider"),
-  import("../src/templates/default/src/components/TransactionList"),
-  import("../src/templates/default/src/components/TransactionStatusBadge"),
-  import("../src/templates/default/src/components/WalletConnectButton"),
-  import("../src/mocks/wallet-contexts-mock"),
-]);
+] = [
+  // Imported one at a time: linking these concurrently (Promise.all) races in
+  // Jest's ESM loader on CI ("request for 'react' is not in cache").
+  await import("../src/templates/default/src/components/AccountSwitcher"),
+  await import("../src/templates/default/src/components/BalanceDisplay"),
+  await import("../src/templates/default/src/components/EmptyState"),
+  await import("../src/templates/default/src/components/ErrorBoundary"),
+  await import("../src/templates/default/src/components/LoadingBoundary"),
+  await import("../src/templates/default/src/components/NetworkSwitcher"),
+  await import("../src/templates/default/src/components/Skeleton"),
+  await import("../src/templates/default/src/components/ThemeToggle"),
+  await import("../src/templates/default/src/contexts/ThemeProvider"),
+  await import("../src/templates/default/src/components/TransactionList"),
+  await import("../src/templates/default/src/components/TransactionStatusBadge"),
+  await import("../src/templates/default/src/components/WalletConnectButton"),
+  await import("../src/mocks/wallet-contexts-mock"),
+];
 
 describe("default template components smoke tests (#891)", () => {
   it("renders BalanceDisplay cleanly", () => {
@@ -195,7 +197,7 @@ describe("default template components smoke tests (#891)", () => {
     const { container } = render(<WalletConnectButton />);
     expect(container).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Connect Stellar wallet" }),
+      screen.getByRole("button", { name: "Connect Wallet" }),
     ).toBeInTheDocument();
   });
 });

@@ -17,10 +17,23 @@ import { renderHook, waitFor } from "@testing-library/react";
 // the ESM-native equivalent. `../contexts` is resolved to the shared mock (see
 // jest.config.mjs moduleNameMapper), whose useWalletConfig() returns
 // undefined so the hook falls back to its default Horizon URL.
-await jest.unstable_mockModule("@stellar/stellar-sdk", () => ({
+const mockSdk = {
   Horizon: {
     Server: jest.fn(),
   },
+};
+// jest.config compiles js-* template sources to CommonJS, so the hook loads
+// the SDK via require(); register the same mock object for both module
+// systems. Bracket access keeps babel-plugin-jest-hoist from rewriting this
+// into a require() call, which doesn't exist in an ESM test file.
+jest["mock"]("@stellar/stellar-sdk", () => mockSdk);
+await jest.unstable_mockModule("@stellar/stellar-sdk", () => mockSdk);
+// js-* template sources are compiled to CommonJS (see jest.config), so the
+// hook require()s "../contexts", which maps to the ESM wallet-contexts mock.
+// Node < 24.9 can't require() an ES module, so register a CommonJS stand-in.
+// Bracket access keeps babel-plugin-jest-hoist from rewriting this.
+jest["mock"]("../../src/mocks/wallet-contexts-mock", () => ({
+  useWalletConfig: () => undefined,
 }));
 
 const { useStellarBalances } =

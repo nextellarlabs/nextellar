@@ -73,7 +73,9 @@ describe("POST /documents/upload", () => {
   });
 
   it("returns 415 with standard error shape for a disguised HTML file", async () => {
-    const htmlBuffer = Buffer.from("<html><script>alert('xss')</script></html>");
+    const htmlBuffer = Buffer.from(
+      "<html><script>alert('xss')</script></html>",
+    );
 
     const res = await request(app)
       .post("/documents/upload")

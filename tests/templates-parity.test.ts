@@ -24,6 +24,11 @@ const REQUIRED_PLACEHOLDERS = [
   "{{APP_NAME}}",
 ];
 
+/** Variable names declared in an .env file, including commented-out ones. */
+function envKeys(env: string): string[] {
+  return [...env.matchAll(/^#?\s*([A-Z][A-Z0-9_]*)=/gm)].map((m) => m[1]);
+}
+
 describe("template .env.example parity", () => {
   test("covered template and placeholder lists are non-empty and include js-defi", async () => {
     expect(APP_TEMPLATES.length).toBeGreaterThan(0);
@@ -62,7 +67,12 @@ describe("template .env.example parity", () => {
         path.join(TEMPLATES_DIR, name, ".env.example"),
         "utf8",
       );
-      expect(env).toBe(defaultEnv);
+      // Templates may omit wallet-specific settings (e.g. WalletConnect, which
+      // only the default template ships), but every variable they declare
+      // must match one the default template declares.
+      for (const key of envKeys(env)) {
+        expect(envKeys(defaultEnv)).toContain(key);
+      }
       for (const placeholder of REQUIRED_PLACEHOLDERS) {
         expect(env).toContain(placeholder);
       }

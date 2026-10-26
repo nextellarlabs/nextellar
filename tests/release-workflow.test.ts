@@ -68,7 +68,7 @@ describe("release signing (#1127)", () => {
     expect(attest).toContain("uses: actions/attest-build-provenance@v2");
     expect(attest).toContain("${{ steps.pack.outputs.tarball }}");
     expect(attest).toContain("bom.json");
-    expect(attest).toContain("if: ${{ !inputs.dry-run }}");
+    expect(attest).toContain("!inputs['dry-run']");
     expect(
       stepNames.indexOf("Sign build provenance for release artifacts"),
     ).toBeLessThan(stepNames.indexOf("Publish to npm"));
@@ -80,6 +80,12 @@ describe("release signing (#1127)", () => {
       /npm publish "\$\{\{ steps\.pack\.outputs\.tarball \}\}" --provenance --access public/,
     );
     expect(publish).toContain("NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}");
+  });
+
+  it("only publishes from tag refs, never from a branch dispatch", () => {
+    expect(step("Publish to npm")).toContain(
+      "startsWith(github.ref, 'refs/tags/') && !inputs['dry-run']",
+    );
   });
 
   it("fails the release when the registry reports no provenance", () => {
@@ -94,7 +100,7 @@ describe("release signing (#1127)", () => {
   it("attaches the signed tarball, SBOM and checksums to the tag's GitHub Release only", () => {
     const release = step("Attach signed artifacts to GitHub Release");
     expect(release).toContain("startsWith(github.ref, 'refs/tags/v')");
-    expect(release).toContain("!inputs.dry-run");
+    expect(release).toContain("!inputs['dry-run']");
     expect(release).toMatch(
       /gh release create "\$GITHUB_REF_NAME" "\$TARBALL" bom\.json SHA256SUMS/,
     );
@@ -110,9 +116,9 @@ describe("release signing (#1127)", () => {
       "Verify npm provenance was recorded",
       "Attach signed artifacts to GitHub Release",
     ]) {
-      expect(step(name)).toContain("!inputs.dry-run");
+      expect(step(name)).toContain("!inputs['dry-run']");
     }
-    expect(step("Upload tarball")).toContain("if: ${{ inputs.dry-run }}");
+    expect(step("Upload tarball")).toContain("if: ${{ inputs['dry-run'] }}");
   });
 
   it("only checks the tag/version match on tag runs, so dry runs on a branch work", () => {

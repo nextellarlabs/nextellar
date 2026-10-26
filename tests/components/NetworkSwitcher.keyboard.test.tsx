@@ -11,19 +11,28 @@
  */
 import "@testing-library/jest-dom";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { jest, describe, it, expect, beforeEach, afterEach } from "@jest/globals";
+import {
+  jest,
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+} from "@jest/globals";
 import React from "react";
 
 jest.unstable_mockModule("../../src/mocks/wallet-contexts-mock", () => ({
   useWalletConfig: jest.fn(),
   useWallet: jest.fn(),
-  WalletProvider: jest.fn(({ children }: { children: React.ReactNode }) => children),
+  WalletProvider: jest.fn(
+    ({ children }: { children: React.ReactNode }) => children,
+  ),
 }));
 
-const [{ default: NetworkSwitcher }, { useWalletConfig, useWallet }] = await Promise.all([
-  import("../../src/templates/default/src/components/NetworkSwitcher"),
-  import("../../src/mocks/wallet-contexts-mock"),
-]);
+const [{ default: NetworkSwitcher }, { useWalletConfig, useWallet }] = [
+  await import("../../src/templates/default/src/components/NetworkSwitcher"),
+  await import("../../src/mocks/wallet-contexts-mock"),
+];
 
 interface WalletConfigShape {
   activeNetworkKey: string;
@@ -34,19 +43,26 @@ interface WalletConfigShape {
 const mockUseWalletConfig = useWalletConfig as unknown as jest.Mock<
   () => WalletConfigShape | undefined
 >;
-const mockUseWallet = useWallet as unknown as jest.Mock<() => { connected: boolean } | undefined>;
+const mockUseWallet = useWallet as unknown as jest.Mock<
+  () => { connected: boolean } | undefined
+>;
 
 function setup(config: WalletConfigShape, wallet = { connected: false }) {
   mockUseWalletConfig.mockReturnValue(config);
   mockUseWallet.mockReturnValue(wallet);
   render(<NetworkSwitcher />);
-  const select = screen.getByRole("combobox", { name: "Network" }) as HTMLSelectElement;
+  const select = screen.getByRole("combobox", {
+    name: "Network",
+  }) as HTMLSelectElement;
   select.focus();
   return select;
 }
 
-const press = (el: HTMLElement, key: string, init: Record<string, unknown> = {}) =>
-  fireEvent.keyDown(el, { key, ...init });
+const press = (
+  el: HTMLElement,
+  key: string,
+  init: Record<string, unknown> = {},
+) => fireEvent.keyDown(el, { key, ...init });
 
 describe("NetworkSwitcher keyboard-only selection (#1143)", () => {
   beforeEach(() => {
@@ -84,7 +100,10 @@ describe("NetworkSwitcher keyboard-only selection (#1143)", () => {
   });
 
   it("clamps at the ends of the list and supports Home/End", () => {
-    const select = setup({ activeNetworkKey: "testnet", switchNetwork: jest.fn() });
+    const select = setup({
+      activeNetworkKey: "testnet",
+      switchNetwork: jest.fn(),
+    });
 
     press(select, "ArrowUp");
     expect(select.value).toBe("testnet");
@@ -132,7 +151,10 @@ describe("NetworkSwitcher keyboard-only selection (#1143)", () => {
   it("asks for confirmation once, on Enter, when a wallet is connected", () => {
     const switchNetwork = jest.fn();
     const confirm = jest.spyOn(window, "confirm").mockReturnValue(true);
-    const select = setup({ activeNetworkKey: "testnet", switchNetwork }, { connected: true });
+    const select = setup(
+      { activeNetworkKey: "testnet", switchNetwork },
+      { connected: true },
+    );
 
     press(select, "ArrowDown");
     press(select, "ArrowUp");
@@ -147,7 +169,10 @@ describe("NetworkSwitcher keyboard-only selection (#1143)", () => {
   it("restores the active network when the confirmation is declined", () => {
     const switchNetwork = jest.fn();
     jest.spyOn(window, "confirm").mockReturnValue(false);
-    const select = setup({ activeNetworkKey: "testnet", switchNetwork }, { connected: true });
+    const select = setup(
+      { activeNetworkKey: "testnet", switchNetwork },
+      { connected: true },
+    );
 
     press(select, "ArrowDown");
     press(select, "Enter");
@@ -167,7 +192,9 @@ describe("NetworkSwitcher keyboard-only selection (#1143)", () => {
     expect(select.value).toBe("__add_custom_network__");
     press(select, "Enter");
 
-    expect(screen.getByRole("form", { name: "Add custom network" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("form", { name: "Add custom network" }),
+    ).toBeInTheDocument();
   });
 
   it("treats type-ahead changes as navigation, not a commit", () => {
@@ -193,9 +220,14 @@ describe("NetworkSwitcher keyboard-only selection (#1143)", () => {
   });
 
   it("describes the keyboard controls to screen readers", () => {
-    const select = setup({ activeNetworkKey: "testnet", switchNetwork: jest.fn() });
+    const select = setup({
+      activeNetworkKey: "testnet",
+      switchNetwork: jest.fn(),
+    });
 
-    const hint = document.getElementById(select.getAttribute("aria-describedby")!);
+    const hint = document.getElementById(
+      select.getAttribute("aria-describedby")!,
+    );
     expect(hint).toHaveTextContent(/arrow keys.*Enter.*Escape/i);
   });
 });

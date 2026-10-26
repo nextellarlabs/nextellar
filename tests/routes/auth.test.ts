@@ -21,7 +21,9 @@ function buildApp() {
 describe("POST /auth/login", () => {
   const app = buildApp();
   const ip = "203.0.113.10";
-  let authenticateUserMock: jest.MockedFunction<typeof authDeps.authenticateUser>;
+  let authenticateUserMock: jest.MockedFunction<
+    typeof authDeps.authenticateUser
+  >;
 
   beforeEach(() => {
     __resetLoginRateLimitState();
@@ -205,7 +207,9 @@ describe("GET /auth/callback", () => {
 
 describe("POST /forgot-password", () => {
   const app = buildApp();
-  let generateResetTokenMock: jest.MockedFunction<typeof authDeps.generateResetToken>;
+  let generateResetTokenMock: jest.MockedFunction<
+    typeof authDeps.generateResetToken
+  >;
   let sendResetEmailMock: jest.MockedFunction<typeof authDeps.sendResetEmail>;
   let sendAdminAlertMock: jest.MockedFunction<typeof authDeps.sendAdminAlert>;
 
@@ -231,7 +235,10 @@ describe("POST /forgot-password", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(sendResetEmailMock).toHaveBeenCalledWith("user@example.com", "test-token-abc");
+    expect(sendResetEmailMock).toHaveBeenCalledWith(
+      "user@example.com",
+      "test-token-abc",
+    );
   });
 
   it("does not call sendAdminAlert when ADMIN_ALERT_EMAIL is not set", async () => {
@@ -249,7 +256,10 @@ describe("POST /forgot-password", () => {
       .post("/forgot-password")
       .send({ email: "user@example.com" });
 
-    expect(sendAdminAlertMock).toHaveBeenCalledWith("ops@company.com", "user@example.com");
+    expect(sendAdminAlertMock).toHaveBeenCalledWith(
+      "ops@company.com",
+      "user@example.com",
+    );
   });
 
   it("does not include the reset token in the admin alert", async () => {

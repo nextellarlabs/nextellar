@@ -130,10 +130,7 @@ describe("doctor project-local endpoint detection", () => {
     });
 
     expect(fetchedUrls()).toEqual(
-      expect.arrayContaining([
-        "https://horizon.flag.example",
-        CUSTOM_SOROBAN,
-      ]),
+      expect.arrayContaining(["https://horizon.flag.example", CUSTOM_SOROBAN]),
     );
     expect(fetchedUrls()).not.toContain(CUSTOM_HORIZON);
   });

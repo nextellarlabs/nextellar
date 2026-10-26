@@ -179,9 +179,7 @@ describe("upgrade --diff", () => {
 
     await upgrade({ diff: true });
 
-    expect(output()).toContain(
-      "--- a/src/hooks/useStellarWallet.ts (project)",
-    );
+    expect(output()).toContain("--- a/src/hooks/useStellarWallet.ts (project)");
   });
 
   test("fails outside a Nextellar project", async () => {

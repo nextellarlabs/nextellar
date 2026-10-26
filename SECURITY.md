@@ -27,6 +27,13 @@ We follow [npm audit severity classifications](https://docs.npmjs.com/about-audi
 
 ### Severity Gates
 
+The gate applies to **production dependencies** (`npm audit --omit=dev`):
+the packages an installed `nextellar` CLI actually loads. Dev-only tooling
+(test runners, the wallet-kit used to test templates, etc.) never ships to
+users or into scaffolded apps; its findings are still reported in CI and via
+`npm run audit:all`, but do not block merges. Scaffolded apps declare their
+own dependencies in each template's `package.json`.
+
 **CI/CD Build Status:**
 
 - ✅ **PASS** - 0 critical, 0 high vulnerabilities

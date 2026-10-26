@@ -100,7 +100,9 @@ describe("Horizon path parsing", () => {
   });
 
   it("describes a direct route without intermediate hops", () => {
-    expect(describePath(parsePathRecord({ ...record, path: [] }))).toBe("XLM → USDC");
+    expect(describePath(parsePathRecord({ ...record, path: [] }))).toBe(
+      "XLM → USDC",
+    );
   });
 
   it("throws on an issued asset missing its issuer", () => {
@@ -118,7 +120,9 @@ describe("selectBestPath", () => {
   });
 
   it("strict-send picks the route delivering the most", () => {
-    expect(selectBestPath(quotes, "strict-send")?.destinationAmount).toBe("1.3");
+    expect(selectBestPath(quotes, "strict-send")?.destinationAmount).toBe(
+      "1.3",
+    );
   });
 
   it("strict-receive picks the route costing the least", () => {

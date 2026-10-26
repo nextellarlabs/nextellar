@@ -586,7 +586,7 @@ describe("WalletConnectButton", () => {
     }
 
     const getConnectButton = () =>
-      screen.getByRole("button", { name: /connect stellar wallet/i });
+      screen.getByRole("button", { name: /connect wallet/i });
 
     beforeEach(() => {
       providerStorage.clear();

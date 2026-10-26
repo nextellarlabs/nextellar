@@ -1,5 +1,5 @@
 import validateNpmPackageName from "validate-npm-package-name";
-import { StrKey } from "@stellar/stellar-sdk";
+import { StrKey } from "@stellar/stellar-base";
 
 /**
  * Validates if a given string is a valid HTTP/HTTPS URL
@@ -86,7 +86,7 @@ export function suggestProjectName(name: string): string | null {
     .trim()
     .toLowerCase()
     .replace(/\s+/g, "-")
-    .replace(/[^a-z0-9\-]/g, "")
+    .replace(/[^a-z0-9-]/g, "")
     .replace(/^[-]+/, "");
   if (!slug) return null;
   const result = validateNpmPackageName(slug);

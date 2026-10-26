@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import Image from 'next/image';
 import { useWallet } from '../contexts';
 import { buildSep7PayUri } from '../lib/sep7';
 
@@ -202,8 +203,9 @@ export default function ReceiveForm({
         data-testid="receive-form-qr"
       >
         {qrDataUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          // A generated data: URL, so Next's image optimizer has nothing to fetch.
+          <Image
+            unoptimized
             src={qrDataUrl}
             // Describes the image's purpose only. The address itself is
             // already read from the text below, so repeating it here would make

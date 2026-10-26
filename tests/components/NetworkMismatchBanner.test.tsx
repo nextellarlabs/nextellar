@@ -23,10 +23,10 @@ jest.unstable_mockModule("../../src/mocks/wallet-contexts-mock", () => ({
   ),
 }));
 
-const [{ NetworkMismatchBanner }, { useWallet }] = await Promise.all([
-  import("../../src/templates/default/src/components/NetworkMismatchBanner"),
-  import("../../src/mocks/wallet-contexts-mock"),
-]);
+const [{ NetworkMismatchBanner }, { useWallet }] = [
+  await import("../../src/templates/default/src/components/NetworkMismatchBanner"),
+  await import("../../src/mocks/wallet-contexts-mock"),
+];
 
 function mockWallet(overrides: Record<string, unknown> = {}) {
   (useWallet as jest.Mock).mockReturnValue({

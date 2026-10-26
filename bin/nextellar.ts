@@ -628,9 +628,7 @@ program.action(async (projectName, options) => {
       `  Language:        ${pc.cyan(useTs ? "TypeScript" : "JavaScript")}`,
     );
     console.log(`  Template:        ${pc.cyan(template)}`);
-    console.log(
-      `  Contracts:       ${pc.cyan(withContracts ? "Yes" : "No")}`,
-    );
+    console.log(`  Contracts:       ${pc.cyan(withContracts ? "Yes" : "No")}`);
     console.log(
       `  Wallets:         ${pc.cyan(finalWallets.length > 0 ? finalWallets.join(", ") : "none")}`,
     );

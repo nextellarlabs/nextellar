@@ -114,26 +114,26 @@ describe("runAdd", () => {
 
     it("falls back to the default template and says so when a file is missing", async () => {
       const cwd = await makeProject("defi");
-      // The defi template ships no Soroban hooks today.
+      // The defi template ships no multisig helpers today.
       expect(
         await fs.pathExists(
-          templateFile("defi", "hooks/useSorobanContract.ts"),
+          templateFile("defi", "hooks/useMultisigTransaction.ts"),
         ),
       ).toBe(false);
 
-      const result = await runAdd("contracts", { cwd, skipInstall: true });
+      const result = await runAdd("multisig", { cwd, skipInstall: true });
 
       expect(result.success).toBe(true);
       expect(
-        await read(path.join(cwd, "src/hooks/useSorobanContract.ts")),
+        await read(path.join(cwd, "src/hooks/useMultisigTransaction.ts")),
       ).toBe(
-        await read(templateFile("default", "hooks/useSorobanContract.ts")),
+        await read(templateFile("default", "hooks/useMultisigTransaction.ts")),
       );
 
       const logged = output();
       expect(logged).toContain("copied from");
-      expect(logged).toContain("hooks/useSorobanContract.ts");
-      expect(logged).toContain("hooks/useSorobanEvents.ts");
+      expect(logged).toContain("hooks/useMultisigTransaction.ts");
+      expect(logged).toContain("lib/multisig.ts");
     });
 
     it("does not report a fallback for files the project template does ship", async () => {

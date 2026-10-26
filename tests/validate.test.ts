@@ -100,9 +100,7 @@ describe("Soroban contract ID validation", () => {
     });
 
     it("returns false for the unset scaffold placeholder", () => {
-      expect(isValidContractId("C_REPLACE_WITH_YOUR_CONTRACT_ID")).toBe(
-        false,
-      );
+      expect(isValidContractId("C_REPLACE_WITH_YOUR_CONTRACT_ID")).toBe(false);
     });
 
     it("returns false for a valid Stellar account address (wrong StrKey type)", () => {
@@ -243,9 +241,7 @@ describe("Project name validation (npm package naming rules)", () => {
     });
 
     it("rejects empty string", () => {
-      expect(() => validateProjectName("")).toThrow(
-        "Project name is required",
-      );
+      expect(() => validateProjectName("")).toThrow("Project name is required");
     });
 
     it("rejects whitespace-only string", () => {
@@ -262,13 +258,13 @@ describe("Project name validation (npm package naming rules)", () => {
 
     it("includes a suggestion when a slug can be derived", () => {
       expect(() => validateProjectName("My App")).toThrow(
-        'Did you mean:\n\nmy-app',
+        "Did you mean:\n\nmy-app",
       );
     });
 
     it("includes a suggestion for uppercase names", () => {
       expect(() => validateProjectName("MyApp")).toThrow(
-        'Did you mean:\n\nmyapp',
+        "Did you mean:\n\nmyapp",
       );
     });
   });

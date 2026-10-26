@@ -75,13 +75,19 @@ jobs:
           fi
           echo "Package size $PACKAGE_SIZE is within limit"
 
+      # Branch names (dry-run from workflow_dispatch) may contain "/", which
+      # upload-artifact rejects in artifact names.
+      - name: Compute artifact-safe ref name
+        id: ref
+        run: echo "name=${GITHUB_REF_NAME//\//-}" >> "$GITHUB_OUTPUT"
+
       - name: Generate Software Bill of Materials (SBOM)
         run: npx @cyclonedx/cyclonedx-npm --output-file bom.json
 
       - name: Upload SBOM artifact
         uses: actions/upload-artifact@v4
         with:
-          name: sbom-${{ github.ref_name }}
+          name: sbom-${{ steps.ref.outputs.name }}
           path: bom.json
 
       # The exact tarball packed here is the one that is attested, attached
@@ -96,30 +102,31 @@ jobs:
           echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
 
       - name: Upload tarball
-        if: ${{ inputs.dry-run }}
+        if: ${{ inputs['dry-run'] }}
         uses: actions/upload-artifact@v4
         with:
-          name: nextellar-${{ github.ref_name }}
+          name: nextellar-${{ steps.ref.outputs.name }}
           path: |
             ${{ steps.pack.outputs.tarball }}
             SHA256SUMS
 
       - name: Sign build provenance for release artifacts
-        if: ${{ !inputs.dry-run }}
+        if: ${{ startsWith(github.ref, 'refs/tags/') && !inputs['dry-run'] }}
         uses: actions/attest-build-provenance@v2
         with:
           subject-path: |
             ${{ steps.pack.outputs.tarball }}
             bom.json
 
+      # Tag refs only, so a manual workflow_dispatch on a branch can never publish.
       - name: Publish to npm
-        if: ${{ !inputs.dry-run }}
+        if: ${{ startsWith(github.ref, 'refs/tags/') && !inputs['dry-run'] }}
         run: npm publish "${{ steps.pack.outputs.tarball }}" --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Verify npm provenance was recorded
-        if: ${{ !inputs.dry-run }}
+        if: ${{ startsWith(github.ref, 'refs/tags/') && !inputs['dry-run'] }}
         run: |
           VERSION=$(node -p "require('./package.json').version")
           for attempt in 1 2 3 4 5 6; do
@@ -135,7 +142,7 @@ jobs:
           exit 1
 
       - name: Attach signed artifacts to GitHub Release
-        if: ${{ !inputs.dry-run && startsWith(github.ref, 'refs/tags/v') }}
+        if: ${{ !inputs['dry-run'] && startsWith(github.ref, 'refs/tags/v') }}
         env:
           GH_TOKEN: ${{ github.token }}
           TARBALL: ${{ steps.pack.outputs.tarball }}
