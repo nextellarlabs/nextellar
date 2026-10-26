@@ -127,6 +127,88 @@ describe("feature registry", () => {
     });
   });
 
+  describe("sep24-interactive feature (#1281)", () => {
+    it("is registered", () => {
+      expect(getFeatureIds()).toContain("sep24-interactive");
+    });
+
+    it("includes the hook, the component, and their shared lib/sep24.ts", () => {
+      expect(getFeature("sep24-interactive")?.files).toEqual(
+        expect.arrayContaining([
+          "hooks/useSep24Interactive.ts",
+          "components/Sep24InteractiveFrame.tsx",
+          "lib/sep24.ts",
+        ]),
+      );
+    });
+  });
+
+  describe("multisig feature (#1282)", () => {
+    it("is registered", () => {
+      expect(getFeatureIds()).toContain("multisig");
+    });
+
+    it("includes the hook and its lib/multisig.ts dependency", () => {
+      expect(getFeature("multisig")?.files).toEqual(
+        expect.arrayContaining([
+          "hooks/useMultisigTransaction.ts",
+          "lib/multisig.ts",
+        ]),
+      );
+    });
+
+    it("depends on the wallet feature", () => {
+      expect(getFeature("multisig")?.dependsOn).toContain("wallet");
+    });
+
+    it("resolves with wallet before the feature itself", () => {
+      const ids = resolveFeatureWithDeps("multisig").map((f) => f.id);
+      expect(ids).toEqual(["wallet", "multisig"]);
+    });
+  });
+
+  describe("ledger-wallet feature (#1283)", () => {
+    it("is registered", () => {
+      expect(getFeatureIds()).toContain("ledger-wallet");
+    });
+
+    it("points at ledger-module.ts", () => {
+      expect(getFeature("ledger-wallet")?.files).toEqual([
+        "lib/wallets/ledger-module.ts",
+      ]);
+    });
+
+    it("depends on the wallet feature", () => {
+      expect(getFeature("ledger-wallet")?.dependsOn).toContain("wallet");
+    });
+
+    it("resolves with wallet before the feature itself", () => {
+      const ids = resolveFeatureWithDeps("ledger-wallet").map((f) => f.id);
+      expect(ids).toEqual(["wallet", "ledger-wallet"]);
+    });
+  });
+
+  describe("walletconnect feature (#1284)", () => {
+    it("is registered", () => {
+      expect(getFeatureIds()).toContain("walletconnect");
+    });
+
+    it("points at walletconnect-module.ts", () => {
+      expect(getFeature("walletconnect")?.files).toEqual([
+        "lib/wallets/walletconnect-module.ts",
+      ]);
+    });
+
+    it("depends on the wallet feature", () => {
+      expect(getFeature("walletconnect")?.dependsOn).toContain("wallet");
+    });
+
+    it("resolves with wallet before the feature itself", () => {
+      const ids = resolveFeatureWithDeps("walletconnect").map((f) => f.id);
+      expect(ids).toEqual(["wallet", "walletconnect"]);
+    });
+  });
+
   describe("resolveFeatureWithDeps", () => {
     it("returns an empty list for an unknown feature", () => {
       expect(resolveFeatureWithDeps("nope")).toEqual([]);
