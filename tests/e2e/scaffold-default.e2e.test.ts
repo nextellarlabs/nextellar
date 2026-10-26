@@ -160,9 +160,6 @@ async function findUnresolvedPlaceholders(dir: string): Promise<string[]> {
     });
 
     test("run next build and verify exit code 0", async () => {
-      let buildOutput = "";
-      let buildError = "";
-
       try {
         const result = await execa("npm", ["run", "build"], {
           cwd: appDir,
@@ -172,9 +169,6 @@ async function findUnresolvedPlaceholders(dir: string): Promise<string[]> {
             NODE_ENV: "production",
           },
         });
-
-        buildOutput = result.stdout;
-        buildError = result.stderr;
 
         // Assert build succeeded
         expect(result.exitCode).toBe(0);
@@ -186,8 +180,8 @@ async function findUnresolvedPlaceholders(dir: string): Promise<string[]> {
         console.log("✅ Build succeeded");
       } catch (error: any) {
         // Capture output even on failure
-        buildOutput = error.stdout || "";
-        buildError = error.stderr || "";
+        const buildOutput = error.stdout || "";
+        const buildError = error.stderr || "";
 
         console.error("\n❌ Build failed!");
         console.error("\n--- Build stdout ---");

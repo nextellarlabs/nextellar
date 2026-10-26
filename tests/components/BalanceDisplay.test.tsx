@@ -70,7 +70,7 @@ describe("BalanceDisplay", () => {
     render(<BalanceDisplay />);
 
     expect(
-      screen.getByText(/connect a wallet to view balances/i),
+      screen.getByText(/connect wallet to view balances/i),
     ).toBeInTheDocument();
   });
 
@@ -92,7 +92,7 @@ describe("BalanceDisplay", () => {
 
     render(<BalanceDisplay />);
 
-    expect(screen.getByText(/couldn't load balances/i)).toBeInTheDocument();
+    expect(screen.getByText(/failed to load balances/i)).toBeInTheDocument();
     expect(screen.getByText(/network error: timeout/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /retry/i }));
@@ -105,8 +105,8 @@ describe("BalanceDisplay", () => {
 
     render(<BalanceDisplay />);
 
-    expect(screen.getByText(/no balances found/i)).toBeInTheDocument();
-    expect(screen.getByText(/may need funding/i)).toBeInTheDocument();
+    expect(screen.getByText(/no balances yet/i)).toBeInTheDocument();
+    expect(screen.getByText(/may still need funding/i)).toBeInTheDocument();
   });
 
   it("renders the native XLM balance without an issuer line", () => {
@@ -247,7 +247,7 @@ describe("BalanceDisplay", () => {
     // Real data takes priority over the error banner once we have something to show.
     expect(screen.getByText("XLM")).toBeInTheDocument();
     expect(
-      screen.queryByText(/couldn't load balances/i),
+      screen.queryByText(/failed to load balances/i),
     ).not.toBeInTheDocument();
   });
 });

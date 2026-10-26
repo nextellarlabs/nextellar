@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { useWallet } from '../contexts';
 
 // Inline SVG icons — no external icon dependency needed
@@ -16,6 +17,12 @@ const CheckIcon = () => (
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
   </svg>
 );
+
+/**
+ * QR image alt text (#1145). Deliberately omits the address: it is rendered as
+ * text right below the QR, so including it here would double-announce it.
+ */
+const QR_ALT_ADDRESS = 'Scannable QR code of the Stellar address shown below';
 
 export interface ReceiveFormProps {
   /** Override the public key shown (e.g. to display a specific account). Defaults to the connected wallet. */
@@ -131,14 +138,17 @@ export default function ReceiveForm({ address: addressProp, qrSize = 200, classN
       <div
         className="flex items-center justify-center rounded-xl bg-white p-3 shadow-inner"
         style={{ width: qrSize + 24, height: qrSize + 24 }}
-        aria-label="QR code of Stellar address"
         data-testid="receive-form-qr"
       >
         {qrDataUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          // A generated data: URL, so Next's image optimizer has nothing to fetch.
+          <Image
+            unoptimized
             src={qrDataUrl}
-            alt={`QR code for Stellar address ${address}`}
+            // Describes the image's purpose only. The address itself is
+            // already read from the text below, so repeating it here would make
+            // screen readers announce the 56-character key twice (#1145).
+            alt={QR_ALT_ADDRESS}
             width={qrSize}
             height={qrSize}
             style={{ imageRendering: 'pixelated' }}
@@ -150,6 +160,7 @@ export default function ReceiveForm({ address: addressProp, qrSize = 200, classN
           <div
             className="animate-pulse rounded bg-gray-200 dark:bg-gray-700"
             style={{ width: qrSize, height: qrSize }}
+            role="status"
             aria-label="Loading QR code"
           />
         )}

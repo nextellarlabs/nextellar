@@ -1,10 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import {
-  isAllowed,
-  setAllowed,
-  getPublicKey,
-  signTransaction,
-} from "@stellar/freighter-api";
+import { isAllowed, setAllowed, getPublicKey } from "@stellar/freighter-api";
 
 interface WalletState {
   isConnected: boolean;
@@ -35,10 +30,12 @@ export function useWalletAuth() {
           });
         }
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       setState((prev) => ({
         ...prev,
-        error: err.message || "Failed to check wallet connection",
+        error:
+          (err instanceof Error && err.message) ||
+          "Failed to check wallet connection",
       }));
     }
   }, []);
@@ -64,10 +61,10 @@ export function useWalletAuth() {
           error: "User denied wallet access or public key not found",
         }));
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       setState((prev) => ({
         ...prev,
-        error: err.message || "Connection failed",
+        error: (err instanceof Error && err.message) || "Connection failed",
       }));
     }
   };

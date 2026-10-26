@@ -269,7 +269,9 @@ describe("useStellarPayment (real template hook)", () => {
       expect(payment!.success).toBe(false);
       expect(payment!.txHash).toBeUndefined();
       // The underlying reason must reach the caller, not a generic message.
-      expect(payment!.error).toContain("tx_failed");
+      // The message is humanised; the raw Stellar code still reaches the caller.
+      expect(payment!.error).toBeTruthy();
+      expect(payment!.resultCodes?.transaction).toBe("tx_failed");
       expect(payment!.raw).toEqual(submissionRejection().response.data);
     });
 
@@ -295,7 +297,8 @@ describe("useStellarPayment (real template hook)", () => {
       });
 
       expect(payment!.success).toBe(false);
-      expect(payment!.error).toContain("op_no_destination");
+      expect(payment!.error).toBeTruthy();
+      expect(payment!.resultCodes?.operations).toContain("op_no_destination");
     });
 
     it("reports a Horizon server error during submission", async () => {
@@ -335,7 +338,9 @@ describe("useStellarPayment (real template hook)", () => {
       });
 
       expect(payment!.success).toBe(false);
-      expect(payment!.error).toContain("tx_failed");
+      // The message is humanised; the raw Stellar code still reaches the caller.
+      expect(payment!.error).toBeTruthy();
+      expect(payment!.resultCodes?.transaction).toBe("tx_failed");
     });
 
     it("reports an unfunded source account when the build fails", async () => {

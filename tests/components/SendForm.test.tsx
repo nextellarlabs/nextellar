@@ -2,34 +2,45 @@
  * @jest-environment jsdom
  */
 import React from "react";
+import { jest } from "@jest/globals";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import SendForm from "../../src/templates/default/src/components/SendForm";
 
 const mockSendPayment = jest.fn();
 
-jest.mock("../../src/templates/default/src/contexts", () => ({
+// SendForm's "../contexts" import resolves to the shared wallet mock via
+// jest.config's moduleNameMapper, so that is the module to override here.
+await jest.unstable_mockModule("../../src/mocks/wallet-contexts-mock", () => ({
   useWallet: () => ({
     connected: true,
     address: "GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H",
     sendPayment: mockSendPayment,
   }),
+  isUnsignedFeeBumpResult: (value: unknown) =>
+    (value as { requiresSponsorSignature?: unknown } | null)
+      ?.requiresSponsorSignature === true,
 }));
 
-jest.mock("../../src/templates/default/src/hooks/useStellarBalances", () => ({
-  useStellarBalances: () => ({
-    balances: [
-      { asset_type: "native", balance: "100.00" },
-      {
-        asset_type: "credit_alphanum4",
-        asset_code: "USDC",
-        asset_issuer:
-          "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
-        balance: "50.00",
-      },
-    ],
-    loading: false,
+await jest.unstable_mockModule(
+  "../../src/templates/default/src/hooks/useStellarBalances",
+  () => ({
+    useStellarBalances: () => ({
+      balances: [
+        { asset_type: "native", balance: "100.00" },
+        {
+          asset_type: "credit_alphanum4",
+          asset_code: "USDC",
+          asset_issuer:
+            "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
+          balance: "50.00",
+        },
+      ],
+      loading: false,
+    }),
   }),
-}));
+);
+
+const { default: SendForm } =
+  await import("../../src/templates/default/src/components/SendForm");
 
 describe("SendForm with Multi-Asset and Fee-Bump", () => {
   beforeEach(() => {

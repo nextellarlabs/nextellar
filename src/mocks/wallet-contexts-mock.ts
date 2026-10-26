@@ -74,6 +74,15 @@ export function defaultWalletState(): MockWalletState {
   };
 }
 
+export function isUnsignedFeeBumpResult(
+  value: unknown,
+): value is { requiresSponsorSignature: true; feeBumpXdr: string } {
+  return (
+    (value as { requiresSponsorSignature?: unknown } | null)
+      ?.requiresSponsorSignature === true
+  );
+}
+
 export const WalletContext = createContext<WalletContextState | undefined>(undefined);
 export const WalletConfigContext = createContext<unknown>(undefined);
 

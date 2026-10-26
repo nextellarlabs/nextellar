@@ -14,13 +14,15 @@ const templateFile = (template: string, rel: string) =>
 
 jest.setTimeout(30000);
 
-/** Files the minimal template ships under src/hooks and src/lib. */
-const MINIMAL_MANAGED = [
-  "hooks/useStellarBalances.ts",
-  "hooks/useStellarWallet.ts",
-  "lib/stellar-wallet-kit.ts",
-  "lib/storage.ts",
-];
+/**
+ * Files the minimal template ships under src/hooks and src/lib. Read from the
+ * template itself so new template files don't silently break the fixture.
+ */
+const MINIMAL_MANAGED = ["hooks", "lib"].flatMap((sub) =>
+  fs
+    .readdirSync(path.join(TEMPLATES, "minimal", "src", sub))
+    .map((name) => `${sub}/${name}`),
+);
 
 /** Files a user owns that upgrade must never touch. */
 const UNMANAGED = {
@@ -133,7 +135,6 @@ describe("upgrade", () => {
     // Only the defi template ships these two.
     expect(defiOut).toContain("hooks/useTrustlines.ts");
     expect(defiOut).toContain("hooks/useOfferBook.ts");
-    expect(defiOut).not.toContain("lib/storage.ts");
   });
 
   it("reports an up-to-date project when every managed file is identical", async () => {

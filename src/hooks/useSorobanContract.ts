@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { Contract, Address, scValToNative, xdr } from "@stellar/stellar-sdk";
+import { useState, useCallback } from "react";
+import { Contract, xdr } from "@stellar/stellar-sdk";
 import { useWallet } from "./useWallet";
 
 interface UseSorobanContractOptions {
@@ -11,12 +11,14 @@ export function useSorobanContract({
   contractId,
   rpcUrl = "https://soroban-testnet.stellar.org",
 }: UseSorobanContractOptions) {
-  const { address, signTransaction } = useWallet();
+  const { address } = useWallet();
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<Error | null>(null);
 
   const callContractMethod = useCallback(
-    async (method: string, args: xdr.ScVal[] = []) => {
+    // `_args` is part of the public signature; the stub call doesn't use it yet.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    async (method: string, _args: xdr.ScVal[] = []) => {
       if (!address) {
         throw new Error("Wallet not connected");
       }
@@ -25,7 +27,8 @@ export function useSorobanContract({
       setError(null);
 
       try {
-        const contract = new Contract(contractId);
+        // Throws on a malformed contract id before any network call.
+        new Contract(contractId);
         // Build and invoke Soroban transaction flow
         const txResponse = await fetch(rpcUrl, {
           method: "POST",
@@ -40,8 +43,8 @@ export function useSorobanContract({
         const data = await txResponse.json();
         setLoading(false);
         return data;
-      } catch (err: any) {
-        setError(err);
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err : new Error(String(err)));
         setLoading(false);
         throw err;
       }

@@ -442,23 +442,16 @@ describe("useStellarPayment (default template)", () => {
     });
   });
 
-  it("should build fee-bump payment transaction given a sponsor", async () => {
-    mockUseStellarPayment.mockReturnValue({
-      ...mockUseStellarPayment(),
-      buildFeeBumpPaymentXDR: jest.fn().mockResolvedValue("mock_feebump_xdr"),
-    });
+  it("rejects a fee-bump build when the sponsor key is malformed", async () => {
+    const { result } = renderHook(() => useStellarPayment());
 
-    const { result } = renderHook(() => mockUseStellarPayment());
-    const feeBumpParams = {
-      ...validPaymentParams,
-      sponsor: "GSPONSOR12345678901234567890123456789012345678901234567890",
-    };
-
-    let xdr: string;
-    await act(async () => {
-      xdr = await result.current.buildFeeBumpPaymentXDR(feeBumpParams);
-    });
-
-    expect(xdr!).toBe("mock_feebump_xdr");
+    await expect(
+      result.current.buildFeeBumpPaymentXDR({
+        from: FROM,
+        to: TO,
+        amount: "10",
+        sponsor: "not-a-stellar-key",
+      }),
+    ).rejects.toThrow("Invalid sponsor public key format");
   });
 });

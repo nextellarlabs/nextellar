@@ -1,11 +1,5 @@
 import { useState, useCallback } from "react";
-import {
-  SorobanRpc,
-  Address,
-  xdr,
-  TransactionBuilder,
-  BASE_FEE,
-} from "@stellar/stellar-sdk";
+import { SorobanRpc } from "@stellar/stellar-sdk";
 
 interface UseContractDeployOptions {
   rpcUrl?: string;
@@ -28,7 +22,9 @@ export function useContractDeploy({
     async (
       wasmBytes: Buffer | Uint8Array,
       deployerAddress: string,
-      signTransaction: (txXdr: string) => Promise<string>,
+      // Part of the public signature; the simulated deploy doesn't sign yet.
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      _signTransaction: (txXdr: string) => Promise<string>,
     ) => {
       setLoading(true);
       setError(null);
@@ -54,8 +50,8 @@ export function useContractDeploy({
         setDeployedContractId(mockContractId);
         setLoading(false);
         return mockContractId;
-      } catch (err: any) {
-        setError(err);
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err : new Error(String(err)));
         setLoading(false);
         throw err;
       }

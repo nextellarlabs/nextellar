@@ -1,5 +1,8 @@
 import { mkdirSync, rmSync, existsSync } from "fs";
-import { join } from "path";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 describe("Soroban Binding Generator", () => {
   const tempDir = join(__dirname, "..", ".test-bindings");
@@ -363,7 +366,7 @@ describe("Soroban Binding Generator", () => {
     it("should capitalize first letter of inferred name", () => {
       const spec = { functions: [] };
       const bindings = generateBindings(spec, "testContract");
-      expect(bindings).toContain("export class TestcontractClient");
+      expect(bindings).toContain("export class TestContractClient");
     });
   });
 });
@@ -385,7 +388,7 @@ import type { SorobanContractReturn, TypedArg } from '@/hooks/useSorobanContract
   if (spec.errorCodes && spec.errorCodes.length > 0) {
     code += `export enum ${contractName}Errors {\n`;
     for (const err of spec.errorCodes) {
-      code += `  /** ${err.doc || "Error"} */\n`;
+      code += `  // ${err.doc || "Error"}\n`;
       code += `  ${err.name} = ${err.code},\n`;
     }
     code += `}\n\n`;
@@ -393,6 +396,7 @@ import type { SorobanContractReturn, TypedArg } from '@/hooks/useSorobanContract
 
   for (const fn of spec.functions) {
     const interfaceName = `${capitalizeFirst(fn.name)}Args`;
+    if (fn.doc) code += `// ${fn.doc}\n`;
     code += `export interface ${interfaceName}`;
 
     if (fn.inputs.length === 0) {
@@ -417,7 +421,7 @@ import type { SorobanContractReturn, TypedArg } from '@/hooks/useSorobanContract
     }
   }
 
-  code += `export class ${contractName}Client {\n`;
+  code += `export class ${capitalizeFirst(contractName)}Client {\n`;
   code += `  constructor(private contract: SorobanContractReturn) {}\n\n`;
 
   for (const fn of spec.functions) {

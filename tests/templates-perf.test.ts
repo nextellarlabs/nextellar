@@ -50,17 +50,19 @@ describe("template image and font optimization (#947)", () => {
     "$name has no raw <img> tags (uses next/image everywhere)",
     async ({ name }) => {
       const srcDir = path.join(TEMPLATES_DIR, name, "src");
-      const files = await fs.readdir(srcDir, { recursive: true });
+      const entries = await fs.readdir(srcDir, {
+        recursive: true,
+        withFileTypes: true,
+      });
 
-      const componentFiles = (files as string[]).filter(
-        (f) => /\.(tsx|jsx)$/.test(f) && !/__tests__|\.test\./.test(f),
-      );
+      // Filter on the directory entry itself rather than a separate stat()
+      // call, so there's no check-then-read window.
+      const componentFiles = entries
+        .filter((e) => e.isFile())
+        .map((e) => path.join(e.parentPath, e.name))
+        .filter((f) => /\.(tsx|jsx)$/.test(f) && !/__tests__|\.test\./.test(f));
 
-      for (const file of componentFiles) {
-        const fullPath = path.join(srcDir, file);
-        const stat = await fs.stat(fullPath);
-        if (!stat.isFile()) continue;
-
+      for (const fullPath of componentFiles) {
         const contents = await fs.readFile(fullPath, "utf8");
         expect(contents).not.toMatch(/<img\s/);
       }

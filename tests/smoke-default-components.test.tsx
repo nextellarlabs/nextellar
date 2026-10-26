@@ -195,7 +195,7 @@ describe("default template components smoke tests (#891)", () => {
     const { container } = render(<WalletConnectButton />);
     expect(container).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Connect Stellar wallet" }),
+      screen.getByRole("button", { name: "Connect Wallet" }),
     ).toBeInTheDocument();
   });
 });

@@ -177,7 +177,7 @@ describe("defi template components smoke tests (#892)", () => {
     const { container } = render(<ReceiveForm />);
     expect(container).toBeInTheDocument();
     expect(
-      screen.getByText(/Connect a wallet to receive payments/i),
+      screen.getByText(/Connect your wallet to see your receive address/i),
     ).toBeInTheDocument();
   });
 

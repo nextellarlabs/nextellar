@@ -234,6 +234,7 @@ export function WalletProvider({
   const [balances, setBalances] = useState<Balance[]>([]);
   const [accounts, setAccounts] = useState<WalletAccount[]>([]);
   const [currentAccountIndex, setCurrentAccountIndex] = useState(0);
+  const [customNetworks, setCustomNetworks] = useState<Record<string, NetworkConfig>>({});
   // The network passphrase the connected wallet itself reports (via the kit's
   // getNetwork()), as opposed to activeNetworkPassphrase below, which is the
   // app's configured network. They can disagree if the wallet extension is

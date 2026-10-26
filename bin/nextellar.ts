@@ -450,6 +450,15 @@ program
   )
   .option("--force", "overwrite existing directory", false)
   .option(
+    "--workspace",
+    "scaffold into the nearest existing npm/yarn/pnpm/bun workspace (monorepo) root",
+    false,
+  )
+  .option(
+    "--workspace-root <dir>",
+    "workspace root to scaffold into (implies --workspace)",
+  )
+  .option(
     "--no-git",
     "skip initializing a git repository in the new project (defaults to on)",
   )
@@ -541,7 +550,13 @@ program.action(async (projectName, options) => {
   const walletsFlagProvided = hasArg("--wallets", "-w");
   const networkFlagProvided =
     hasArg("--horizon-url") || hasArg("--soroban-url");
-  const packageManagerFlagProvided = hasArg("--package-manager");
+  // Workspace mode (#1117): the workspace's own package manager is used, so
+  // never prompt for one.
+  const workspaceMode: boolean | string = options.workspaceRoot
+    ? String(options.workspaceRoot)
+    : !!options.workspace;
+  const packageManagerFlagProvided =
+    hasArg("--package-manager") || !!workspaceMode;
   const skipInstallFlagProvided = hasArg("--skip-install");
 
   // Validate project name against npm package naming rules early (non-interactive path).
@@ -656,7 +671,7 @@ program.action(async (projectName, options) => {
       noTelemetryFlag: options.telemetry === false,
     });
 
-    await scaffold({
+    const result = await scaffold({
       appName: finalProjectName,
       useTs,
       template,
@@ -672,14 +687,32 @@ program.action(async (projectName, options) => {
       cliVersion: pkg.version,
       force: options.force,
       git: options.git !== false,
+      workspace: workspaceMode || undefined,
     });
 
-    const pkgManager = detectPackageManager(
-      path.join(process.cwd(), finalProjectName),
-      finalPackageManager,
-    );
+    if (result?.workspace) {
+      console.log(
+        `  Workspace:       ${pc.cyan(result.workspace.root)} (${result.workspace.packageManager}${result.workspace.turbo ? ", Turborepo" : ""})`,
+      );
+      console.log(
+        `  App path:        ${pc.cyan(result.workspace.relativeDir)}\n`,
+      );
+    }
 
-    await displaySuccess(finalProjectName, pkgManager, finalSkipInstall);
+    const pkgManager =
+      result?.packageManager ??
+      detectPackageManager(
+        path.join(process.cwd(), finalProjectName),
+        finalPackageManager,
+      );
+
+    await displaySuccess(
+      result?.workspace
+        ? path.relative(process.cwd(), result.targetDir) || "."
+        : finalProjectName,
+      pkgManager,
+      finalSkipInstall,
+    );
   } catch (err: any) {
     printError(err.message);
     logVerboseError(err);

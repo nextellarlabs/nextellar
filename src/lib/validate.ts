@@ -1,5 +1,5 @@
 import validateNpmPackageName from "validate-npm-package-name";
-import { StrKey } from "@stellar/stellar-sdk";
+import { StrKey } from "@stellar/stellar-base";
 
 /**
  * Validates if a given string is a valid HTTP/HTTPS URL
