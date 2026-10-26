@@ -240,9 +240,30 @@ jobs:
       # step above reported failures, so coverage is still visible on red
       # PRs (this repo has pre-existing failing suites on main unrelated to
       # any given PR's diff; see CONTRIBUTING.md).
+      #
+      # Fork PRs get a read-only GITHUB_TOKEN, so the action can't comment
+      # ("Resource not accessible by integration"). There it renders the
+      # report as markdown into the job summary instead.
       - name: Report coverage on PR
-        if: always() && github.event_name == 'pull_request'
+        if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         uses: ArtiomTr/jest-coverage-report-action@v2
         with:
           coverage-file: ./coverage/report.json
           skip-step: all
+
+      - name: Build coverage report (fork PR)
+        id: fork-coverage
+        if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        uses: ArtiomTr/jest-coverage-report-action@v2
+        with:
+          coverage-file: ./coverage/report.json
+          skip-step: all
+          # Both comments and annotations need a write token.
+          output: report-markdown
+          annotations: none
+
+      - name: Publish coverage report to job summary (fork PR)
+        if: always() && steps.fork-coverage.outputs.report
+        env:
+          REPORT: ${{ steps.fork-coverage.outputs.report }}
+        run: echo "$REPORT" >> "$GITHUB_STEP_SUMMARY"
