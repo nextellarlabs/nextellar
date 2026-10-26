@@ -1,6 +1,7 @@
 export default {
   testEnvironment: "node",
   extensionsToTreatAsEsm: [".ts", ".tsx", ".jsx"],
+  setupFiles: ["<rootDir>/jest.setup.env.ts"],
   setupFilesAfterEnv: ["<rootDir>/jest.setup.jest-dom.ts"],
   transform: {
     // The js-* templates ship their own package.json with no "type" field, so
