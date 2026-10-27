@@ -3,7 +3,7 @@
 import { useWallet } from '../contexts';
 
 /**
- * Account Switcher Component
+ * Account Switcher Component (issue #1229)
  *
  * `minimal`'s WalletProvider only ever tracks a single connected account (no
  * `accounts`/`switchAccount` like the `default` template's WalletProvider),
