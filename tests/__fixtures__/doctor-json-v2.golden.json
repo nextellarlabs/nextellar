@@ -71,6 +71,13 @@
       "fix": "Install: rustup target add wasm32-unknown-unknown"
     },
     {
+      "id": "wallet-adapter-sdks",
+      "name": "Wallet adapter SDKs",
+      "required": false,
+      "ok": true,
+      "detail": "Not configured (no ledger/walletconnect in .nextellar/config.json)"
+    },
+    {
       "id": "horizon",
       "name": "Horizon API",
       "required": true,
@@ -97,7 +104,7 @@
       "fix": "Free up at least 1GB of RAM"
     }
   ],
-  "passed": 11,
+  "passed": 12,
   "failed": 0,
   "requiredFailures": 0
 }

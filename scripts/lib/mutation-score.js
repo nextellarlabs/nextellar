@@ -52,12 +52,15 @@ export function computeMutationScore(report) {
 
   const files = {};
   const all = [];
-  for (const [file, data] of Object.entries(report.files).sort(([a], [b]) =>
-    a.localeCompare(b),
-  )) {
+  // Normalise before sorting: Windows "\\" separators would otherwise sort
+  // after "/" and put files out of path order.
+  const entries = Object.entries(report.files)
+    .map(([file, data]) => [normalizePath(file), data])
+    .sort(([a], [b]) => a.localeCompare(b));
+  for (const [file, data] of entries) {
     const mutants = Array.isArray(data?.mutants) ? data.mutants : [];
     all.push(...mutants);
-    files[normalizePath(file)] = scoreMutants(mutants);
+    files[file] = scoreMutants(mutants);
   }
 
   return { ...scoreMutants(all), files };

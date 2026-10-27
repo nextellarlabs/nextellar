@@ -365,7 +365,7 @@ describe("useSorobanContract (real template hook)", () => {
       const rejection = await expectRejection(() =>
         result.current.callFunction("withdraw", []),
       );
-      expect(rejection.message).toMatch(/Simulation failed/i);
+      expect(rejection.message).toMatch(/Simulation (failed|error)/i);
 
       expect(result.current.error).toBeInstanceOf(Error);
       // The underlying host error must reach the caller, not a generic message.

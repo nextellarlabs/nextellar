@@ -43,15 +43,15 @@ const [
   { default: DefiNetworkSwitcher },
   { default: DefiWalletConnectButton },
   { useWallet },
-] = await Promise.all([
-  import("../src/templates/js-template/src/components/ErrorBoundary"),
-  import("../src/templates/js-template/src/components/NetworkSwitcher"),
-  import("../src/templates/js-template/src/components/WalletConnectButton"),
-  import("../src/templates/js-defi/src/components/ErrorBoundary"),
-  import("../src/templates/js-defi/src/components/NetworkSwitcher"),
-  import("../src/templates/js-defi/src/components/WalletConnectButton"),
-  import("../src/mocks/wallet-contexts-mock"),
-]);
+] = [
+  await import("../src/templates/js-template/src/components/ErrorBoundary"),
+  await import("../src/templates/js-template/src/components/NetworkSwitcher"),
+  await import("../src/templates/js-template/src/components/WalletConnectButton"),
+  await import("../src/templates/js-defi/src/components/ErrorBoundary"),
+  await import("../src/templates/js-defi/src/components/NetworkSwitcher"),
+  await import("../src/templates/js-defi/src/components/WalletConnectButton"),
+  await import("../src/mocks/wallet-contexts-mock"),
+];
 
 describe("js-template components smoke tests (#894)", () => {
   it("renders ErrorBoundary cleanly with children", () => {
