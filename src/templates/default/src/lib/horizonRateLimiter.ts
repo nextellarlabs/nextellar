@@ -71,3 +71,7 @@ export class HorizonRateLimiter {
 }
 
 export const globalHorizonRateLimiter = new HorizonRateLimiter();
+
+// Shared limiter used by all hooks (e.g. useStellarBalances, useTransactionHistory)
+// so concurrent polling across hook instances is throttled collectively.
+export const sharedHorizonRateLimiter = globalHorizonRateLimiter;
