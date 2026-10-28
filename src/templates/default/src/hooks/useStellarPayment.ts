@@ -154,6 +154,9 @@ export function useStellarPayment(
     return secret.length === 56 && secret.startsWith('S');
   }, []);
 
+  // NOTE: js-minimal template ports this hook as src/hooks/useStellarPayment.js;
+  // keep validation logic here in sync with the JS SendForm.jsx component.
+
   /**
    * Validate amount format
    */
