@@ -1,3 +1,4 @@
+// See docs/sep24-guide.md for an end-to-end walkthrough of this flow.
 /**
  * SEP-24: Hosted Deposit and Withdrawal — client helpers for the interactive
  * flow, where the anchor collects KYC/payment details in a popup or iframe.
@@ -15,6 +16,10 @@
  *      the anchor doesn't post messages or the user closes the window.
  *
  * Client side only. Pair with `useSep24Interactive` / `Sep24InteractiveFrame`.
+ *
+ * Usage guide: `docs/sep24-guide.md` covers configuring an anchor, opening the
+ * interactive frame, and handling completion (including the postMessage and
+ * polling fallback paths).
  */
 
 import { fetchStellarToml } from "./sep1";
@@ -115,6 +120,9 @@ export class Sep24Error extends Error {
 /**
  * Resolves `TRANSFER_SERVER_SEP0024` from `homeDomain`'s `stellar.toml`.
  *
+ * This is step 1 of the flow documented in `docs/sep24-guide.md`; the returned
+ * server URL is passed to `startSep24Interactive` and `fetchSep24Transaction`.
+ *
  * @throws if `stellar.toml` cannot be resolved or lacks TRANSFER_SERVER_SEP0024.
  */
 export async function discoverSep24TransferServer(
@@ -171,6 +179,9 @@ async function readError(res: Response): Promise<string> {
 /**
  * POST /transactions/{deposit|withdraw}/interactive.
  *
+ * Step 2 of the flow in `docs/sep24-guide.md`: exchange the returned `url`/`id`
+ * for an interactive session, then open `url` (see `buildSep24InteractiveUrl`).
+ *
  * @throws Sep24Error on HTTP errors, an unexpected response type, or an unsafe URL.
  */
 export async function startSep24Interactive(
@@ -214,6 +225,9 @@ export async function startSep24Interactive(
 /**
  * Append `callback=postMessage` (and `lang`) so the anchor posts updates to
  * the window that opened it.
+ *
+ * Step 3 of the flow in `docs/sep24-guide.md`: open this URL in a popup or
+ * iframe and listen for `message` events validated by `parseSep24Message`.
  */
 export function buildSep24InteractiveUrl(url: string, opts: { lang?: string } = {}): string {
   const parsed = assertSafeInteractiveUrl(url);
@@ -224,6 +238,9 @@ export function buildSep24InteractiveUrl(url: string, opts: { lang?: string } = 
 
 /**
  * GET /transaction?id=… — current state of a SEP-24 transaction.
+ *
+ * Step 4 fallback in `docs/sep24-guide.md`: poll this when the anchor does not
+ * post messages or the user closes the interactive window.
  */
 export async function fetchSep24Transaction(params: {
   transferServer: string;
@@ -252,6 +269,9 @@ export async function fetchSep24Transaction(params: {
  * Returns the transaction only when the event came from the anchor's origin
  * and refers to the expected transaction id; anything else (other origins,
  * other windows, unrelated messages) returns null and must be ignored.
+ *
+ * See `docs/sep24-guide.md` for wiring this into a `message` event listener
+ * alongside the `fetchSep24Transaction` polling fallback.
  */
 export function parseSep24Message(
   event: Pick<MessageEvent, "origin" | "data">,
@@ -277,6 +297,10 @@ export function isSep24Terminal(status: string | undefined): boolean {
 }
 
 /** True once the user has finished the anchor's interactive form. */
+/**
+ * Use this to decide when to close the frame and switch to completion handling,
+ * as described in `docs/sep24-guide.md`.
+ */
 export function isSep24InteractiveComplete(status: string | undefined): boolean {
   return isSep24Terminal(status) || (!!status && SEP24_INTERACTIVE_DONE_STATUSES.has(status as Sep24Status));
 }
