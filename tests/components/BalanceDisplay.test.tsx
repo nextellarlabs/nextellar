@@ -30,12 +30,11 @@ jest.unstable_mockModule(
   }),
 );
 
-const [{ default: BalanceDisplay }, { useStellarBalances }, { useWallet }] =
-  await Promise.all([
-    import("../../src/templates/default/src/components/BalanceDisplay"),
-    import("../../src/templates/default/src/hooks/useStellarBalances"),
-    import("../../src/mocks/wallet-contexts-mock"),
-  ]);
+const [{ default: BalanceDisplay }, { useStellarBalances }, { useWallet }] = [
+  await import("../../src/templates/default/src/components/BalanceDisplay"),
+  await import("../../src/templates/default/src/hooks/useStellarBalances"),
+  await import("../../src/mocks/wallet-contexts-mock"),
+];
 
 const PUBLIC_KEY = "GABC1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234";
 
@@ -70,7 +69,7 @@ describe("BalanceDisplay", () => {
     render(<BalanceDisplay />);
 
     expect(
-      screen.getByText(/connect a wallet to view balances/i),
+      screen.getByText(/connect wallet to view balances/i),
     ).toBeInTheDocument();
   });
 
@@ -92,7 +91,7 @@ describe("BalanceDisplay", () => {
 
     render(<BalanceDisplay />);
 
-    expect(screen.getByText(/couldn't load balances/i)).toBeInTheDocument();
+    expect(screen.getByText(/failed to load balances/i)).toBeInTheDocument();
     expect(screen.getByText(/network error: timeout/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /retry/i }));
@@ -105,8 +104,8 @@ describe("BalanceDisplay", () => {
 
     render(<BalanceDisplay />);
 
-    expect(screen.getByText(/no balances found/i)).toBeInTheDocument();
-    expect(screen.getByText(/may need funding/i)).toBeInTheDocument();
+    expect(screen.getByText(/no balances yet/i)).toBeInTheDocument();
+    expect(screen.getByText(/may still need funding/i)).toBeInTheDocument();
   });
 
   it("renders the native XLM balance without an issuer line", () => {
@@ -119,6 +118,27 @@ describe("BalanceDisplay", () => {
 
     expect(screen.getByText("XLM")).toBeInTheDocument();
     expect(screen.getByText(/123\.456789/)).toBeInTheDocument();
+  });
+
+  it("renders a zero balance (0.0000000) as a real value, distinct from loading, error and empty states", () => {
+    mockWallet();
+    mockBalances({
+      balances: [{ asset_type: "native", balance: "0.0000000" }],
+    });
+
+    render(<BalanceDisplay />);
+
+    // Formatted as a value, not blank or NaN, alongside its asset code.
+    expect(screen.getByText(/^0\.00$/)).toBeInTheDocument();
+    expect(screen.getByText("XLM")).toBeInTheDocument();
+
+    // None of the non-data states are shown.
+    expect(
+      screen.queryByRole("status", { name: /loading balances/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByText(/no balances yet/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/NaN/)).not.toBeInTheDocument();
   });
 
   it("renders a credit asset with its code and a truncated issuer", () => {
@@ -226,7 +246,7 @@ describe("BalanceDisplay", () => {
     // Real data takes priority over the error banner once we have something to show.
     expect(screen.getByText("XLM")).toBeInTheDocument();
     expect(
-      screen.queryByText(/couldn't load balances/i),
+      screen.queryByText(/failed to load balances/i),
     ).not.toBeInTheDocument();
   });
 });

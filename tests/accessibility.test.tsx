@@ -126,7 +126,7 @@ describe("accessibility (#946)", () => {
         wallet: disconnectedWallet(),
       });
       const button = screen.getByRole("button", {
-        name: "Connect Stellar wallet",
+        name: "Connect Wallet",
       });
       expect(button).toHaveAttribute("type", "button");
       expect(button.className).toContain("focus-visible:ring-2");

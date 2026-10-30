@@ -17,6 +17,8 @@
     "@stellar/js-xdr": "^3.1.2",
     "@stellar/stellar-sdk": "^14.4.3",
     "@creit.tech/stellar-wallets-kit": "^1.9.5",
+    "@ledgerhq/hw-app-str": "^7.0.4",
+    "@ledgerhq/hw-transport-webusb": "^6.29.4",
     "lucide-react": "^0.447.0",
     "qrcode": "^1.5.4"
   },
@@ -49,5 +51,8 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.0.0",
     "tailwind-merge": "^2.0.0"
+  },
+  "overrides": {
+    "@ledgerhq/devices": "8.15.0"
   }
 }

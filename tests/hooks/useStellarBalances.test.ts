@@ -129,6 +129,63 @@ describe("useStellarBalances (default template)", () => {
     expect(usdc?.limit).toBe("922337203685.4775807");
   });
 
+  it("preserves a balance sitting exactly at its trustline limit", async () => {
+    mockAccountsCall.mockResolvedValue({
+      balances: [
+        {
+          asset_type: "credit_alphanum4",
+          asset_code: "USDC",
+          asset_issuer: ISSUER,
+          balance: "500.0000000",
+          limit: "500.0000000",
+        },
+      ],
+    });
+
+    const { result } = renderHook(() =>
+      useStellarBalances(ADDRESS, { pollIntervalMs: null }),
+    );
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.error).toBeNull();
+    expect(result.current.balances).toHaveLength(1);
+
+    const [usdc] = result.current.balances as BalanceShape[];
+    expect(usdc.balance).toBe("500.0000000");
+    expect(usdc.limit).toBe("500.0000000");
+    expect(usdc.limit).toBe(usdc.balance);
+  });
+
+  it("preserves the maximum limit on an unlimited-trustline balance", async () => {
+    const UNLIMITED = "922337203685.4775807";
+
+    mockAccountsCall.mockResolvedValue({
+      balances: [
+        {
+          asset_type: "credit_alphanum4",
+          asset_code: "USDC",
+          asset_issuer: ISSUER,
+          balance: "1000.0000000",
+          limit: UNLIMITED,
+        },
+      ],
+    });
+
+    const { result } = renderHook(() =>
+      useStellarBalances(ADDRESS, { pollIntervalMs: null }),
+    );
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.error).toBeNull();
+    expect(result.current.balances).toHaveLength(1);
+
+    const [usdc] = result.current.balances as BalanceShape[];
+    expect(usdc.balance).toBe("1000.0000000");
+    expect(usdc.limit).toBe(UNLIMITED);
+  });
+
   it("returns an empty list (not an error) for a 404 — an unfunded account", async () => {
     mockAccountsCall.mockRejectedValue({
       response: { status: 404 },

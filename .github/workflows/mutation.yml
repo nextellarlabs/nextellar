@@ -1,0 +1,43 @@
+name: Mutation testing (pilot)
+
+# Stryker pilot for src/lib (#1088). Report-only: it never gates a merge.
+# Runs weekly and on demand because a full mutation run is much slower than
+# the regular test suite. See docs/mutation-testing.md.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * 1"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  stryker:
+    name: Stryker — src/lib
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run Stryker
+        run: npm run test:mutation
+
+      - name: Summarise against the baseline
+        if: always()
+        run: npm run mutation:score
+
+      - name: Upload mutation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-report
+          path: reports/mutation
+          if-no-files-found: ignore

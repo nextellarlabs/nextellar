@@ -91,16 +91,16 @@ const [
   { default: TransactionStatusBadge },
   { default: WalletConnectButton },
   { useWallet },
-] = await Promise.all([
-  import("../src/templates/defi/src/components/CounterDemo"),
-  import("../src/templates/defi/src/components/ErrorBoundary"),
-  import("../src/templates/defi/src/components/NetworkSwitcher"),
-  import("../src/templates/defi/src/components/ReceiveForm"),
-  import("../src/templates/defi/src/components/TransactionList"),
-  import("../src/templates/defi/src/components/TransactionStatusBadge"),
-  import("../src/templates/defi/src/components/WalletConnectButton"),
-  import("../src/mocks/wallet-contexts-mock"),
-]);
+] = [
+  await import("../src/templates/defi/src/components/CounterDemo"),
+  await import("../src/templates/defi/src/components/ErrorBoundary"),
+  await import("../src/templates/defi/src/components/NetworkSwitcher"),
+  await import("../src/templates/defi/src/components/ReceiveForm"),
+  await import("../src/templates/defi/src/components/TransactionList"),
+  await import("../src/templates/defi/src/components/TransactionStatusBadge"),
+  await import("../src/templates/defi/src/components/WalletConnectButton"),
+  await import("../src/mocks/wallet-contexts-mock"),
+];
 
 describe("defi template components smoke tests (#892)", () => {
   it("renders CounterDemo cleanly", async () => {
@@ -177,7 +177,7 @@ describe("defi template components smoke tests (#892)", () => {
     const { container } = render(<ReceiveForm />);
     expect(container).toBeInTheDocument();
     expect(
-      screen.getByText(/Connect a wallet to receive payments/i),
+      screen.getByText(/Connect your wallet to see your receive address/i),
     ).toBeInTheDocument();
   });
 

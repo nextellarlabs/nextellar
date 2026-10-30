@@ -42,6 +42,9 @@ jobs:
 
       - run: npm ci
 
+      # The CLI suites (cli-entry, cli-workspace, ...) run dist/bin/nextellar.js.
+      - run: npm run build
+
       # jest.config.mjs's coverageThreshold fails this step (non-zero exit)
       # if coverage drops below the configured floor (#936). Unlike
       # dependencies.yml's `npm test -- --coverage` (continue-on-error:
@@ -72,6 +75,10 @@ jobs:
 
       - name: Verify package contents
         run: npm run verify:pack
+
+      # Pack size thresholds (~2× clean main): max 5 MB tarball, 25 MB unpacked, 1000 files
+      - name: Check pack size
+        run: node scripts/check-pack-size.mjs
 
   e2e-default:
     name: E2E — default scaffold + next build
@@ -115,24 +122,6 @@ jobs:
         run: RUN_E2E=1 NODE_OPTIONS="--experimental-vm-modules --no-warnings" npx jest tests/e2e/scaffold-templates.e2e.test.ts --testNamePattern="minimal:"
         timeout-minutes: 15
 
-  pack-guard:
-    name: npm pack size guard
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: npm
-
-      - run: npm ci
-
-      - run: npm run build
-
-      # Pack size thresholds (~2× clean main): max 5 MB tarball, 25 MB unpacked, 1000 files
-      - run: node scripts/check-pack-size.mjs
-
   lighthouse-default:
     name: Lighthouse CI — default scaffold
     runs-on: ubuntu-latest
@@ -174,6 +163,52 @@ jobs:
         env:
           LHCI_BUILD_CONTEXT__CURRENT_HASH: ${{ github.sha }}
 
+  visual-regression:
+    name: Visual regression — default template Storybook
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+
+      # Builds the default template's Storybook the way an end user would get
+      # it (scaffold -> install -> build-storybook), then screenshots every
+      # component story with Playwright and compares it to the committed
+      # baselines in tests/visual/__screenshots__/default (#1083). Stories
+      # without a baseline are reported as "new" and do not fail the job; see
+      # docs/visual-regression.md for how to record or update baselines.
+      - name: Scaffold default app
+        run: node dist/bin/nextellar.js vr-app --defaults --skip-install --template default
+
+      - name: Install scaffolded app dependencies
+        working-directory: vr-app
+        run: npm install
+
+      - name: Build Storybook
+        working-directory: vr-app
+        run: npm run build-storybook
+
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Compare story screenshots to baselines
+        run: npm run test:visual -- --storybook-dir vr-app/storybook-static
+
+      - name: Upload screenshots and diffs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-regression
+          path: reports/visual
+          if-no-files-found: ignore
+
   coverage:
     name: Test coverage report
     runs-on: ubuntu-latest
@@ -190,6 +225,9 @@ jobs:
 
       - run: npm ci
 
+      # The CLI suites (cli-entry, cli-workspace, ...) run dist/bin/nextellar.js.
+      - run: npm run build
+
       # `npm run test:coverage` (see package.json) so this stays in sync with
       # the same NODE_OPTIONS/ESM setup `npm test` uses locally. This
       # intentionally does not delegate test execution to the coverage
@@ -202,9 +240,30 @@ jobs:
       # step above reported failures, so coverage is still visible on red
       # PRs (this repo has pre-existing failing suites on main unrelated to
       # any given PR's diff; see CONTRIBUTING.md).
+      #
+      # Fork PRs get a read-only GITHUB_TOKEN, so the action can't comment
+      # ("Resource not accessible by integration"). There it renders the
+      # report as markdown into the job summary instead.
       - name: Report coverage on PR
-        if: always() && github.event_name == 'pull_request'
+        if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         uses: ArtiomTr/jest-coverage-report-action@v2
         with:
           coverage-file: ./coverage/report.json
           skip-step: all
+
+      - name: Build coverage report (fork PR)
+        id: fork-coverage
+        if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        uses: ArtiomTr/jest-coverage-report-action@v2
+        with:
+          coverage-file: ./coverage/report.json
+          skip-step: all
+          # Both comments and annotations need a write token.
+          output: report-markdown
+          annotations: none
+
+      - name: Publish coverage report to job summary (fork PR)
+        if: always() && steps.fork-coverage.outputs.report
+        env:
+          REPORT: ${{ steps.fork-coverage.outputs.report }}
+        run: echo "$REPORT" >> "$GITHUB_STEP_SUMMARY"

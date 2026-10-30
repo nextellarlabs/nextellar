@@ -1,5 +1,8 @@
 {
+  "schemaVersion": 1,
   "nextellarVersion": "{{NEXTELLAR_VERSION}}",
   "template": "{{TEMPLATE_NAME}}",
+  "horizonUrl": "{{HORIZON_URL}}",
+  "sorobanUrl": "{{SOROBAN_URL}}",
   "createdAt": "{{TIMESTAMP}}"
 }

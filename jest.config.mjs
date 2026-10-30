@@ -1,6 +1,7 @@
 export default {
   testEnvironment: "node",
   extensionsToTreatAsEsm: [".ts", ".tsx", ".jsx"],
+  setupFiles: ["<rootDir>/jest.setup.env.ts"],
   setupFilesAfterEnv: ["<rootDir>/jest.setup.jest-dom.ts"],
   transform: {
     // The js-* templates ship their own package.json with no "type" field, so
@@ -38,6 +39,7 @@ export default {
     "^\\.\\./contexts/WalletProvider$":
       "<rootDir>/src/mocks/wallet-contexts-mock.ts",
     "^@clack/prompts$": "<rootDir>/tests/mocks/clack-prompts.js",
+    "^next/image$": "<rootDir>/tests/mocks/next-image.tsx",
     "^@/hooks/(.*)$": "<rootDir>/src/templates/defi/src/hooks/$1",
     "^@/lib/contracts$":
       "<rootDir>/src/templates/contracts-template/src/lib/contracts/index.ts",
@@ -57,6 +59,15 @@ export default {
     "/node_modules/",
     // E2E tests are gated behind NEXTELLAR_E2E=1 and explicitly skipped in the test file
     // but we keep them in testMatch so they can be run when needed
+    // backend/ and routes-d/ were removed from this repo (#684); these suites
+    // import from them and cannot resolve.
+    "<rootDir>/tests/auth/",
+    "<rootDir>/tests/backend/",
+    "<rootDir>/tests/middleware/",
+    "<rootDir>/tests/routes/",
+    "<rootDir>/tests/utils/response.test.ts",
+    // Scratch app scaffolded by tests/cli-entry.test.ts.
+    "<rootDir>/tests/tmp-test-app/",
   ],
   collectCoverageFrom: ["src/**/*.ts", "!src/**/*.d.ts"],
   // Regression floor, not an aspirational target (#936). Set below the

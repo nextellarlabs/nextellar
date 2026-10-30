@@ -200,3 +200,131 @@ describe("useTrustlines — limit-0 removal (#847)", () => {
     ).resolves.not.toThrow();
   });
 });
+
+describe("useTrustlines — issuer revokes authorization on an existing trustline (#1129)", () => {
+  let consoleErrorSpy: any;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => consoleErrorSpy.mockRestore());
+
+  it("moves from authorized to partially authorized after the issuer revokes, keeping the trustline and its balance", async () => {
+    mockAccountsCall.mockResolvedValueOnce({
+      balances: [balanceLine({})],
+    });
+
+    const { result } = renderHook(() => useTrustlines(VALID_PUBLIC_KEY));
+    await act(async () => {});
+
+    expect(result.current.trustlines).toHaveLength(1);
+    expect(result.current.trustlines[0].authorized).toBe(true);
+
+    // Issuer (AUTH_REVOCABLE) revokes full authorization: Horizon now
+    // reports is_authorized=false but still allows maintaining liabilities.
+    mockAccountsCall.mockResolvedValueOnce({
+      balances: [
+        balanceLine({
+          is_authorized: false,
+          is_authorized_to_maintain_liabilities: true,
+        }),
+      ],
+    });
+
+    await act(async () => {
+      await result.current.refresh();
+    });
+
+    // Response shape: the revoked line is still surfaced with every field.
+    expect(result.current.trustlines).toEqual([
+      {
+        asset_code: "USDC",
+        asset_issuer: VALID_ISSUER,
+        balance: "100.0000000",
+        limit: "1000.0000000",
+        authorized: false,
+        authorizedToMaintainLiabilities: true,
+      },
+    ]);
+    // Resulting hook state: revocation is not an error and not a loading state.
+    expect(result.current.error).toBeNull();
+    expect(result.current.loading).toBe(false);
+  });
+
+  it("moves from authorized to fully unauthorized after a full revocation", async () => {
+    mockAccountsCall.mockResolvedValueOnce({
+      balances: [balanceLine({})],
+    });
+
+    const { result } = renderHook(() => useTrustlines(VALID_PUBLIC_KEY));
+    await act(async () => {});
+
+    expect(result.current.trustlines[0].authorized).toBe(true);
+    expect(result.current.trustlines[0].authorizedToMaintainLiabilities).toBe(
+      true,
+    );
+
+    mockAccountsCall.mockResolvedValueOnce({
+      balances: [
+        balanceLine({
+          is_authorized: false,
+          is_authorized_to_maintain_liabilities: false,
+        }),
+      ],
+    });
+
+    await act(async () => {
+      await result.current.refresh();
+    });
+
+    expect(result.current.trustlines).toHaveLength(1);
+    expect(result.current.trustlines[0]).toMatchObject({
+      asset_code: "USDC",
+      asset_issuer: VALID_ISSUER,
+      balance: "100.0000000",
+      authorized: false,
+      authorizedToMaintainLiabilities: false,
+    });
+    expect(result.current.error).toBeNull();
+  });
+
+  it("only flips the revoked trustline and leaves other authorized trustlines untouched", async () => {
+    const OTHER_ISSUER =
+      "GXYZ1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234";
+    const eurt = balanceLine({
+      asset_code: "EURT",
+      asset_issuer: OTHER_ISSUER,
+    });
+
+    mockAccountsCall.mockResolvedValueOnce({
+      balances: [balanceLine({}), eurt],
+    });
+
+    const { result } = renderHook(() => useTrustlines(VALID_PUBLIC_KEY));
+    await act(async () => {});
+
+    mockAccountsCall.mockResolvedValueOnce({
+      balances: [
+        balanceLine({
+          is_authorized: false,
+          is_authorized_to_maintain_liabilities: false,
+        }),
+        eurt,
+      ],
+    });
+
+    await act(async () => {
+      await result.current.refresh();
+    });
+
+    const usdc = result.current.trustlines.find((t) => t.asset_code === "USDC");
+    const eur = result.current.trustlines.find((t) => t.asset_code === "EURT");
+
+    expect(result.current.trustlines).toHaveLength(2);
+    expect(usdc?.authorized).toBe(false);
+    expect(eur?.authorized).toBe(true);
+    expect(eur?.authorizedToMaintainLiabilities).toBe(true);
+  });
+});

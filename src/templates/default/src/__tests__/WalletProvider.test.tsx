@@ -15,12 +15,19 @@ import { ReactNode } from 'react';
 // WalletProvider itself is imported below is sufficient to cover both the
 // lazy wallet-kit import and the top-level '@stellar/stellar-sdk' import.
 
+// Mock storage
+const mockStorage = new Map<string, string>();
+
 // Mock the kit
 await jest.unstable_mockModule('../lib/stellar-wallet-kit', () => ({
   kit: jest.fn(() => ({
     openModal: jest.fn(),
     setWallet: jest.fn(),
-    getAddress: jest.fn(() => Promise.resolve({ address: 'GTEST1234567890' })),
+    // Report whichever address the session being restored saved, so the
+    // provider's "same address as last session" check passes.
+    getAddress: jest.fn(() =>
+      Promise.resolve({ address: mockStorage.get('stellar_wallet_address') ?? 'GTEST1234567890' })
+    ),
     disconnect: jest.fn(() => Promise.resolve()),
     signTransaction: jest.fn(),
   })),
@@ -28,7 +35,6 @@ await jest.unstable_mockModule('../lib/stellar-wallet-kit', () => ({
 }));
 
 // Mock storage
-const mockStorage = new Map<string, string>();
 await jest.unstable_mockModule('../lib/storage', () => ({
   storage: {
     get: (key: string) => mockStorage.get(key),
@@ -62,8 +68,15 @@ await jest.unstable_mockModule('@stellar/stellar-sdk', () => ({
   BASE_FEE: '100',
 }));
 
-const { WalletProvider, useWallet } = await import('../contexts/WalletProvider');
+// The explicit .tsx extension is deliberate: jest.config maps the bare
+// '../contexts/WalletProvider' specifier to the shared wallet mock, and this
+// suite must exercise the real provider.
+const { WalletProvider, useWallet } = await import('../contexts/WalletProvider.tsx');
 type WalletAccount = { address: string; displayName?: string };
+
+// Account storage is scoped by network + wallet id (#1067).
+const ACCOUNTS_KEY = 'stellar_wallet_accounts:testnet:freighter';
+const INDEX_KEY = 'stellar_wallet_current_account_index:testnet:freighter';
 
 describe('WalletProvider - Multi-Account Support', () => {
   beforeEach(() => {
@@ -89,6 +102,7 @@ describe('WalletProvider - Multi-Account Support', () => {
       // Mock the connect flow
       mockStorage.set('stellar_wallet_connected', 'true');
       mockStorage.set('stellar_wallet_id', 'freighter');
+      mockStorage.set('stellar_wallet_id', 'freighter');
       mockStorage.set('stellar_wallet_address', 'GACCOUNT1234567890');
       mockStorage.set('stellar_wallet_name', 'Freighter');
 
@@ -103,6 +117,7 @@ describe('WalletProvider - Multi-Account Support', () => {
       // First account
       mockStorage.set('stellar_wallet_connected', 'true');
       mockStorage.set('stellar_wallet_id', 'freighter');
+      mockStorage.set('stellar_wallet_id', 'freighter');
       mockStorage.set('stellar_wallet_address', 'GACCOUNT1111111111');
       mockStorage.set('stellar_wallet_name', 'Freighter');
 
@@ -115,8 +130,6 @@ describe('WalletProvider - Multi-Account Support', () => {
 
   describe('Account Switching', () => {
     it('should switch to different account', async () => {
-      const { result } = renderHook(() => useWallet(), { wrapper });
-
       const account1: WalletAccount = {
         address: 'GACCOUNT0000000001',
         displayName: 'Account 1',
@@ -127,10 +140,13 @@ describe('WalletProvider - Multi-Account Support', () => {
       };
 
       // Set initial state with multiple accounts
-      mockStorage.set('stellar_wallet_accounts', JSON.stringify([account1, account2]));
-      mockStorage.set('stellar_wallet_current_account_index', '0');
+      mockStorage.set(ACCOUNTS_KEY, JSON.stringify([account1, account2]));
+      mockStorage.set(INDEX_KEY, '0');
       mockStorage.set('stellar_wallet_connected', 'true');
+      mockStorage.set('stellar_wallet_id', 'freighter');
       mockStorage.set('stellar_wallet_address', account1.address);
+
+      const { result } = renderHook(() => useWallet(), { wrapper });
 
       await waitFor(() => {
         expect(result.current.accounts.length).toBe(2);
@@ -157,8 +173,9 @@ describe('WalletProvider - Multi-Account Support', () => {
         displayName: 'Account 2',
       };
 
-      mockStorage.set('stellar_wallet_accounts', JSON.stringify([account1, account2]));
+      mockStorage.set(ACCOUNTS_KEY, JSON.stringify([account1, account2]));
       mockStorage.set('stellar_wallet_connected', 'true');
+      mockStorage.set('stellar_wallet_id', 'freighter');
       mockStorage.set('stellar_wallet_address', account1.address);
 
       await act(async () => {
@@ -169,21 +186,27 @@ describe('WalletProvider - Multi-Account Support', () => {
     });
 
     it('should persist account index to storage', async () => {
-      const { result } = renderHook(() => useWallet(), { wrapper });
-
       const accounts: WalletAccount[] = [
         { address: 'GACCOUNT0000000001', displayName: 'Account 1' },
         { address: 'GACCOUNT0000000002', displayName: 'Account 2' },
       ];
 
-      mockStorage.set('stellar_wallet_accounts', JSON.stringify(accounts));
+      mockStorage.set(ACCOUNTS_KEY, JSON.stringify(accounts));
       mockStorage.set('stellar_wallet_connected', 'true');
+      mockStorage.set('stellar_wallet_id', 'freighter');
+      mockStorage.set('stellar_wallet_address', accounts[0].address);
+
+      const { result } = renderHook(() => useWallet(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.accounts.length).toBe(2);
+      });
 
       await act(async () => {
         await result.current.switchAccount(accounts[1].address);
       });
 
-      const savedIndex = mockStorage.get('stellar_wallet_current_account_index');
+      const savedIndex = mockStorage.get(INDEX_KEY);
       expect(savedIndex).toBe('1');
     });
   });
@@ -194,11 +217,12 @@ describe('WalletProvider - Multi-Account Support', () => {
 
       mockStorage.set('stellar_wallet_connected', 'true');
       mockStorage.set('stellar_wallet_id', 'freighter');
+      mockStorage.set('stellar_wallet_id', 'freighter');
       mockStorage.set('stellar_wallet_address', 'GACCOUNT1234567890');
       mockStorage.set('stellar_wallet_name', 'Freighter');
 
       await waitFor(() => {
-        expect(mockStorage.has('stellar_wallet_accounts')).toBeDefined();
+        expect(mockStorage.has(ACCOUNTS_KEY)).toBeDefined();
       });
     });
 
@@ -208,9 +232,10 @@ describe('WalletProvider - Multi-Account Support', () => {
         { address: 'GACCOUNT0000000002', displayName: 'Account 2' },
       ];
 
-      mockStorage.set('stellar_wallet_accounts', JSON.stringify(accounts));
-      mockStorage.set('stellar_wallet_current_account_index', '1');
+      mockStorage.set(ACCOUNTS_KEY, JSON.stringify(accounts));
+      mockStorage.set(INDEX_KEY, '1');
       mockStorage.set('stellar_wallet_connected', 'true');
+      mockStorage.set('stellar_wallet_id', 'freighter');
       mockStorage.set('stellar_wallet_address', accounts[1].address);
       mockStorage.set('stellar_wallet_id', 'freighter');
       mockStorage.set('stellar_wallet_name', 'Freighter');
@@ -226,7 +251,8 @@ describe('WalletProvider - Multi-Account Support', () => {
       const { result } = renderHook(() => useWallet(), { wrapper });
 
       mockStorage.set('stellar_wallet_connected', 'true');
-      mockStorage.set('stellar_wallet_accounts', JSON.stringify([
+      mockStorage.set('stellar_wallet_id', 'freighter');
+      mockStorage.set(ACCOUNTS_KEY, JSON.stringify([
         { address: 'GACCOUNT1', displayName: 'Account 1' },
       ]));
 
@@ -234,8 +260,8 @@ describe('WalletProvider - Multi-Account Support', () => {
         await result.current.disconnect();
       });
 
-      expect(mockStorage.get('stellar_wallet_accounts')).toBeUndefined();
-      expect(mockStorage.get('stellar_wallet_current_account_index')).toBeUndefined();
+      expect(mockStorage.get(ACCOUNTS_KEY)).toBeUndefined();
+      expect(mockStorage.get(INDEX_KEY)).toBeUndefined();
     });
   });
 
@@ -246,9 +272,10 @@ describe('WalletProvider - Multi-Account Support', () => {
       ];
 
       // Save invalid index
-      mockStorage.set('stellar_wallet_accounts', JSON.stringify(accounts));
-      mockStorage.set('stellar_wallet_current_account_index', '999');
+      mockStorage.set(ACCOUNTS_KEY, JSON.stringify(accounts));
+      mockStorage.set(INDEX_KEY, '999');
       mockStorage.set('stellar_wallet_connected', 'true');
+      mockStorage.set('stellar_wallet_id', 'freighter');
 
       const { result } = renderHook(() => useWallet(), { wrapper });
 

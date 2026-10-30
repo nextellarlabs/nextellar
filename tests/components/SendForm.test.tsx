@@ -14,6 +14,7 @@
  */
 import "@testing-library/jest-dom";
 import React from "react";
+import { jest } from "@jest/globals";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import {
   jest,
@@ -91,6 +92,40 @@ function mockBalances() {
     stopPolling: jest.fn(),
   });
 }
+// SendForm's "../contexts" import resolves to the shared wallet mock via
+// jest.config's moduleNameMapper, so that is the module to override here.
+await jest.unstable_mockModule("../../src/mocks/wallet-contexts-mock", () => ({
+  useWallet: () => ({
+    connected: true,
+    address: "GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H",
+    sendPayment: mockSendPayment,
+  }),
+  isUnsignedFeeBumpResult: (value: unknown) =>
+    (value as { requiresSponsorSignature?: unknown } | null)
+      ?.requiresSponsorSignature === true,
+}));
+
+await jest.unstable_mockModule(
+  "../../src/templates/default/src/hooks/useStellarBalances",
+  () => ({
+    useStellarBalances: () => ({
+      balances: [
+        { asset_type: "native", balance: "100.00" },
+        {
+          asset_type: "credit_alphanum4",
+          asset_code: "USDC",
+          asset_issuer:
+            "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
+          balance: "50.00",
+        },
+      ],
+      loading: false,
+    }),
+  }),
+);
+
+const { default: SendForm } =
+  await import("../../src/templates/default/src/components/SendForm");
 
 describe("SendForm — multi-asset and fee-bump sponsor", () => {
   beforeEach(() => {
@@ -112,6 +147,10 @@ describe("SendForm — multi-asset and fee-bump sponsor", () => {
 
     fireEvent.change(assetSelect, { target: { value: "USDC" } });
     expect(screen.getByLabelText("Amount (USDC)")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Asset"), {
+      target: { value: "USDC" },
+    });
+    expect(screen.getByText("Amount (USDC)")).toBeInTheDocument();
   });
 
   it("submits with the selected non-native asset and sponsor, then shows the awaiting-sponsor state", async () => {
@@ -126,6 +165,9 @@ describe("SendForm — multi-asset and fee-bump sponsor", () => {
 
     fireEvent.change(screen.getByLabelText("To"), {
       target: { value: VALID_ADDRESS },
+      target: {
+        value: "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
+      },
     });
     fireEvent.change(screen.getByLabelText("Asset"), {
       target: { value: "USDC" },
@@ -138,6 +180,15 @@ describe("SendForm — multi-asset and fee-bump sponsor", () => {
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Send with Fee-Bump" }));
+      target: {
+        value: "GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H",
+      },
+    });
+
+    const submitBtn = screen.getByRole("button", {
+      name: "Send with Fee-Bump",
+    });
+    expect(submitBtn).toBeInTheDocument();
 
     await waitFor(() => {
       expect(mockSendPayment).toHaveBeenCalledWith(
@@ -179,6 +230,11 @@ describe("SendForm — multi-asset and fee-bump sponsor", () => {
           amount: "25",
           asset: "XLM",
           sponsor: undefined,
+          asset: {
+            code: "USDC",
+            issuer: "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
+          },
+          sponsor: "GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H",
         }),
       );
     });

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import Image from 'next/image';
 import { useWallet } from '../contexts';
 import { buildSep7PayUri } from '../lib/sep7';
 
@@ -24,6 +25,14 @@ const DownloadIcon = () => (
       d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
   </svg>
 );
+
+/**
+ * QR image alt text (#1145). Deliberately omits the address: it is rendered as
+ * text right below the QR, so including it here would double-announce it.
+ */
+const QR_ALT_ADDRESS = 'Scannable QR code of the Stellar address shown below';
+const QR_ALT_PAYMENT_REQUEST =
+  'Scannable QR code of this payment request, for the Stellar address shown below';
 
 export interface ReceiveFormProps {
   /** Override the public key shown (e.g. to display a specific account). Defaults to the connected wallet. */
@@ -191,18 +200,17 @@ export default function ReceiveForm({
       <div
         className="flex items-center justify-center rounded-xl bg-white p-3 shadow-inner"
         style={{ width: qrSize + 24, height: qrSize + 24 }}
-        aria-label={sep7Uri ? 'QR code of SEP-7 payment request' : 'QR code of Stellar address'}
         data-testid="receive-form-qr"
       >
         {qrDataUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          // A generated data: URL, so Next's image optimizer has nothing to fetch.
+          <Image
+            unoptimized
             src={qrDataUrl}
-            alt={
-              sep7Uri
-                ? `QR code for a SEP-7 payment request to ${address}`
-                : `QR code for Stellar address ${address}`
-            }
+            // Describes the image's purpose only. The address itself is
+            // already read from the text below, so repeating it here would make
+            // screen readers announce the 56-character key twice (#1145).
+            alt={sep7Uri ? QR_ALT_PAYMENT_REQUEST : QR_ALT_ADDRESS}
             width={qrSize}
             height={qrSize}
             style={{ imageRendering: 'pixelated' }}
@@ -214,6 +222,7 @@ export default function ReceiveForm({
           <div
             className="animate-pulse rounded bg-gray-200 dark:bg-gray-700"
             style={{ width: qrSize, height: qrSize }}
+            role="status"
             aria-label="Loading QR code"
           />
         )}

@@ -585,4 +585,81 @@ describe("useSorobanEvents (Template Hook)", () => {
       expect(mockGetEvents.mock.calls.length).toBe(callsCount);
     });
   });
+
+  // ── Reconnect after a mid-subscription disconnect ─────────────────────────
+
+  describe("reconnect after a mid-subscription disconnect", () => {
+    it("resumes polling and delivers new events once a dropped RPC connection recovers", async () => {
+      // Subscription established: the initial poll succeeds and advances the cursor.
+      mockGetEvents.mockResolvedValueOnce({
+        events: [sdkEvent1],
+        latestLedger: 100,
+        cursor: "cursor-001",
+      });
+
+      const { result } = renderHook(() => useSorobanEvents(CONTRACT_ID));
+      await flush();
+
+      expect(result.current.events.map((e: SorobanEvent) => e.id)).toEqual([
+        "evt-001",
+      ]);
+      expect(result.current.error).toBeNull();
+      expect(result.current.isRecovering).toBe(false);
+
+      // Connection drops mid-subscription: every call fails until it recovers.
+      mockGetEvents.mockRejectedValue(new Error("RPC connection dropped"));
+
+      // Let the next scheduled poll run and exhaust its retry/backoff chain
+      // until it gives up and enters error-recovery mode.
+      await advanceAndFlush(10_000);
+      await exhaustPendingTimers();
+
+      expect(result.current.error).toBeTruthy();
+      expect(result.current.isRecovering).toBe(true);
+      // Events received before the drop are not discarded.
+      expect(result.current.events).toHaveLength(1);
+
+      // The connection recovers and starts returning new events again.
+      mockGetEvents.mockResolvedValue({
+        events: [sdkEvent2],
+        latestLedger: 101,
+        cursor: "cursor-002",
+      });
+
+      // Error-recovery mode polls at 2x the normal interval (20s).
+      await advanceAndFlush(20_000);
+      await exhaustPendingTimers();
+
+      expect(result.current.error).toBeNull();
+      expect(result.current.isRecovering).toBe(false);
+      // Resumed from where it left off: the pre-drop event is preserved and
+      // the post-reconnect event is appended, not replaced.
+      expect(result.current.events.map((e: SorobanEvent) => e.id)).toEqual([
+        "evt-001",
+        "evt-002",
+      ]);
+
+      // The reconnect fetch resumed from the cursor saved before the drop
+      // rather than restarting the subscription from scratch.
+      expect(
+        mockGetEvents.mock.calls.some(
+          (call: any) => call[0].cursor === "cursor-001",
+        ),
+      ).toBe(true);
+
+      // Polling continues normally after reconnecting.
+      mockGetEvents.mockResolvedValueOnce({
+        events: [sdkEvent3],
+        latestLedger: 102,
+        cursor: "cursor-003",
+      });
+      await advanceAndFlush(10_000);
+
+      expect(result.current.events.map((e: SorobanEvent) => e.id)).toEqual([
+        "evt-001",
+        "evt-002",
+        "evt-003",
+      ]);
+    });
+  });
 });
