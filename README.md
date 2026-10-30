@@ -214,6 +214,9 @@ Network and environment configuration (Horizon/Soroban, testnet/mainnet, Network
 Authoring a custom wallet adapter (the `ModuleInterface`, a worked example, and where to register it):  
 🔗 [docs/custom-wallet-adapter-guide.md](docs/custom-wallet-adapter-guide.md)
 
+Ledger hardware wallet setup (browser/OS caveats, udev rules, connect and signing flow, troubleshooting):  
+🔗 [docs/ledger-wallet-guide.md](docs/ledger-wallet-guide.md)
+
 Soroban contracts overlay guide (`--with-contracts`):  
 🔗 [docs/soroban-contracts-overlay-guide.md](docs/soroban-contracts-overlay-guide.md)
 
