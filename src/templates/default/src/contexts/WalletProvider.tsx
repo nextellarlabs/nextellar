@@ -101,6 +101,21 @@ export interface WalletAccount {
 }
 
 /**
+ * A wallet the user can pick in the connect modal (#911), as reported by the
+ * wallet kit for the active network.
+ */
+export interface WalletOption {
+  id: string;
+  name: string;
+  /** Icon URL (or data URL) supplied by the wallet kit module. */
+  icon: string;
+  /** False when the wallet's browser extension / app isn't installed. */
+  isAvailable: boolean;
+  /** Where to get the wallet when it isn't installed. */
+  url?: string;
+}
+
+/**
  * Wallet context state
  */
 interface WalletContextState {
@@ -110,8 +125,25 @@ interface WalletContextState {
   balances: Balance[];
   accounts: WalletAccount[];
   currentAccountIndex: number;
-  connect: () => Promise<void>;
+  /**
+   * Connect a wallet. With no argument the wallet kit's own selection modal
+   * opens; pass a wallet id (from `getWallets()`) to connect that wallet
+   * directly, e.g. from the built-in `WalletSelectModal` (#911).
+   */
+  connect: (walletId?: string) => Promise<void>;
   disconnect: () => void;
+  /**
+   * Every wallet the kit was configured with, including its name, icon and
+   * whether it is installed (#911). Optional so hand-built context values
+   * (tests, stories) predating it still type-check.
+   */
+  getWallets?: () => Promise<WalletOption[]>;
+  /**
+   * True while a session persisted by a previous visit is being restored on
+   * load (#910), so the UI can say "Reconnecting..." instead of flashing a
+   * Connect button. Optional for the same reason as `getWallets`.
+   */
+  reconnecting?: boolean;
   refreshBalances: () => Promise<void>;
   switchAccount: (address: string) => Promise<void>;
   sendPayment?: (opts: PaymentOptions) => Promise<Horizon.HorizonApi.SubmitTransactionResponse | UnsignedFeeBumpResult>;
@@ -241,6 +273,9 @@ export function WalletProvider({
   // set to a different network than this app (#1072) — e.g. Freighter set to
   // mainnet while the app is configured for testnet.
   const [walletNetworkPassphrase, setWalletNetworkPassphrase] = useState<string>();
+  // True only while the mount-time auto-reconnect of a persisted session is
+  // in flight (#910).
+  const [reconnecting, setReconnecting] = useState(false);
 
   // Consecutive connect() failures, used to compute the backoff delay for
   // the *next* attempt. Not component state — it must not trigger a
@@ -385,7 +420,7 @@ export function WalletProvider({
    * click. A successful connection resets the counter, so the next fresh
    * attempt is always eager.
    */
-  const connect = useCallback(async () => {
+  const connect = useCallback(async (walletId?: string) => {
     const backoffDelay = connectBackoffDelayMs(connectFailureCountRef.current);
     if (backoffDelay > 0) {
       await sleep(backoffDelay);
@@ -397,9 +432,7 @@ export function WalletProvider({
       const walletNetwork = activeNetworkKey === 'mainnet' ? WalletNetwork.PUBLIC : WalletNetwork.TESTNET;
       const currentKit = kit(walletNetwork);
 
-      await currentKit.openModal({
-        modalTitle: "Connect to your favorite wallet",
-        onWalletSelected: async (option: ISupportedWallet) => {
+      const onWalletSelected = async (option: ISupportedWallet) => {
           currentKit.setWallet(option.id);
 
           const { address } = await currentKit.getAddress();
@@ -469,7 +502,28 @@ export function WalletProvider({
               setBalances([]);
             }
           }
-        },
+      };
+
+      // `typeof` guard: `<button onClick={connect}>` (the documented usage)
+      // passes a click event here, which must keep opening the kit modal.
+      if (typeof walletId === 'string' && walletId.length > 0) {
+        // Direct connect from the built-in selection modal (#911): skip the
+        // kit's modal and connect the chosen wallet.
+        const wallets = await currentKit.getSupportedWallets();
+        const option = wallets.find((w) => w.id === walletId);
+        if (!option) {
+          throw new Error(`Wallet "${walletId}" is not configured for this app.`);
+        }
+        if (!option.isAvailable) {
+          throw new Error(`${option.name} is not installed.`);
+        }
+        await onWalletSelected(option);
+        return;
+      }
+
+      await currentKit.openModal({
+        modalTitle: "Connect to your favorite wallet",
+        onWalletSelected,
       });
     } catch (error) {
       connectFailureCountRef.current += 1;
@@ -509,6 +563,23 @@ export function WalletProvider({
       console.error('Failed to disconnect wallet:', error);
     }
   }, [accountsStorageKey, accountIndexStorageKey]);
+
+  /**
+   * List the configured wallets with icon, name and install state for the
+   * active network (#911). Feeds `WalletSelectModal`.
+   */
+  const getWallets = useCallback(async (): Promise<WalletOption[]> => {
+    const { kit, WalletNetwork } = await loadWalletKit();
+    const walletNetwork = activeNetworkKey === 'mainnet' ? WalletNetwork.PUBLIC : WalletNetwork.TESTNET;
+    const wallets = await kit(walletNetwork).getSupportedWallets();
+    return wallets.map((w) => ({
+      id: w.id,
+      name: w.name,
+      icon: w.icon,
+      isAvailable: w.isAvailable,
+      url: w.url,
+    }));
+  }, [activeNetworkKey]);
 
   /**
    * Inactivity auto-lock (opt-in via `inactivityTimeoutMs`).
@@ -700,12 +771,22 @@ export function WalletProvider({
       const savedName = storage.get('stellar_wallet_name');
 
       if (wasConnected === 'true' && savedWalletId && savedAddress) {
+        setReconnecting(true);
         try {
           const { kit, WalletNetwork } = await loadWalletKit();
           const walletNetwork = activeNetworkKey === 'mainnet' ? WalletNetwork.PUBLIC : WalletNetwork.TESTNET;
           const currentKit = kit(walletNetwork);
           currentKit.setWallet(savedWalletId);
           const { address } = await currentKit.getAddress();
+
+          if (address !== savedAddress) {
+            // The wallet now reports a different account than the one that
+            // was persisted (#910). Restoring silently would connect an
+            // account the user never chose here, and leaving the stale
+            // session in storage would retry on every reload — so forget it
+            // and let the user connect explicitly.
+            throw new Error('Persisted wallet session no longer matches the wallet.');
+          }
 
           if (address === savedAddress) {
             setPublicKey(address);
@@ -755,6 +836,8 @@ export function WalletProvider({
           storage.remove('stellar_wallet_id');
           storage.remove('stellar_wallet_address');
           storage.remove('stellar_wallet_name');
+        } finally {
+          setReconnecting(false);
         }
       }
     };
@@ -776,6 +859,8 @@ export function WalletProvider({
     currentAccountIndex,
     connect,
     disconnect,
+    getWallets,
+    reconnecting,
     refreshBalances,
     switchAccount,
     sendPayment: connected ? sendPayment : undefined,
