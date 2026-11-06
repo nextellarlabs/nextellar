@@ -7,6 +7,7 @@ import {
   type Sep38Asset,
   type Sep38FirmQuote,
   type Sep38IndicativePrice,
+  type Sep38Quote,
 } from '../lib/sep38';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -25,6 +26,19 @@ export interface UseSep38QuoteOptions {
   fetchImpl?: typeof fetch;
 }
 
+/**
+ * Error thrown by `executeWithQuote` when the quote it was handed cannot be
+ * used to build/submit a transaction — an expired firm quote, or a non-firm
+ * (indicative) price. Named distinctly so callers can tell expiry apart from
+ * other failures.
+ */
+export class Sep38StaleQuoteError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'Sep38StaleQuoteError';
+  }
+}
+
 export interface UseSep38QuoteReturn {
   /** Requests an indicative (non-binding) price via GET /price. */
   getIndicativePrice: (
@@ -34,6 +48,18 @@ export interface UseSep38QuoteReturn {
   getFirmQuote: (
     params: Sep38QuoteParams & { authToken: string; expireAfter?: string },
   ) => Promise<Sep38FirmQuote>;
+  /**
+   * Guards the step between holding a quote and spending it: validates the
+   * given quote (or the most recently resolved one) and only then invokes
+   * `buildAndSubmit`. Rejects with a `Sep38StaleQuoteError` **before**
+   * `buildAndSubmit` runs if the quote is missing, is an indicative (never
+   * executable) price, or is a firm quote whose `expiresAt` has passed at
+   * call time. A rejected stale quote is never silently accepted.
+   */
+  executeWithQuote: <T>(
+    buildAndSubmit: (quote: Sep38FirmQuote) => Promise<T>,
+    quote?: Sep38Quote,
+  ) => Promise<T>;
   /** The most recently resolved quote/price, indicative or firm. */
   quote: Sep38IndicativePrice | Sep38FirmQuote | undefined;
   loading: boolean;
@@ -88,6 +114,19 @@ export function useSep38Quote(
   // overwriting a newer request's result when params change quickly.
   const requestIdRef = useRef(0);
   const lastKeyRef = useRef<string | undefined>(undefined);
+  // Mirror of `quote` readable at call time (not render time), so
+  // executeWithQuote always validates the freshest state.
+  const quoteRef = useRef<Sep38IndicativePrice | Sep38FirmQuote | undefined>(
+    undefined,
+  );
+
+  const commitQuote = useCallback(
+    (q: Sep38IndicativePrice | Sep38FirmQuote | undefined) => {
+      quoteRef.current = q;
+      setQuote(q);
+    },
+    [],
+  );
 
   const getIndicativePrice = useCallback(
     async (params: Sep38QuoteParams): Promise<Sep38IndicativePrice> => {
@@ -102,7 +141,7 @@ export function useSep38Quote(
           fetchImpl: opts.fetchImpl,
         });
         if (requestIdRef.current === requestId) {
-          setQuote(result);
+          commitQuote(result);
         }
         return result;
       } catch (err) {
@@ -117,7 +156,7 @@ export function useSep38Quote(
         }
       }
     },
-    [opts.fetchImpl],
+    [opts.fetchImpl, commitQuote],
   );
 
   const getFirmQuote = useCallback(
@@ -135,7 +174,7 @@ export function useSep38Quote(
           fetchImpl: opts.fetchImpl,
         });
         if (requestIdRef.current === requestId) {
-          setQuote(result);
+          commitQuote(result);
         }
         return result;
       } catch (err) {
@@ -150,7 +189,7 @@ export function useSep38Quote(
         }
       }
     },
-    [opts.fetchImpl],
+    [opts.fetchImpl, commitQuote],
   );
 
   const isExpired = useMemo(() => {
@@ -158,16 +197,52 @@ export function useSep38Quote(
     return new Date(quote.expiresAt).getTime() <= Date.now();
   }, [quote]);
 
+  // Re-checks expiry at *call* time (not render time): a firm quote fetched
+  // minutes ago may have expired since the last render, so `isExpired` alone
+  // cannot be trusted as the gate right before building/submitting.
+  const executeWithQuote = useCallback(
+    async <T>(
+      buildAndSubmit: (quote: Sep38FirmQuote) => Promise<T>,
+      quoteOverride?: Sep38Quote,
+    ): Promise<T> => {
+      const target = quoteOverride ?? quoteRef.current;
+      if (!target) {
+        const e = new Sep38StaleQuoteError(
+          'executeWithQuote: no quote available — request a firm quote via getFirmQuote before building a transaction.',
+        );
+        setError(e);
+        throw e;
+      }
+      if (target.kind !== 'firm') {
+        const e = new Sep38StaleQuoteError(
+          'executeWithQuote: an indicative price is not binding and cannot be used to build a transaction — request a firm quote via getFirmQuote first.',
+        );
+        setError(e);
+        throw e;
+      }
+      if (new Date(target.expiresAt).getTime() <= Date.now()) {
+        const e = new Sep38StaleQuoteError(
+          `executeWithQuote: firm quote "${target.id}" expired at ${target.expiresAt} — request a fresh quote before building a transaction.`,
+        );
+        setError(e);
+        throw e;
+      }
+      return buildAndSubmit(target);
+    },
+    [],
+  );
+
   const reset = useCallback(() => {
     requestIdRef.current += 1;
     lastKeyRef.current = undefined;
-    setQuote(undefined);
+    commitQuote(undefined);
     setError(null);
-  }, []);
+  }, [commitQuote]);
 
   return {
     getIndicativePrice,
     getFirmQuote,
+    executeWithQuote,
     quote,
     loading,
     error,
