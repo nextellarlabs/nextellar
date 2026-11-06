@@ -46,7 +46,7 @@ export function useClipboard({ resetDelayMs = 2000 } = {}) {
         return false;
       }
     },
-    [resetDelayMs],
+    [resetDelayMs]
   );
 
   return { copied, error, copy };
