@@ -20,6 +20,7 @@ export interface ContractUpgradeOptions {
   contractId: string;
   sorobanRpc?: string;
   network?: "TESTNET" | "PUBLIC";
+  allowHttp?: boolean;
 }
 
 /**
@@ -119,7 +120,19 @@ export function useContractUpgrade(
   const networkPassphrase =
     network === "TESTNET" ? Networks.TESTNET : Networks.PUBLIC;
 
-  const rpcServer = useMemo(() => new rpc.Server(sorobanRpc), [sorobanRpc]);
+  const allowHttp =
+    opts.allowHttp ??
+    (sorobanRpc.startsWith("http://") ||
+      sorobanRpc.includes("localhost") ||
+      sorobanRpc.includes("127.0.0.1"));
+
+  const rpcServer = useMemo(
+    () =>
+      allowHttp
+        ? new rpc.Server(sorobanRpc, { allowHttp: true })
+        : new rpc.Server(sorobanRpc),
+    [sorobanRpc, allowHttp],
+  );
 
   // ── buildUpgradeXDR ────────────────────────────────────────────────────────
 
