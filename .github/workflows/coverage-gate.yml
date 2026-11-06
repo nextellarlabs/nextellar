@@ -1,0 +1,89 @@
+name: Coverage gate
+
+# Runs the test suite with coverage and fails when global coverage drops
+# below the thresholds configured in jest.config.mjs (#936).
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  coverage:
+    name: Jest coverage gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+
+      # jest.config.mjs sets collectCoverageFrom (src/**/*.ts, excluding
+      # .d.ts) and coverageThreshold (the actual gate). Don't pass
+      # --coverageThreshold here — the CLI flag *replaces* the config's
+      # thresholds rather than merging with them, so a stray override (even
+      # a "temporary" all-zero one) would silently defeat the gate. Add
+      # json-summary to the default reporters so coverage-summary.json
+      # exists for the steps below.
+      - name: Run tests with coverage and thresholds
+        run: NODE_OPTIONS="--experimental-vm-modules --no-warnings" npx jest --coverage --coverageReporters=json --coverageReporters=json-summary --coverageReporters=lcov --coverageReporters=text --coverageReporters=clover --ci
+
+      - name: Extract coverage summary
+        if: always()
+        id: cov
+        run: |
+          node -e "
+          const fs = require('fs');
+          const summary = JSON.parse(fs.readFileSync('coverage/coverage-summary.json', 'utf8'));
+          const t = summary.total;
+          console.log(\`lines=\${t.lines.pct}%\`);
+          console.log(\`functions=\${t.functions.pct}%\`);
+          console.log(\`branches=\${t.branches.pct}%\`);
+          console.log(\`statements=\${t.statements.pct}%\`);
+          "
+
+      - name: Comment coverage on PR
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const summary = JSON.parse(fs.readFileSync('coverage/coverage-summary.json', 'utf8'));
+            const t = summary.total;
+            const marker = '<!-- coverage-gate-report -->';
+            const body = `${marker}\n## 📊 Coverage report\n\n` +
+              `| Metric | % |\n|---|---|\n` +
+              `| Lines | ${t.lines.pct}% |\n` +
+              `| Functions | ${t.functions.pct}% |\n` +
+              `| Branches | ${t.branches.pct}% |\n` +
+              `| Statements | ${t.statements.pct}% |\n\n` +
+              `_Gate: build fails if coverage drops below the thresholds in jest.config.mjs._`;
+
+            const { data: comments } = await github.rest.issues.listComments({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+            const existing = comments.find((c) => c.body?.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                comment_id: existing.id,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body,
+              });
+            }
