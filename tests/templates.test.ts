@@ -223,13 +223,50 @@ describe("full template (#1112)", () => {
   it.each([
     ["full", "src/components/CounterDemo.tsx"],
     ["full", "src/components/CounterDemo.stories.tsx"],
+    ["full", "src/components/ContractCallForm.tsx"],
+    ["full", "src/components/ContractCallForm.stories.tsx"],
+    ["full", "src/components/ContractCallPreview.tsx"],
+    ["full", "src/components/ContractCallPreview.stories.tsx"],
+    ["full", "src/components/Sep24InteractiveFrame.tsx"],
+    ["full", "src/components/Sep24InteractiveFrame.stories.tsx"],
+    ["full", "src/hooks/useSorobanContract.ts"],
+    ["full", "src/lib/contract-spec.ts"],
+    ["full", "src/lib/sep24.ts"],
     ["full", "src/app/page.tsx"],
     ["full", ".storybook/main.ts"],
     ["full", ".storybook/mocks/contracts.ts"],
+    ["full", ".storybook/mocks/useSorobanContract.ts"],
     ["js-full", "src/components/CounterDemo.jsx"],
     ["js-full", "src/app/page.jsx"],
   ])("%s overlay ships %s", async (dir, rel) => {
     expect(await fs.pathExists(path.join(TEMPLATES_ROOT, dir, rel))).toBe(true);
+  });
+
+  // #1202: full overlay copies of contract-call / SEP-24 UI must stay in
+  // feature parity with default (same relative imports work after overlay
+  // merge because default already ships the same hooks/lib modules).
+  it.each([
+    "src/components/ContractCallForm.tsx",
+    "src/components/ContractCallPreview.tsx",
+    "src/components/Sep24InteractiveFrame.tsx",
+    "src/components/ContractCallForm.stories.tsx",
+    "src/components/ContractCallPreview.stories.tsx",
+    "src/components/Sep24InteractiveFrame.stories.tsx",
+    "src/hooks/useSorobanContract.ts",
+    "src/lib/contract-spec.ts",
+    "src/lib/sep24.ts",
+    "src/lib/sep1.ts",
+    ".storybook/mocks/useSorobanContract.ts",
+  ])("full overlay %s matches default (parity #1202)", async (rel) => {
+    const fromDefault = await fs.readFile(
+      path.join(TEMPLATES_ROOT, "default", rel),
+      "utf8",
+    );
+    const fromFull = await fs.readFile(
+      path.join(TEMPLATES_ROOT, "full", rel),
+      "utf8",
+    );
+    expect(fromFull).toBe(fromDefault);
   });
 
   it.each([
