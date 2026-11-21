@@ -8,18 +8,19 @@ Nextellar takes security seriously. This document defines our dependency vulnera
 
 We follow [npm audit severity classifications](https://docs.npmjs.com/about-audit-severity):
 
-| Severity | Risk Level | Examples | Response Time |
-|----------|-----------|----------|---|
-| **Critical** | 🔴 Maximum | Remote code execution, authentication bypass, data exfiltration | Immediate (< 24 hours) |
-| **High** | 🟠 Significant | Information disclosure, privilege escalation, local file access | 7 days |
-| **Moderate** | 🟡 Medium | Denial of service, reduced security, performance issues | 30 days |
-| **Low** | 🔵 Low | Minor security concerns, best practice violations | 90 days |
+| Severity     | Risk Level     | Examples                                                        | Response Time          |
+| ------------ | -------------- | --------------------------------------------------------------- | ---------------------- |
+| **Critical** | 🔴 Maximum     | Remote code execution, authentication bypass, data exfiltration | Immediate (< 24 hours) |
+| **High**     | 🟠 Significant | Information disclosure, privilege escalation, local file access | 7 days                 |
+| **Moderate** | 🟡 Medium      | Denial of service, reduced security, performance issues         | 30 days                |
+| **Low**      | 🔵 Low         | Minor security concerns, best practice violations               | 90 days                |
 
 ## Policy
 
 ### Continuous Auditing
 
 **Automated checks run on:**
+
 - Every push to `main` and `develop` branches
 - Every pull request modifying `package.json`
 - Daily scheduled audits (2 AM UTC)
@@ -125,11 +126,13 @@ All vulnerability audits are:
 ### Automated Updates (Dependabot)
 
 **Enabled for:**
+
 - Security updates (automatic PR creation + merge)
 - Minor version updates (PR only, manual merge)
 - Patch version updates (PR only, manual merge)
 
 **Configuration:**
+
 ```yaml
 version: 2
 updates:
@@ -169,12 +172,14 @@ Certain vulnerabilities may be excluded from the policy due to:
 - **EOL software** - Acknowledged debt item in backlog
 
 **Exclusion process:**
+
 1. Document in `.npmrc` or audit comments
 2. Create GitHub issue with label `vulnerability-exception`
 3. Include detailed justification
 4. Set review date (quarterly minimum)
 
 Example `.npmrc`:
+
 ```ini
 # Security: exclude false positives and known issues
 audit-level=moderate
@@ -185,6 +190,7 @@ legacy-peer-deps=false
 ## License Policy
 
 **Approved Licenses:**
+
 - Apache-2.0, Apache-2.0+
 - MIT, MIT+
 - ISC, BSD, BSD-2-Clause, BSD-3-Clause, 0BSD
@@ -193,11 +199,13 @@ legacy-peer-deps=false
 - Unlicense
 
 **Restricted Licenses:**
+
 - GPL (requires review - may require COPYING file)
 - AGPL (generally not permitted without explicit approval)
 - SSPL (commercial license - requires assessment)
 
 **Process for restricted licenses:**
+
 1. Create issue with `license-review` label
 2. Document business justification
 3. Obtain approval from legal/security team
@@ -208,6 +216,7 @@ legacy-peer-deps=false
 ### Detection
 
 Vulnerabilities are detected via:
+
 1. **GitHub Dependabot** - Native GitHub detection
 2. **npm audit** - Local and CI scanning
 3. **CodeQL Analysis** - Code-level security issues
@@ -216,6 +225,7 @@ Vulnerabilities are detected via:
 ### Triage
 
 Upon detection:
+
 1. Assess actual impact vs. theoretical risk
 2. Determine if it affects production systems
 3. Check if already patched
@@ -223,12 +233,12 @@ Upon detection:
 
 ### Response Timeline
 
-| Severity | Triage | Decision | Fix | Deploy |
-|----------|--------|----------|-----|--------|
-| Critical | < 2h | < 4h | < 24h | < 24h |
-| High | < 4h | < 8h | < 7d | < 7d |
-| Moderate | < 1d | < 3d | < 30d | < 30d |
-| Low | < 7d | < 14d | < 90d | < 90d |
+| Severity | Triage | Decision | Fix   | Deploy |
+| -------- | ------ | -------- | ----- | ------ |
+| Critical | < 2h   | < 4h     | < 24h | < 24h  |
+| High     | < 4h   | < 8h     | < 7d  | < 7d   |
+| Moderate | < 1d   | < 3d     | < 30d | < 30d  |
+| Low      | < 7d   | < 14d    | < 90d | < 90d  |
 
 ### Communication
 
@@ -252,18 +262,27 @@ Beyond dependency management:
 
 Third-party wallet-adapter surfaces are tracked here individually, since they sit on the trust boundary between a scaffolded dApp and a user's signing key, and are not covered by the npm-audit pipeline above (`npm audit` only sees known CVEs, not how an adapter itself handles key material or signing requests).
 
-| Component | Trust Boundary | Review Status | Notes |
-|-----------|----------------|----------------|-------|
-| **Ledger adapter** (`src/templates/default/src/lib/wallets/ledger-module.ts`) | Browser (WebUSB) to physical hardware device | Reviewed | Private key material never leaves the device; the adapter only ever sends APDU requests and receives a public key or signature. Signing requests are built from the parsed transaction and shown on the Ledger's own screen for physical confirmation before each signature, so the host app cannot forge an approval. Requests are serialized (one in flight at a time) and the transport is always closed, including on error, so a failed call cannot leave the device in a stuck state. |
-| **WalletConnect adapter** (`src/templates/default/src/lib/wallets/walletconnect-module.ts`) | Browser to a remote WalletConnect relay server, to the user's wallet app | Reviewed | The dApp never holds key material; it only sends sign requests over the relay and receives a signed result. `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` is validated as a 32-character hex ID before use, and callback URLs (`NEXT_PUBLIC_WALLETCONNECT_APP_URL`, `NEXT_PUBLIC_WALLETCONNECT_ICON`) are required to be `https://` (or `localhost` in development) so a misconfigured env var cannot point the relay at an insecure or spoofable origin. The underlying SDK is lazy-loaded only once a user selects WalletConnect, limiting the third-party code surface on page load. |
+| Component                                                                                   | Trust Boundary                                                           | Review Status | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Ledger adapter** (`src/templates/default/src/lib/wallets/ledger-module.ts`)               | Browser (WebUSB) to physical hardware device                             | Reviewed      | Private key material never leaves the device; the adapter only ever sends APDU requests and receives a public key or signature. Signing requests are built from the parsed transaction and shown on the Ledger's own screen for physical confirmation before each signature, so the host app cannot forge an approval. Requests are serialized (one in flight at a time) and the transport is always closed, including on error, so a failed call cannot leave the device in a stuck state.                                                                                      |
+| **WalletConnect adapter** (`src/templates/default/src/lib/wallets/walletconnect-module.ts`) | Browser to a remote WalletConnect relay server, to the user's wallet app | Reviewed      | The dApp never holds key material; it only sends sign requests over the relay and receives a signed result. `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` is validated as a 32-character hex ID before use, and callback URLs (`NEXT_PUBLIC_WALLETCONNECT_APP_URL`, `NEXT_PUBLIC_WALLETCONNECT_ICON`) are required to be `https://` (or `localhost` in development) so a misconfigured env var cannot point the relay at an insecure or spoofable origin. The underlying SDK is lazy-loaded only once a user selects WalletConnect, limiting the third-party code surface on page load. |
 
 **What "Reviewed" verifies for a wallet adapter:**
+
 - Private key material is never logged, cached, or transmitted by the adapter.
 - Signing requests are validated (network passphrase, expected signer address) before being sent to the wallet/device, and the human-readable transaction is what the user actually approves.
 - Errors from the wallet/device/relay are mapped to adapter-level errors rather than leaking raw transport exceptions, and never silently swallow a rejection as a success.
 - Transport/session resources are always released, including on the error path.
 
 New wallet adapters (e.g. community contributions via `docs/custom-wallet-adapter-guide.md`) should be added to this table, with their own trust boundary and review status, before being added to the default wallet list.
+
+## Handling Wallet Keys in Generated Apps
+
+Apps scaffolded by Nextellar run primarily in the user's browser and must keep user key material outside application state and build artifacts:
+
+- **Never Store or Log Secret Keys (`S...`)**: Build unsigned transaction XDRs (`buildPaymentXDR`, `buildInvokeXDR`, `buildPathPaymentXDR`) and hand them to a wallet adapter via `useStellarWallet` / `WalletProvider`. Helpers such as `signAndSubmitWithSecret` and `submitInvokeWithSecret` exist solely for local/automated development tests and must never accept or persist user secret keys in browser or production builds.
+- **Signing Boundaries**: Private keys must remain inside the user's wallet extension or hardware device (see [Reviewed Components](#reviewed-components) and [Custom Wallet Adapter Guide](./docs/custom-wallet-adapter-guide.md)). Always check `networkMismatch` / the active `networkPassphrase` and surface transaction previews (such as `ContractCallPreview`) before prompting the user to sign.
+- **Environment Variable Exposure (`NEXT_PUBLIC_*`)**: Next.js embeds every `NEXT_PUBLIC_*` variable directly into client-side JavaScript bundles. Only expose non-sensitive public configuration (such as Horizon/Soroban URLs, deployed contract IDs, or WalletConnect project IDs) via `NEXT_PUBLIC_*`; keep API tokens, anchor secrets, and server signing keys strictly server-side (see [Environment Variables](./docs/environment-variables.md) and [Secret Rotation Guidance](./docs/secret-rotation.md)).
 
 ## Monitoring & Reporting
 
@@ -285,6 +304,7 @@ New wallet adapters (e.g. community contributions via `docs/custom-wallet-adapte
 ### Dashboard Access
 
 GitHub Security tab: `Settings > Security > Dependabot` for:
+
 - Dependency alerts
 - Code scanning alerts
 - Security advisories
@@ -318,6 +338,7 @@ If you discover a security vulnerability:
 ### Local Tools
 
 **Install locally:**
+
 ```bash
 # npm audit (built-in)
 npm audit
@@ -333,6 +354,7 @@ npm audit --json > audit-report.json
 ### Scripts
 
 Added to `package.json`:
+
 ```json
 {
   "scripts": {
@@ -350,12 +372,14 @@ In addition to dependency vulnerabilities, CI scans every push to `main` and eve
 **Workflow:** `.github/workflows/secret-scanning.yml`
 
 **How it works:**
+
 - On a pull request, only the commits introduced by that PR are scanned (`base` = the PR's base commit, `head` = the PR's head commit) — pre-existing history is not re-flagged on every run.
 - On a direct push to `main`, the pushed commit range is scanned.
-- `--only-verified` restricts findings to secrets TruffleHog has actively verified against the issuing service (e.g. confirmed a live AWS key actually authenticates), which keeps the check low-noise — it will not fail the build on a string that merely *looks* like a key.
+- `--only-verified` restricts findings to secrets TruffleHog has actively verified against the issuing service (e.g. confirmed a live AWS key actually authenticates), which keeps the check low-noise — it will not fail the build on a string that merely _looks_ like a key.
 - `--fail` causes the job (and therefore the check) to fail if any verified secret is found, blocking the PR from being merged until it's addressed.
 
 **If the check fails:**
+
 1. Read the job log for the flagged file, line, and detector type.
 2. **Rotate the credential immediately** at the issuing service — assume it is compromised the moment it was pushed, even if you plan to remove it from history.
 3. Remove the secret from the current commit (amend or a new commit) and, if it was pushed to a shared branch, treat the exposure as already public: rotating the credential is the actual fix, not just deleting the line.
@@ -376,6 +400,7 @@ For step-by-step procedures on rotating leaked or expiring wallet keys, RPC endp
 ## Policy Changelog
 
 ### v1.0.0 - Initial Release
+
 - Established severity gates
 - Defined remediation timelines
 - Enabled automated auditing
