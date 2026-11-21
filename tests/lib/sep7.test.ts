@@ -224,4 +224,74 @@ describe("isSep7Uri", () => {
     // @ts-expect-error - deliberately testing runtime guard against non-string input
     expect(isSep7Uri(undefined)).toBe(false);
   });
+
+  it("returns true for uppercase scheme URIs", () => {
+    expect(isSep7Uri(`WEB+STELLAR:PAY?destination=${DESTINATION}`)).toBe(true);
+    expect(isSep7Uri(`WEB+STELLAR://pay?destination=${DESTINATION}`)).toBe(
+      true,
+    );
+  });
+});
+
+describe("edge cases (#1512)", () => {
+  it.each(["MEMO_TEXT", "MEMO_ID", "MEMO_HASH", "MEMO_RETURN"] as const)(
+    "round-trips memoType %s through build and parse",
+    (memoType) => {
+      const uri = buildSep7PayUri({
+        destination: DESTINATION,
+        memo: "12345",
+        memoType,
+      });
+      const parsed = parseSep7PayUri(uri);
+      expect(parsed.memoType).toBe(memoType);
+      expect(parsed.memo).toBe("12345");
+    },
+  );
+
+  it("round-trips special characters and unicode across URL-encoded fields", () => {
+    const original: Parameters<typeof buildSep7PayUri>[0] = {
+      destination: DESTINATION,
+      memo: "a&b=c?d+e%20 café",
+      msg: "Pay 100% + fee? a=1&b=2 café",
+      callback: "url:https://example.com/cb?id=1&mode=fast+ok",
+      networkPassphrase: "Test SDF Network ; September 2015",
+      originDomain: "pay.example.com",
+      signature: "abc+def/ghi=123%",
+    };
+
+    const uri = buildSep7PayUri(original);
+    expect(parseSep7PayUri(uri)).toEqual({ operation: "pay", ...original });
+  });
+
+  it("rejects whitespace-only destination when building and empty destination when parsing", () => {
+    expect(() => buildSep7PayUri({ destination: "   " })).toThrow(
+      /destination/i,
+    );
+    expect(() => parseSep7PayUri("web+stellar:pay?destination=")).toThrow(
+      /destination/i,
+    );
+  });
+
+  it("parses case-insensitive scheme and operation variants", () => {
+    expect(
+      parseSep7PayUri(`WEB+STELLAR:PAY?destination=${DESTINATION}`),
+    ).toEqual({ operation: "pay", destination: DESTINATION });
+
+    expect(
+      parseSep7PayUri(
+        `WEB+STELLAR://PAY?destination=${DESTINATION}&amount=2.5`,
+      ),
+    ).toEqual({ operation: "pay", destination: DESTINATION, amount: "2.5" });
+  });
+
+  it("throws descriptive errors for missing operation or lowercase memo_type", () => {
+    expect(() =>
+      parseSep7PayUri(`web+stellar:?destination=${DESTINATION}`),
+    ).toThrow(/not a valid/i);
+    expect(() =>
+      parseSep7PayUri(
+        `web+stellar:pay?destination=${DESTINATION}&memo_type=memo_text`,
+      ),
+    ).toThrow(/invalid "memo_type"/i);
+  });
 });
