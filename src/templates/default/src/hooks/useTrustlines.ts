@@ -12,6 +12,7 @@ import {
   Transaction
 } from '@stellar/stellar-sdk';
 import { useWalletConfig } from '../contexts';
+import { classifyHorizonError } from '../lib/horizon-errors';
 
 /**
  * Trustline interface representing an account's ability to hold a specific issued asset
@@ -250,29 +251,34 @@ export function useTrustlines(
       
       return parsedTrustlines;
     } catch (err: unknown) {
-      const errorObj = err as { response?: { status?: number }; message?: string; name?: string };
-      // Handle specific error cases
-      if (errorObj?.response?.status === 404 || errorObj?.name === 'NotFoundError') {
+      const classified = classifyHorizonError(err);
+
+      if (classified.kind === 'not_found') {
         // Account doesn't exist on network (needs funding) - return empty trustlines
         return [];
       }
-      // Network or server errors
-      if (errorObj?.message?.includes('fetch') || (errorObj.response?.status && errorObj.response.status >= 500)) {
-        throw new Error(`Network error: ${errorObj.message || 'Failed to connect to Horizon'}`);
+
+      if (
+        classified.kind === 'network_error' ||
+        classified.kind === 'server_error' ||
+        classified.kind === 'rate_limited'
+      ) {
+        throw new Error(`Network error: ${classified.message || 'Failed to connect to Horizon'}`);
       }
-      
-      // Client errors (400-499)
-      if (errorObj.response?.status && errorObj.response.status >= 400 && errorObj.response.status < 500) {
+
+      if (
+        (classified.kind === 'bad_request' || classified.kind === 'client_error') &&
+        classified.status
+      ) {
         console.error('Horizon client error details:', {
-          status: errorObj.response.status,
-          message: errorObj.message,
+          status: classified.status,
+          message: classified.message,
           publicKey: key,
           horizonUrl: lastHorizonUrlRef.current
         });
-        throw new Error(`Client error: ${errorObj.message || 'Invalid request to Horizon'} (Status: ${errorObj.response.status})`);
+        throw new Error(`Client error: ${classified.message || 'Invalid request to Horizon'} (Status: ${classified.status})`);
       }
-      
-      // Re-throw with more context
+
       throw err instanceof Error ? err : new Error('Unknown error fetching trustlines');
     }
   }, [isValidPublicKey, parseTrustlinesFromBalances]);
@@ -383,19 +389,21 @@ export function useTrustlines(
       // Return unsigned XDR
       return transaction.toXDR();
     } catch (err: unknown) {
-      const errorObj = err as { response?: { status?: number }; message?: string };
-      // Handle specific Horizon errors
-      if (errorObj?.response?.status === 404) {
+      const classified = classifyHorizonError(err);
+      if (classified.kind === 'not_found') {
         throw new Error(`Account ${publicKey} not found. Account may need funding.`);
       }
-      if (errorObj.response?.status && errorObj.response.status >= 500) {
-        throw new Error(`Horizon server error: ${errorObj.message || 'Network unavailable'}`);
+      if (classified.kind === 'server_error') {
+        throw new Error(`Horizon server error: ${classified.message || 'Network unavailable'}`);
       }
-      if (errorObj.response?.status && errorObj.response.status >= 400) {
-        throw new Error(`Invalid request: ${errorObj.message || 'Bad request to Horizon'}`);
+      if (
+        classified.kind === 'bad_request' ||
+        classified.kind === 'client_error' ||
+        classified.kind === 'rate_limited'
+      ) {
+        throw new Error(`Invalid request: ${classified.message || 'Bad request to Horizon'}`);
       }
-      
-      // Re-throw validation and other errors
+
       throw err instanceof Error ? err : new Error('Failed to build change trust transaction');
     }
   }, [publicKey, isValidPublicKey, getNetworkPassphrase, serverRef, isValidAssetCode]);
@@ -468,26 +476,27 @@ export function useTrustlines(
         raw: result
       };
     } catch (err: unknown) {
-      const errorObj = err as { response?: { status?: number; data?: { extras?: { result_codes?: { transaction?: string; operations?: string[] } } } }; message?: string };
+      const classified = classifyHorizonError(err);
       console.error('Change trust submission failed:', err);
-      
-      // Handle specific submission errors
+
       let errorMessage = 'Change trust transaction failed';
-      if (errorObj?.response?.data?.extras?.result_codes) {
-        const codes = errorObj.response.data.extras.result_codes;
+      if (classified.kind === 'result_code_error' && classified.resultCodes) {
+        const codes = classified.resultCodes;
         errorMessage = `Transaction failed - ${codes.transaction || codes.operations?.join(', ') || 'Unknown error'}`;
-      } else if (errorObj?.response?.status === 400) {
+      } else if (classified.kind === 'bad_request') {
         errorMessage = 'Invalid transaction format or content';
-      } else if (errorObj.response?.status && errorObj.response.status >= 500) {
+      } else if (classified.kind === 'server_error') {
         errorMessage = 'Horizon server error during submission';
-      } else if (errorObj?.message) {
-        errorMessage = errorObj.message;
+      } else if (classified.kind === 'rate_limited') {
+        errorMessage = classified.userMessage;
+      } else if (classified.message) {
+        errorMessage = classified.message;
       }
-      
+
       return {
         success: false,
         error: errorMessage,
-        raw: errorObj?.response?.data
+        raw: classified.raw
       };
     }
   }, [serverRef, isValidSecret, publicKey, getNetworkPassphrase, refresh]);
