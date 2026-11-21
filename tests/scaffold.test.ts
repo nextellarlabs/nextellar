@@ -201,6 +201,69 @@ describe("scaffold integration", () => {
     expect(packageJson.name).toBe(appName);
   });
 
+  describe("devcontainer option (#1495)", () => {
+    test("adds the devcontainer setup when requested", async () => {
+      origCwd = process.cwd();
+      const parent = await makeTempParent();
+      process.chdir(parent);
+
+      const appName = "devcontainer-app";
+      await scaffold({
+        appName,
+        useTs: false,
+        template: "minimal",
+        withDevcontainer: true,
+        skipInstall: true,
+      });
+
+      const target = path.join(parent, appName);
+      const devcontainer = await fs.readJson(
+        path.join(target, ".devcontainer/devcontainer.json"),
+      );
+      const compose = await fs.readFile(
+        path.join(target, "docker-compose.local-stellar.yml"),
+        "utf8",
+      );
+
+      expect(devcontainer.dockerComposeFile).toBe(
+        "../docker-compose.local-stellar.yml",
+      );
+      expect(devcontainer.service).toBe("app");
+      expect(devcontainer.postCreateCommand).toContain("npm install");
+      expect(devcontainer.postCreateCommand).toContain(
+        "cargo install --locked stellar-cli",
+      );
+      expect(compose).toContain("stellar/quickstart");
+      expect(compose).toContain("stellar-local:");
+    });
+
+    test("does not add devcontainer files unless requested", async () => {
+      origCwd = process.cwd();
+      const parent = await makeTempParent();
+      process.chdir(parent);
+
+      const appName = "no-devcontainer-app";
+      await scaffold({
+        appName,
+        useTs: true,
+        template: "default",
+        skipInstall: true,
+      });
+
+      const target = path.join(parent, appName);
+      expect(
+        await fs.pathExists(
+          path.join(target, ".devcontainer/devcontainer.json"),
+        ),
+      ).toBe(false);
+      expect(
+        await fs.pathExists(
+          path.join(target, "docker-compose.local-stellar.yml"),
+        ),
+      ).toBe(false);
+    });
+  });
+
   test("throws when target directory already exists without force and leaves it untouched", async () => {
     origCwd = process.cwd();
     const parent = await makeTempParent();

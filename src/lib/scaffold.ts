@@ -37,6 +37,7 @@ export interface ScaffoldOptions {
   useTs: boolean;
   template?: string;
   withContracts?: boolean;
+  withDevcontainer?: boolean;
   horizonUrl?: string;
   sorobanUrl?: string;
   wallets?: string[];
@@ -82,6 +83,7 @@ export async function scaffold(
     useTs,
     template,
     withContracts: withContractsOption,
+    withDevcontainer,
     horizonUrl,
     sorobanUrl,
     wallets,
@@ -281,6 +283,17 @@ export async function scaffold(
       }
     }
 
+    if (withDevcontainer) {
+      const devcontainerDir = path.join(templateRoot, "devcontainer-template");
+      if (await fs.pathExists(devcontainerDir)) {
+        console.log(`    ${pc.blue("+")} ${pc.dim("(devcontainer overlay)")}`);
+        const devcontainerFiles = await walkDir(devcontainerDir, "");
+        for (const f of devcontainerFiles) {
+          console.log(`    ${pc.blue("+")} ${f}`);
+        }
+      }
+    }
+
     // Show placeholder substitutions
     console.log("");
     console.log(pc.bold("  Placeholder substitutions:"));
@@ -365,6 +378,19 @@ export async function scaffold(
         preserveTimestamps: true,
       });
     }
+
+    if (withDevcontainer) {
+      const devcontainerDir = path.join(templateRoot, "devcontainer-template");
+      if (!(await fs.pathExists(devcontainerDir))) {
+        throw new Error(
+          `Devcontainer template is missing from ${templateRoot}.`,
+        );
+      }
+      await fs.copy(devcontainerDir, targetDir, {
+        preserveTimestamps: true,
+      });
+    }
+
     filesScaffolded = true;
 
     // A workspace package must not carry its own lockfile: the root

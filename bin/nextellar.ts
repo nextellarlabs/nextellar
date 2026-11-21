@@ -448,6 +448,11 @@ program
     "scaffold Soroban smart contracts alongside the frontend",
     false,
   )
+  .option(
+    "--with-devcontainer",
+    "add a Dev Container setup with a local Stellar network",
+    false,
+  )
   .option("--force", "overwrite existing directory", false)
   .option(
     "--workspace",
@@ -676,6 +681,7 @@ program.action(async (projectName, options) => {
       useTs,
       template,
       withContracts,
+      withDevcontainer: options.withDevcontainer,
       horizonUrl: finalHorizonUrl,
       sorobanUrl: finalSorobanUrl,
       wallets: finalWallets,

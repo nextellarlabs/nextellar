@@ -35,6 +35,32 @@ describe("nextellar CLI", () => {
     expect(await fs.pathExists(tmpDir)).toBe(true);
   }, 30000);
 
+  it("adds the devcontainer setup with --with-devcontainer", async () => {
+    const { exitCode } = await execa(
+      "node",
+      [
+        cli,
+        appName,
+        "--typescript",
+        "--defaults",
+        "--skip-install",
+        "--no-git",
+        "--with-devcontainer",
+      ],
+      { cwd: __dirname },
+    );
+
+    expect(exitCode).toBe(0);
+    expect(
+      await fs.pathExists(path.join(tmpDir, ".devcontainer/devcontainer.json")),
+    ).toBe(true);
+    expect(
+      await fs.pathExists(
+        path.join(tmpDir, "docker-compose.local-stellar.yml"),
+      ),
+    ).toBe(true);
+  }, 30000);
+
   describe("--yes / --defaults non-interactive flag (#948)", () => {
     it("--yes scaffolds without prompting, same as --defaults", async () => {
       const { exitCode, stdout } = await execa(

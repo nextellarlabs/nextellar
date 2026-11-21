@@ -1,6 +1,8 @@
 {
   "name": "Nextellar App Dev Container",
-  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-20-bullseye",
+  "dockerComposeFile": "../docker-compose.local-stellar.yml",
+  "service": "app",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
   "features": {
     "ghcr.io/devcontainers/features/rust:1": {
       "version": "stable"
@@ -21,5 +23,5 @@
     }
   },
   "forwardPorts": [3000, 8000, 8001],
-  "postCreateCommand": "npm install"
+  "postCreateCommand": "npm install && cargo install --locked stellar-cli"
 }
