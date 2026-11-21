@@ -222,4 +222,205 @@ describe("fetchContractSpec (#1061)", () => {
 
     expect(functions[0].args[0].type).toBe("Vec");
   });
+
+  it("decodes every XDR ScSpecTypeDef variant and ignores non-function spec entries", async () => {
+    jest
+      .spyOn(rpc.Server.prototype, "getContractWasmByContractId")
+      .mockResolvedValue(fakeWasm as never);
+
+    const u32 = xdr.ScSpecTypeDef.scSpecTypeU32();
+    const typeCases: Array<[string, xdr.ScSpecTypeDef, string]> = [
+      ["v_val", xdr.ScSpecTypeDef.scSpecTypeVal(), "Val"],
+      ["v_bool", xdr.ScSpecTypeDef.scSpecTypeBool(), "bool"],
+      ["v_void", xdr.ScSpecTypeDef.scSpecTypeVoid(), "void"],
+      ["v_err", xdr.ScSpecTypeDef.scSpecTypeError(), "Error"],
+      ["v_u32", u32, "u32"],
+      ["v_i32", xdr.ScSpecTypeDef.scSpecTypeI32(), "i32"],
+      ["v_u64", xdr.ScSpecTypeDef.scSpecTypeU64(), "u64"],
+      ["v_i64", xdr.ScSpecTypeDef.scSpecTypeI64(), "i64"],
+      ["v_tp", xdr.ScSpecTypeDef.scSpecTypeTimepoint(), "Timepoint"],
+      ["v_dur", xdr.ScSpecTypeDef.scSpecTypeDuration(), "Duration"],
+      ["v_u128", xdr.ScSpecTypeDef.scSpecTypeU128(), "u128"],
+      ["v_i128", xdr.ScSpecTypeDef.scSpecTypeI128(), "i128"],
+      ["v_u256", xdr.ScSpecTypeDef.scSpecTypeU256(), "u256"],
+      ["v_i256", xdr.ScSpecTypeDef.scSpecTypeI256(), "i256"],
+      ["v_bytes", xdr.ScSpecTypeDef.scSpecTypeBytes(), "Bytes"],
+      ["v_str", xdr.ScSpecTypeDef.scSpecTypeString(), "String"],
+      ["v_sym", xdr.ScSpecTypeDef.scSpecTypeSymbol(), "Symbol"],
+      ["v_addr", xdr.ScSpecTypeDef.scSpecTypeAddress(), "Address"],
+      [
+        "v_opt",
+        xdr.ScSpecTypeDef.scSpecTypeOption(
+          new xdr.ScSpecTypeOption({ valueType: u32 }),
+        ),
+        "Option",
+      ],
+      [
+        "v_res",
+        xdr.ScSpecTypeDef.scSpecTypeResult(
+          new xdr.ScSpecTypeResult({
+            okType: u32,
+            errorType: xdr.ScSpecTypeDef.scSpecTypeError(),
+          }),
+        ),
+        "Result",
+      ],
+      [
+        "v_vec",
+        xdr.ScSpecTypeDef.scSpecTypeVec(
+          new xdr.ScSpecTypeVec({ elementType: u32 }),
+        ),
+        "Vec",
+      ],
+      [
+        "v_map",
+        xdr.ScSpecTypeDef.scSpecTypeMap(
+          new xdr.ScSpecTypeMap({ keyType: u32, valueType: u32 }),
+        ),
+        "Map",
+      ],
+      [
+        "v_tuple",
+        xdr.ScSpecTypeDef.scSpecTypeTuple(
+          new xdr.ScSpecTypeTuple({ valueTypes: [u32] }),
+        ),
+        "Tuple",
+      ],
+      [
+        "v_bytesn",
+        xdr.ScSpecTypeDef.scSpecTypeBytesN(new xdr.ScSpecTypeBytesN({ n: 32 })),
+        "BytesN",
+      ],
+      [
+        "v_udt",
+        xdr.ScSpecTypeDef.scSpecTypeUdt(
+          new xdr.ScSpecTypeUdt({ name: "MyStruct" }),
+        ),
+        "Udt",
+      ],
+    ];
+
+    const spec = new contract.Spec([
+      functionEntry(
+        "all_types",
+        typeCases.map(([name, type]) => ({ name, type })),
+      ),
+      xdr.ScSpecEntry.scSpecEntryUdtStructV0(
+        new xdr.ScSpecUdtStructV0({
+          doc: "",
+          lib: "",
+          name: "MyStruct",
+          fields: [
+            new xdr.ScSpecUdtStructFieldV0({ doc: "", name: "a", type: u32 }),
+          ],
+        }),
+      ),
+      xdr.ScSpecEntry.scSpecEntryUdtUnionV0(
+        new xdr.ScSpecUdtUnionV0({
+          doc: "",
+          lib: "",
+          name: "MyUnion",
+          cases: [
+            xdr.ScSpecUdtUnionCaseV0.scSpecUdtUnionCaseVoidV0(
+              new xdr.ScSpecUdtUnionCaseVoidV0({ doc: "", name: "Empty" }),
+            ),
+          ],
+        }),
+      ),
+      xdr.ScSpecEntry.scSpecEntryUdtEnumV0(
+        new xdr.ScSpecUdtEnumV0({
+          doc: "",
+          lib: "",
+          name: "MyEnum",
+          cases: [
+            new xdr.ScSpecUdtEnumCaseV0({ doc: "", name: "A", value: 0 }),
+          ],
+        }),
+      ),
+      xdr.ScSpecEntry.scSpecEntryUdtErrorEnumV0(
+        new xdr.ScSpecUdtErrorEnumV0({
+          doc: "",
+          lib: "",
+          name: "MyErr",
+          cases: [
+            new xdr.ScSpecUdtErrorEnumCaseV0({
+              doc: "",
+              name: "Fail",
+              value: 1,
+            }),
+          ],
+        }),
+      ),
+    ]);
+
+    jest
+      .spyOn(contract.Client, "fromWasm")
+      .mockResolvedValue({ spec } as never);
+
+    const server = new rpc.Server("https://soroban-testnet.stellar.org");
+    const result = await fetchContractSpec(
+      server,
+      VALID_CONTRACT_ID,
+      Networks.TESTNET,
+    );
+
+    expect(result.spec.entries).toHaveLength(5);
+    expect(result.functions).toHaveLength(1);
+    expect(result.functions[0].args).toEqual(
+      typeCases.map(([name, , expected]) => ({ name, type: expected })),
+    );
+  });
+
+  it("maps MuxedAddress and falls back to the raw tag name for unknown spec types", async () => {
+    jest
+      .spyOn(rpc.Server.prototype, "getContractWasmByContractId")
+      .mockResolvedValue(fakeWasm as never);
+
+    const syntheticSpec = {
+      funcs: () => [
+        {
+          name: () => "custom_fn",
+          inputs: () => [
+            {
+              name: () => "muxed",
+              type: () => ({
+                switch: () => ({ name: "scSpecTypeMuxedAddress" }),
+              }),
+            },
+            {
+              name: () => "future_arg",
+              type: () => ({
+                switch: () => ({ name: "scSpecTypeFutureCustom" }),
+              }),
+            },
+          ],
+          outputs: () => [],
+          doc: () => "",
+        },
+      ],
+    };
+
+    jest
+      .spyOn(contract.Client, "fromWasm")
+      .mockResolvedValue({ spec: syntheticSpec } as never);
+
+    const server = new rpc.Server("https://soroban-testnet.stellar.org");
+    const { functions } = await fetchContractSpec(
+      server,
+      VALID_CONTRACT_ID,
+      Networks.TESTNET,
+    );
+
+    expect(functions).toEqual([
+      {
+        name: "custom_fn",
+        args: [
+          { name: "muxed", type: "MuxedAddress" },
+          { name: "future_arg", type: "scSpecTypeFutureCustom" },
+        ],
+        outputsCount: 0,
+        doc: "",
+      },
+    ]);
+  });
 });
