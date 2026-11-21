@@ -93,16 +93,16 @@ Options:
 
 ### Subcommands
 
-| Command | Description |
-| --- | --- |
-| `nextellar add [feature]` | Add a Stellar feature to an existing project (`--list` to see all, `--force` to overwrite, `--skip-install`, `--package-manager`) |
-| `nextellar templates [name]` | Preview each template's file tree and description without scaffolding (name to preview just one, `--json` for machine-readable output) |
-| `nextellar doctor` | Run environment diagnostics (`--json` for CI, `--fix` to auto-remediate safe issues) |
-| `nextellar status` | Show a scaffolded project's health score: outdated deps, missing env vars, telemetry status, git init (`--json` for CI) |
-| `nextellar upgrade` | Upgrade an existing project to the latest template (`--dry-run` to preview, `--check` for a changelog preview, `--diff` for a full file-by-file diff without applying anything, `--yes` to skip prompts) |
-| `nextellar deploy` | Validate and prepare a deployment bundle for Nextellar Cloud (`--dry-run` to preview) |
-| `nextellar clean` | Remove `.nextellar/` build artifacts |
-| `nextellar telemetry <status\|enable\|disable>` | Manage anonymous telemetry settings |
+| Command                                         | Description                                                                                                                                                                                              |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `nextellar add [feature]`                       | Add a Stellar feature to an existing project (`--list` to see all, `--force` to overwrite, `--skip-install`, `--package-manager`)                                                                        |
+| `nextellar templates [name]`                    | Preview each template's file tree and description without scaffolding (name to preview just one, `--json` for machine-readable output)                                                                   |
+| `nextellar doctor`                              | Run environment diagnostics (`--json` for CI, `--fix` to auto-remediate safe issues)                                                                                                                     |
+| `nextellar status`                              | Show a scaffolded project's health score: outdated deps, missing env vars, telemetry status, git init (`--json` for CI)                                                                                  |
+| `nextellar upgrade`                             | Upgrade an existing project to the latest template (`--dry-run` to preview, `--check` for a changelog preview, `--diff` for a full file-by-file diff without applying anything, `--yes` to skip prompts) |
+| `nextellar deploy`                              | Validate and prepare a deployment bundle for Nextellar Cloud (`--dry-run` to preview)                                                                                                                    |
+| `nextellar clean`                               | Remove `.nextellar/` build artifacts                                                                                                                                                                     |
+| `nextellar telemetry <status\|enable\|disable>` | Manage anonymous telemetry settings                                                                                                                                                                      |
 
 ---
 
@@ -111,11 +111,11 @@ Options:
 `--template <name>` selects which starter to scaffold. It defaults to
 `default` when omitted. Every template supports both TypeScript and JavaScript.
 
-| Template  | Description                                                                    | TypeScript | JavaScript |
-| --------- | ------------------------------------------------------------------------------ | :--------: | :--------: |
-| `default` | Full starter: wallet provider, network switcher, balances, transaction history  |     ✅     |     ✅     |
-| `minimal` | Bare starter: wallet connection only, no extra UI                               |     ✅     |     ✅     |
-| `defi`    | DeFi starter: swap, liquidity pool and price-feed components                    |     ✅     |     ✅     |
+| Template  | Description                                                                                                    | TypeScript | JavaScript |
+| --------- | -------------------------------------------------------------------------------------------------------------- | :--------: | :--------: |
+| `default` | Full starter: wallet provider, network switcher, balances, transaction history                                 |     ✅     |     ✅     |
+| `minimal` | Bare starter: wallet connection only, no extra UI                                                              |     ✅     |     ✅     |
+| `defi`    | DeFi starter: swap, liquidity pool and price-feed components                                                   |     ✅     |     ✅     |
 | `full`    | Everything: the `default` component set plus defi's Soroban `CounterDemo`, with `--with-contracts` pre-enabled |     ✅     |     ✅     |
 
 ```bash
@@ -178,17 +178,17 @@ my-app/
 
 The following components and tools are planned but **not yet included** in scaffolded projects. Track progress or contribute via their issue links:
 
-| Feature | Status | Issue |
-| --- | --- | --- |
-| `<BalanceDisplay>` component | Installable via `nextellar add balance-display` | — |
-| `<SendForm>` component | Installable via `nextellar add send-form` | — |
-| `<TransactionList>` component | Installable via `nextellar add transaction-list` | — |
-| `<ContractCallForm>` / `<ContractCallPreview>` components | Installable via `nextellar add contract-call` | — |
-| `<ReceiveForm>` component | Planned | — |
-| `<TransactionStatusBadge>` component | Planned | — |
-| Full `shadcn/ui` integration | Templates ship inline shadcn/ui-inspired components; full setup is manual | — |
-| Storybook for component previews | Planned | — |
-| GitHub Actions CI in generated apps | Planned (repo-level CI: [#679](https://github.com/nextellarlabs/nextellar/issues/679), [#680](https://github.com/nextellarlabs/nextellar/issues/680)) | — |
+| Feature                                                   | Status                                                                                                                                                | Issue |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
+| `<BalanceDisplay>` component                              | Installable via `nextellar add balance-display`                                                                                                       | —     |
+| `<SendForm>` component                                    | Installable via `nextellar add send-form`                                                                                                             | —     |
+| `<TransactionList>` component                             | Installable via `nextellar add transaction-list`                                                                                                      | —     |
+| `<ContractCallForm>` / `<ContractCallPreview>` components | Installable via `nextellar add contract-call`                                                                                                         | —     |
+| `<ReceiveForm>` component                                 | Planned                                                                                                                                               | —     |
+| `<TransactionStatusBadge>` component                      | Planned                                                                                                                                               | —     |
+| Full `shadcn/ui` integration                              | Templates ship inline shadcn/ui-inspired components; full setup is manual                                                                             | —     |
+| Storybook for component previews                          | Planned                                                                                                                                               | —     |
+| GitHub Actions CI in generated apps                       | Planned (repo-level CI: [#679](https://github.com/nextellarlabs/nextellar/issues/679), [#680](https://github.com/nextellarlabs/nextellar/issues/680)) | —     |
 
 > 💡 Use `nextellar add --list` to see all currently installable features.
 
@@ -238,6 +238,9 @@ Horizon rate limiter configuration and tuning:
 Cookbook: deploying and upgrading a Soroban contract end-to-end:  
 🔗 [docs/cookbook/contract-deploy-and-upgrade.md](docs/cookbook/contract-deploy-and-upgrade.md)
 
+Cookbook index & path payments (`usePathPayment` strict-send/receive + slippage):  
+🔗 [docs/cookbook/README.md](docs/cookbook/README.md) · [docs/cookbook/usePathPayment.md](docs/cookbook/usePathPayment.md)
+
 ---
 
 ## 🚀 Backend & Stellar Wave Routes
@@ -247,6 +250,7 @@ The Nextellar backend API and Stellar Wave contributor routes have been moved to
 🔗 **[nextellarlabs/nextellar-backend](https://github.com/nextellarlabs/nextellar-backend)**
 
 This repo contains:
+
 - Express API server with authentication, payments, orders, and middleware
 - ~150 route files from the Stellar Wave contributor program
 - Full test suites and documentation
