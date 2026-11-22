@@ -37,6 +37,7 @@ export interface ScaffoldOptions {
   useTs: boolean;
   template?: string;
   withContracts?: boolean;
+  withCi?: boolean;
   horizonUrl?: string;
   sorobanUrl?: string;
   wallets?: string[];
@@ -82,6 +83,7 @@ export async function scaffold(
     useTs,
     template,
     withContracts: withContractsOption,
+    withCi: withCiOption,
     horizonUrl,
     sorobanUrl,
     wallets,
@@ -129,6 +131,7 @@ export async function scaffold(
   const overlayTemplateName = resolveTemplateOverlayDir(templateName, useTs);
   const withContracts =
     !!withContractsOption || templateForcesContracts(templateName);
+  const withCi = !!withCiOption;
 
   // Validate custom URL overrides if provided
   if (horizonUrl) {
@@ -281,6 +284,12 @@ export async function scaffold(
       }
     }
 
+    if (withCi) {
+      console.log(
+        `    ${pc.green("+")} .github/workflows/ci.yml ${pc.dim("(CI workflow)")}`,
+      );
+    }
+
     // Show placeholder substitutions
     console.log("");
     console.log(pc.bold("  Placeholder substitutions:"));
@@ -399,6 +408,18 @@ export async function scaffold(
       await fs.appendFile(
         envExamplePath,
         `\n# Soroban Smart Contracts\nNEXT_PUBLIC_HELLO_WORLD_CONTRACT_ID=C_REPLACE_WITH_YOUR_CONTRACT_ID\n`,
+      );
+    }
+
+    if (withCi) {
+      const { generateCiWorkflow } = await import("./ci.js");
+      const workflowContent = generateCiWorkflow(packageManager);
+      const workflowDir = path.join(targetDir, ".github", "workflows");
+      await fs.ensureDir(workflowDir);
+      await fs.writeFile(
+        path.join(workflowDir, "ci.yml"),
+        workflowContent,
+        "utf8",
       );
     }
 

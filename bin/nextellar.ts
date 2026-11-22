@@ -448,6 +448,11 @@ program
     "scaffold Soroban smart contracts alongside the frontend",
     false,
   )
+  .option(
+    "--with-ci",
+    "generate a GitHub Actions CI workflow in the created project",
+    false,
+  )
   .option("--force", "overwrite existing directory", false)
   .option(
     "--workspace",
@@ -676,6 +681,7 @@ program.action(async (projectName, options) => {
       useTs,
       template,
       withContracts,
+      withCi: !!options.withCi,
       horizonUrl: finalHorizonUrl,
       sorobanUrl: finalSorobanUrl,
       wallets: finalWallets,
