@@ -29,6 +29,9 @@ jobs:
 
       - run: npm run format:check
 
+      - name: Verify template comparison doc drift
+        run: node scripts/generate-template-comparison.mjs --check
+
   coverage-gate:
     name: Coverage threshold gate
     runs-on: ubuntu-latest
