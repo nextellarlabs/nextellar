@@ -118,6 +118,8 @@ Options:
 | `defi`    | DeFi starter: swap, liquidity pool and price-feed components                    |     ✅     |     ✅     |
 | `full`    | Everything: the `default` component set plus defi's Soroban `CounterDemo`, with `--with-contracts` pre-enabled |     ✅     |     ✅     |
 
+> 🔍 **Looking for a granular breakdown?** Check out the [Template Comparison Matrix](docs/template-comparison.md) for a detailed matrix of components, hooks, and capabilities across all templates.
+
 ```bash
 npx nextellar my-app                          # default template, TypeScript
 npx nextellar my-app --template minimal       # minimal starter
