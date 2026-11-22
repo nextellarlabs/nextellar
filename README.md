@@ -81,6 +81,7 @@ Options:
   --skip-install                  skip dependency installation after scaffolding
   --package-manager <manager>    choose package manager (npm, yarn, pnpm, bun)
   -c, --with-contracts            scaffold Soroban smart contracts alongside the frontend
+  --with-ci                       generate a GitHub Actions CI workflow in the created project
   --force                         overwrite existing directory
   --workspace                     scaffold into the nearest npm/yarn/pnpm/bun workspace (monorepo) root
   --workspace-root <dir>          workspace root to scaffold into (implies --workspace)
