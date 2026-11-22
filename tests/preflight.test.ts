@@ -1,7 +1,6 @@
 // Tests for preflight toolchain checks (#908).
 
-import { checkNodeVersion, runPreflight } from '../src/lib/preflight.js';
-
+import { checkNodeVersion, runPreflight } from "../src/lib/preflight.js";
 
 describe("checkNodeVersion (#908)", () => {
   // The running node satisfies >= 20, so the happy path is real.
@@ -30,10 +29,7 @@ describe("runPreflight (#908)", () => {
   });
 
   test("passes with healthy toolchain", async () => {
-    const result = await runPreflight(
-      async () => ({ stdout: "10.9.0\n" }),
-      20,
-    );
+    const result = await runPreflight(async () => ({ stdout: "10.9.0\n" }), 20);
     expect(result.ok).toBe(true);
     expect(result.failures).toHaveLength(0);
   });

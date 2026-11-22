@@ -17,7 +17,9 @@ describe("doctor --json output shape", () => {
     try {
       await runDoctor({ json: true });
       // The first call arg is the JSON string.
-      const raw = spy.mock.calls.find((c) => typeof c[0] === "string" && c[0].trimStart().startsWith("{"));
+      const raw = spy.mock.calls.find(
+        (c) => typeof c[0] === "string" && c[0].trimStart().startsWith("{"),
+      );
       if (!raw) throw new Error("doctor --json produced no JSON output");
       output = JSON.parse(raw[0] as string);
     } finally {
@@ -57,7 +59,8 @@ describe("doctor --json output shape", () => {
 
   it("optional check fields are strings when present", () => {
     for (const check of output.checks) {
-      if (check.detail !== undefined) expect(typeof check.detail).toBe("string");
+      if (check.detail !== undefined)
+        expect(typeof check.detail).toBe("string");
       if (check.fix !== undefined) expect(typeof check.fix).toBe("string");
       if (check.link !== undefined) expect(typeof check.link).toBe("string");
     }
@@ -77,7 +80,15 @@ describe("doctor --json output shape", () => {
   });
 
   it("each check has no unexpected keys", () => {
-    const allowed = new Set(["id", "name", "required", "ok", "detail", "fix", "link"]);
+    const allowed = new Set([
+      "id",
+      "name",
+      "required",
+      "ok",
+      "detail",
+      "fix",
+      "link",
+    ]);
     for (const check of output.checks) {
       for (const key of Object.keys(check)) {
         expect(allowed.has(key)).toBe(true);
@@ -90,7 +101,9 @@ describe("doctor --json output shape", () => {
   });
 
   it("requiredFailures matches check data", () => {
-    const expected = output.checks.filter((c: any) => c.required && !c.ok).length;
+    const expected = output.checks.filter(
+      (c: any) => c.required && !c.ok,
+    ).length;
     expect(output.requiredFailures).toBe(expected);
   });
 });

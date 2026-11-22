@@ -9,6 +9,8 @@ import {
   WalletNetwork,
   ISupportedWallet,
 } from "@creit.tech/stellar-wallets-kit";
+import { LedgerWalletModule } from "./wallets/ledger-module";
+import { createWalletConnectModule } from "./wallets/walletconnect-module";
 
 // Placeholder for injected wallets. During scaffold-time this token is replaced
 // with an array literal.
@@ -42,6 +44,33 @@ export const getKit = (network?: WalletNetwork): StellarWalletsKit => {
     // Determine network: priority to passed param, then injected placeholder, then default to TESTNET
     const targetNetwork = network || (('{{NETWORK}}' as string) === 'PUBLIC' ? WalletNetwork.PUBLIC : WalletNetwork.TESTNET);
     currentNetwork = targetNetwork;
+
+    // Hardware wallet (WebUSB). See docs/custom-wallet-adapter-guide.md.
+    if (walletList.includes('ledger')) {
+      modules.push(
+        new LedgerWalletModule({
+          network: {
+            network: targetNetwork === WalletNetwork.PUBLIC ? 'PUBLIC' : 'TESTNET',
+            networkPassphrase: targetNetwork,
+          },
+        }),
+      );
+    }
+
+    // WalletConnect only appears once NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID is set.
+    // Env vars are listed one by one so Next.js can inline them in the browser bundle.
+    if (walletList.includes('walletconnect')) {
+      const walletConnect = createWalletConnectModule(
+        {
+          NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID,
+          NEXT_PUBLIC_WALLETCONNECT_APP_URL: process.env.NEXT_PUBLIC_WALLETCONNECT_APP_URL,
+          NEXT_PUBLIC_WALLETCONNECT_ICON: process.env.NEXT_PUBLIC_WALLETCONNECT_ICON,
+          NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,
+        },
+        targetNetwork,
+      );
+      if (walletConnect) modules.push(walletConnect);
+    }
 
     kitInstance = new StellarWalletsKit({
       network: ('{{NETWORK}}' as string) === 'PUBLIC' ? WalletNetwork.PUBLIC : WalletNetwork.TESTNET,

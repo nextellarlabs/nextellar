@@ -9,6 +9,7 @@ import {
   INVALID_PUBLIC_KEY_NO_G as INVALID_KEY_NO_G,
   INVALID_PUBLIC_KEY_SHORT as INVALID_KEY_SHORT,
   makeHorizonPage as makePage,
+  makeHorizonRecord as makeRecord,
   makeHorizonResponse as makeResponse,
   PUBLIC_KEY as VALID_PUBLIC_KEY,
   PUBLIC_KEY_2 as VALID_PUBLIC_KEY_2,
@@ -37,41 +38,6 @@ const { useTransactionHistory } =
   await import("../../src/templates/default/src/hooks/useTransactionHistory.js");
 
 // ── Test fixtures ─────────────────────────────────────────────────────────────
-
-const VALID_PUBLIC_KEY =
-  "GABC1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234";
-const VALID_PUBLIC_KEY_2 =
-  "GDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234";
-const INVALID_KEY_SHORT = "GABC";
-const INVALID_KEY_NO_G =
-  "XABC1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234";
-
-const PAGE_SIZE = 10;
-
-/** Build a mock Horizon operation record. */
-function makeRecord(index: number) {
-  return {
-    id: `op-${index}`,
-    paging_token: `pt-${index}`,
-    type: "payment",
-    type_i: 1,
-    created_at: `2024-01-01T00:${String(index).padStart(2, "0")}:00Z`,
-    transaction_hash: `txhash-${index}`,
-    source_account: VALID_PUBLIC_KEY,
-    amount: `${(10 + index).toFixed(7)}`,
-    asset_type: "native",
-  };
-}
-
-/** Build a page of records. */
-function makePage(start: number, count: number) {
-  return Array.from({ length: count }, (_, i) => makeRecord(start + i));
-}
-
-/** Build a successful Horizon response. */
-function makeResponse(records: ReturnType<typeof makeRecord>[]) {
-  return { records };
-}
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 

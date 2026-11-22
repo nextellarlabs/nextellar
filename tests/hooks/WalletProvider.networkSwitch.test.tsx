@@ -3,14 +3,14 @@
  *
  * WalletProvider network re-point (#794).
  */
-import { jest } from '@jest/globals';
-import { renderHook, act } from '@testing-library/react';
-import { ReactNode } from 'react';
+import { jest } from "@jest/globals";
+import { renderHook, act } from "@testing-library/react";
+import { ReactNode } from "react";
 
 const serverUrls: string[] = [];
 
 await jest.unstable_mockModule(
-  '../../src/templates/default/src/lib/stellar-wallet-kit',
+  "../../src/templates/default/src/lib/stellar-wallet-kit",
   () => ({
     kit: jest.fn(() => ({
       openModal: jest.fn(),
@@ -18,19 +18,22 @@ await jest.unstable_mockModule(
       getAddress: jest.fn(),
       disconnect: jest.fn(),
     })),
-    WalletNetwork: { PUBLIC: 'PUBLIC', TESTNET: 'TESTNET' },
+    WalletNetwork: { PUBLIC: "PUBLIC", TESTNET: "TESTNET" },
   }),
 );
 
-await jest.unstable_mockModule('../../src/templates/default/src/lib/storage', () => ({
-  storage: {
-    get: jest.fn(),
-    set: jest.fn(),
-    remove: jest.fn(),
-  },
-}));
+await jest.unstable_mockModule(
+  "../../src/templates/default/src/lib/storage",
+  () => ({
+    storage: {
+      get: jest.fn(),
+      set: jest.fn(),
+      remove: jest.fn(),
+    },
+  }),
+);
 
-await jest.unstable_mockModule('@stellar/stellar-sdk', () => ({
+await jest.unstable_mockModule("@stellar/stellar-sdk", () => ({
   Horizon: {
     Server: jest.fn((url: string) => {
       serverUrls.push(url);
@@ -46,19 +49,18 @@ await jest.unstable_mockModule('@stellar/stellar-sdk', () => ({
   TransactionBuilder: jest.fn(),
   Operation: { payment: jest.fn() },
   Networks: {
-    PUBLIC: 'Public Global Stellar Network ; September 2015',
-    TESTNET: 'Test SDF Network ; September 2015',
+    PUBLIC: "Public Global Stellar Network ; September 2015",
+    TESTNET: "Test SDF Network ; September 2015",
   },
   Asset: jest.fn(),
   Memo: { text: jest.fn() },
-  BASE_FEE: '100',
+  BASE_FEE: "100",
 }));
 
-const { WalletProvider, useWalletConfig } = await import(
-  '../../src/templates/default/src/contexts/WalletProvider'
-);
+const { WalletProvider, useWalletConfig } =
+  await import("../../src/templates/default/src/contexts/WalletProvider");
 
-describe('WalletProvider network switch (#794)', () => {
+describe("WalletProvider network switch (#794)", () => {
   beforeEach(() => {
     serverUrls.length = 0;
     jest.clearAllMocks();
@@ -68,24 +70,24 @@ describe('WalletProvider network switch (#794)', () => {
     <WalletProvider>{children}</WalletProvider>
   );
 
-  it('re-points Horizon URL and passphrase when activeNetworkKey changes', () => {
+  it("re-points Horizon URL and passphrase when activeNetworkKey changes", () => {
     const { result } = renderHook(() => useWalletConfig(), { wrapper });
 
     expect(result.current?.horizonUrl).toBe(
-      'https://horizon-testnet.stellar.org',
+      "https://horizon-testnet.stellar.org",
     );
-    expect(result.current?.network).toBe('Test SDF Network ; September 2015');
+    expect(result.current?.network).toBe("Test SDF Network ; September 2015");
 
     act(() => {
-      result.current?.switchNetwork('mainnet');
+      result.current?.switchNetwork("mainnet");
     });
 
-    expect(result.current?.activeNetworkKey).toBe('mainnet');
-    expect(result.current?.horizonUrl).toBe('https://horizon.stellar.org');
-    expect(result.current?.sorobanUrl).toBe('https://soroban.stellar.org');
+    expect(result.current?.activeNetworkKey).toBe("mainnet");
+    expect(result.current?.horizonUrl).toBe("https://horizon.stellar.org");
+    expect(result.current?.sorobanUrl).toBe("https://soroban.stellar.org");
     expect(result.current?.network).toBe(
-      'Public Global Stellar Network ; September 2015',
+      "Public Global Stellar Network ; September 2015",
     );
-    expect(serverUrls).toContain('https://horizon.stellar.org');
+    expect(serverUrls).toContain("https://horizon.stellar.org");
   });
 });

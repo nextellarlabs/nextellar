@@ -52,7 +52,8 @@ async function writeState(state: UpdateCheckState): Promise<void> {
  * release version.
  */
 export function isNewerVersion(current: string, latest: string): boolean {
-  const parse = (v: string) => v.split(".").map((part) => parseInt(part, 10) || 0);
+  const parse = (v: string) =>
+    v.split(".").map((part) => parseInt(part, 10) || 0);
   const a = parse(current);
   const b = parse(latest);
   for (let i = 0; i < Math.max(a.length, b.length); i++) {
@@ -96,7 +97,9 @@ export interface UpdateNotifierOptions {
  * disabled: an update notice is not essential CLI behavior, and users who
  * opted out of network calls should see none.
  */
-export async function maybeNotifyUpdate(options: UpdateNotifierOptions): Promise<void> {
+export async function maybeNotifyUpdate(
+  options: UpdateNotifierOptions,
+): Promise<void> {
   const { currentVersion, noTelemetryFlag } = options;
 
   if (
@@ -111,7 +114,8 @@ export async function maybeNotifyUpdate(options: UpdateNotifierOptions): Promise
   const state = await readState();
   const now = Date.now();
   const isCacheFresh =
-    typeof state.lastCheckedAt === "number" && now - state.lastCheckedAt < CHECK_INTERVAL_MS;
+    typeof state.lastCheckedAt === "number" &&
+    now - state.lastCheckedAt < CHECK_INTERVAL_MS;
 
   let latestVersion = isCacheFresh ? state.latestKnownVersion : undefined;
 

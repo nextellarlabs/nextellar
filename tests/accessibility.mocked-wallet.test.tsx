@@ -51,12 +51,12 @@ const [
   { useStellarBalances },
   { default: NetworkSwitcher },
   { default: BalanceDisplay },
-] = await Promise.all([
-  import("../src/mocks/wallet-contexts-mock"),
-  import("../src/templates/default/src/hooks/useStellarBalances"),
-  import("../src/templates/default/src/components/NetworkSwitcher"),
-  import("../src/templates/default/src/components/BalanceDisplay"),
-]);
+] = [
+  await import("../src/mocks/wallet-contexts-mock"),
+  await import("../src/templates/default/src/hooks/useStellarBalances"),
+  await import("../src/templates/default/src/components/NetworkSwitcher"),
+  await import("../src/templates/default/src/components/BalanceDisplay"),
+];
 
 describe("accessibility (#946) — mocked wallet hooks", () => {
   describe("NetworkSwitcher", () => {

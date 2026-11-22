@@ -1,4 +1,3 @@
-import type { StoryObj } from '@storybook/react';
 import { WalletContext } from '../contexts/WalletProvider';
 import BalanceDisplay from './BalanceDisplay';
 import { __setBalanceScenario } from '../../.storybook/mocks/useStellarBalances';
@@ -44,33 +43,32 @@ const meta = {
 };
 
 export default meta;
-type Story = StoryObj<typeof meta>;
 
 /**
  * No wallet connected — BalanceDisplay short-circuits before the balances
  * hook and shows the "Connect a wallet to view balances" empty state.
  */
-export const Disconnected: Story = {
+export const Disconnected = {
   decorators: [withBalances('empty', disconnectedWallet)],
 };
 
 /** Initial load — skeleton rows with an announced loading state. */
-export const Loading: Story = {
+export const Loading = {
   decorators: [withBalances('loading')],
 };
 
 /** Connected wallet with no balances yet (e.g. unfunded account). */
-export const Empty: Story = {
+export const Empty = {
   decorators: [withBalances('empty')],
 };
 
 /** Failed to load balances before any rows rendered, with a retry affordance. */
-export const Error: Story = {
+export const Error = {
   decorators: [withBalances('error')],
 };
 
 /** A connected wallet with native XLM and a USDC asset balance. */
-export const Populated: Story = {
+export const Populated = {
   decorators: [withBalances('populated')],
 };
 
@@ -78,7 +76,7 @@ export const Populated: Story = {
  * Populated state rendered on a dark background. Wrapping in a `.dark`
  * ancestor activates the component's `dark:` Tailwind variants.
  */
-export const PopulatedDark: Story = {
+export const PopulatedDark = {
   decorators: [
     withBalances('populated'),
     (Story) => (

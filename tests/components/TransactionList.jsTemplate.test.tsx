@@ -24,11 +24,11 @@ jest.unstable_mockModule(
 );
 
 const [{ default: TransactionList }, { useTransactionHistory }, { useWallet }] =
-  await Promise.all([
-    import("../../src/templates/js-template/src/components/TransactionList"),
-    import("../../src/templates/js-template/src/hooks/useTransactionHistory"),
-    import("../../src/mocks/wallet-contexts-mock"),
-  ]);
+  [
+    await import("../../src/templates/js-template/src/components/TransactionList"),
+    await import("../../src/templates/js-template/src/hooks/useTransactionHistory"),
+    await import("../../src/mocks/wallet-contexts-mock"),
+  ];
 
 const WALLET_ADDRESS =
   "GABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234";

@@ -9,7 +9,12 @@ export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    files: ["bin/**/*.ts", "src/lib/**/*.ts", "tests/**/*.ts", "tests/**/*.tsx"],
+    files: [
+      "bin/**/*.ts",
+      "src/lib/**/*.ts",
+      "tests/**/*.ts",
+      "tests/**/*.tsx",
+    ],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "module",

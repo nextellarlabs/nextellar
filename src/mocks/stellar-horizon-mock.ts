@@ -47,6 +47,20 @@ export const mockLoadAccount = jest.fn() as AnyAsyncMock;
 /** Resolves/rejects `submitTransaction()`. */
 export const mockSubmitTransaction = jest.fn() as AnyAsyncMock;
 
+/** Resolves/rejects `strictSendPaths(...).call()` — Horizon path finding. */
+export const mockStrictSendPathsCall = jest.fn() as AnyAsyncMock;
+
+/** Resolves/rejects `strictReceivePaths(...).call()` — Horizon path finding. */
+export const mockStrictReceivePathsCall = jest.fn() as AnyAsyncMock;
+
+/** Records the arguments each path-finding builder was created with. */
+export const mockStrictSendPaths = jest.fn() as jest.Mock<
+  (...args: never[]) => unknown
+>;
+export const mockStrictReceivePaths = jest.fn() as jest.Mock<
+  (...args: never[]) => unknown
+>;
+
 /** Captures the URL each `new Horizon.Server(...)` was constructed with. */
 export const mockHorizonServerConstructor = jest.fn() as jest.Mock<
   (...args: never[]) => unknown
@@ -58,7 +72,14 @@ const makeServer = () => ({
   })),
   loadAccount: mockLoadAccount,
   submitTransaction: mockSubmitTransaction,
+  strictSendPaths: mockStrictSendPaths,
+  strictReceivePaths: mockStrictReceivePaths,
 });
+
+mockStrictSendPaths.mockImplementation(() => ({ call: mockStrictSendPathsCall }));
+mockStrictReceivePaths.mockImplementation(() => ({
+  call: mockStrictReceivePathsCall,
+}));
 
 mockHorizonServerConstructor.mockImplementation(makeServer);
 
@@ -70,6 +91,14 @@ export function resetHorizonMocks(): void {
   mockAccountCall.mockReset();
   mockLoadAccount.mockReset();
   mockSubmitTransaction.mockReset();
+  mockStrictSendPathsCall.mockReset();
+  mockStrictReceivePathsCall.mockReset();
+  mockStrictSendPaths.mockReset();
+  mockStrictReceivePaths.mockReset();
+  mockStrictSendPaths.mockImplementation(() => ({ call: mockStrictSendPathsCall }));
+  mockStrictReceivePaths.mockImplementation(() => ({
+    call: mockStrictReceivePathsCall,
+  }));
   mockHorizonServerConstructor.mockReset();
   mockHorizonServerConstructor.mockImplementation(makeServer);
 }

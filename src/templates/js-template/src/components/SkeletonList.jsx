@@ -17,14 +17,17 @@ function DefaultSkeletonRow() {
 }
 
 /**
- * A stack of skeleton rows for a data view that has not loaded yet.
+ * A stack of skeleton rows for a data view that has not loaded yet. Wraps the
+ * rows in a polite `role="status"` live region marked `aria-busy="true"` with
+ * a screen-reader-only label; the placeholder rows are hidden from assistive
+ * tech.
  *
  * @param {{ rows?: number, label?: string, renderRow?: (index: number) => import('react').ReactNode }} props
  */
 export function SkeletonList({ rows = 4, label = 'Loading', renderRow }) {
   return (
-    <div className="w-full" role="status" aria-label={label}>
-      <div className="divide-y divide-gray-100 dark:divide-gray-800">
+    <div className="w-full" role="status" aria-live="polite" aria-busy="true" aria-label={label}>
+      <div className="divide-y divide-gray-100 dark:divide-gray-800" aria-hidden="true">
         {Array.from({ length: rows }).map((_, index) => (
           <div key={index}>{renderRow ? renderRow(index) : <DefaultSkeletonRow />}</div>
         ))}

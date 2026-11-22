@@ -1,11 +1,17 @@
 import express, { Request, Response } from "express";
 import request from "supertest";
 
-import { requestId, getRequestId, isValidUUID, REQUEST_ID_HEADER } from "../../backend/middleware/requestId.js";
+import {
+  requestId,
+  getRequestId,
+  isValidUUID,
+  REQUEST_ID_HEADER,
+} from "../../backend/middleware/requestId.js";
 
 const VALID_UUID = "123e4567-e89b-12d3-a456-426614174000";
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function buildApp() {
   const app = express();
@@ -47,13 +53,17 @@ describe("requestId middleware", () => {
       const res1 = await request(app).get("/ping");
       const res2 = await request(app).get("/ping");
 
-      expect(res1.headers[REQUEST_ID_HEADER]).not.toBe(res2.headers[REQUEST_ID_HEADER]);
+      expect(res1.headers[REQUEST_ID_HEADER]).not.toBe(
+        res2.headers[REQUEST_ID_HEADER],
+      );
     });
   });
 
   describe("valid inbound X-Request-ID", () => {
     it("passes through a valid UUID from the request header", async () => {
-      const res = await request(app).get("/ping").set(REQUEST_ID_HEADER, VALID_UUID);
+      const res = await request(app)
+        .get("/ping")
+        .set(REQUEST_ID_HEADER, VALID_UUID);
 
       expect(res.status).toBe(200);
       expect(res.headers[REQUEST_ID_HEADER]).toBe(VALID_UUID);
@@ -61,13 +71,17 @@ describe("requestId middleware", () => {
     });
 
     it("valid UUID is propagated to res.locals", async () => {
-      const res = await request(app).get("/ping").set(REQUEST_ID_HEADER, VALID_UUID);
+      const res = await request(app)
+        .get("/ping")
+        .set(REQUEST_ID_HEADER, VALID_UUID);
 
       expect(res.body.localsId).toBe(VALID_UUID);
     });
 
     it("same ID persists from request through to response header", async () => {
-      const res = await request(app).get("/ping").set(REQUEST_ID_HEADER, VALID_UUID);
+      const res = await request(app)
+        .get("/ping")
+        .set(REQUEST_ID_HEADER, VALID_UUID);
 
       expect(res.headers[REQUEST_ID_HEADER]).toBe(VALID_UUID);
       expect(res.body.requestId).toBe(VALID_UUID);
@@ -76,28 +90,36 @@ describe("requestId middleware", () => {
 
   describe("invalid inbound X-Request-ID", () => {
     it("rejects a plain string with 400", async () => {
-      const res = await request(app).get("/ping").set(REQUEST_ID_HEADER, "not-a-uuid");
+      const res = await request(app)
+        .get("/ping")
+        .set(REQUEST_ID_HEADER, "not-a-uuid");
 
       expect(res.status).toBe(400);
       expect(res.body.error.code).toBe("INVALID_REQUEST_ID");
     });
 
     it("rejects a numeric string with 400", async () => {
-      const res = await request(app).get("/ping").set(REQUEST_ID_HEADER, "12345");
+      const res = await request(app)
+        .get("/ping")
+        .set(REQUEST_ID_HEADER, "12345");
 
       expect(res.status).toBe(400);
       expect(res.body.error.code).toBe("INVALID_REQUEST_ID");
     });
 
     it("rejects a UUID with wrong structure", async () => {
-      const res = await request(app).get("/ping").set(REQUEST_ID_HEADER, "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx");
+      const res = await request(app)
+        .get("/ping")
+        .set(REQUEST_ID_HEADER, "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx");
 
       expect(res.status).toBe(400);
       expect(res.body.error.code).toBe("INVALID_REQUEST_ID");
     });
 
     it("error response uses standard error envelope shape", async () => {
-      const res = await request(app).get("/ping").set(REQUEST_ID_HEADER, "bad-id");
+      const res = await request(app)
+        .get("/ping")
+        .set(REQUEST_ID_HEADER, "bad-id");
 
       expect(res.status).toBe(400);
       expect(res.body.error).toBeDefined();
@@ -106,7 +128,9 @@ describe("requestId middleware", () => {
     });
 
     it("does not set X-Request-ID response header on rejection", async () => {
-      const res = await request(app).get("/ping").set(REQUEST_ID_HEADER, "bad-id");
+      const res = await request(app)
+        .get("/ping")
+        .set(REQUEST_ID_HEADER, "bad-id");
 
       expect(res.status).toBe(400);
       // Response ID header should not be the invalid value
@@ -116,7 +140,9 @@ describe("requestId middleware", () => {
 
   describe("logger context integration", () => {
     it("getRequestId returns the same ID stored in res.locals", async () => {
-      const res = await request(app).get("/ping").set(REQUEST_ID_HEADER, VALID_UUID);
+      const res = await request(app)
+        .get("/ping")
+        .set(REQUEST_ID_HEADER, VALID_UUID);
 
       // Route handler calls getRequestId(res) and includes it in body
       expect(res.body.requestId).toBe(VALID_UUID);

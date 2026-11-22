@@ -10,9 +10,11 @@ starter set of keys). It is **not wired into `layout.tsx` by default** — see
 `I18nProvider`'s own doc comment for how to opt in.
 
 Almost none of the actual component copy uses it yet. This doc is a full inventory of
-every hardcoded English string in `src/templates/default/src/components/` (33 files:
-17 components + their `.stories.tsx` files), so extraction work can be scoped and
-prioritized deliberately instead of discovered ad hoc.
+every hardcoded English string in `src/templates/default/src/components/` (37 files:
+19 components + their `.stories.tsx` files, including the SEP/wallet components added
+after the original pass — `NetworkMismatchBanner`, `Sep24InteractiveFrame`, and the
+Ledger/WalletConnect connect-button states on `WalletConnectButton`, #1260), so
+extraction work can be scoped and prioritized deliberately instead of discovered ad hoc.
 
 **Scope note:** this audit covers the `default` template only. `minimal`, `defi`,
 `js-template`, and `js-defi` have their own component copies (mostly the same strings,
@@ -21,7 +23,7 @@ pass — not repeated here to keep this audit a manageable, reviewable size.
 
 ## Grand total
 
-**≈150-180 hardcoded English UI strings** across all 33 files (≈163 in the 17 real
+**≈150-180 hardcoded English UI strings** across all 37 files (≈167 in the 19 real
 components, ≈15 in `.stories.tsx` files that render literal text via args/children).
 The range depends on how you count `TransactionList.tsx`'s 29-entry operation-type
 label map and repeated ternary branches — counting the map as one item instead of 29
@@ -62,6 +64,10 @@ puts the total closer to 150.
 | 31  | TransactionStatusBadge.stories.tsx |                 3 |
 | 32  | WalletConnectButton.tsx            |                 8 |
 | 33  | WalletConnectButton.stories.tsx    |                 0 |
+| 34  | NetworkMismatchBanner.tsx          |                 4 |
+| 35  | NetworkMismatchBanner.stories.tsx  |                 0 |
+| 36  | Sep24InteractiveFrame.tsx          |                 0 |
+| 37  | Sep24InteractiveFrame.stories.tsx  |                 0 |
 
 `EmptyState.tsx` and several `.stories.tsx` files show `0` because they only render
 `title`/`description`/`children` props supplied by their _callers_ — the strings show
@@ -81,7 +87,8 @@ files themselves, or the real usage site elsewhere in the app).
 4. **`BalanceDisplay.tsx`** (13)
 5. **`ContractCallForm.tsx`** (12)
 
-Runners-up: `ReceiveForm.tsx` (10), `WalletConnectButton.tsx` (8).
+Runners-up: `ReceiveForm.tsx` (10), `WalletConnectButton.tsx` (8),
+`NetworkMismatchBanner.tsx` (4).
 
 ## Full per-file inventory
 
@@ -279,6 +286,34 @@ network display names are worth a follow-up check but are out of scope here.
 - `:94` `` `${actionLabel} in progress` `` (aria-label)
 - `:113,115` `'Refresh balances'` (aria + title, same string x2)
 
+Note: the Ledger and WalletConnect connect-button states (`LedgerConnected`,
+`WalletConnectConnected` stories, #1258/#1260) render through this same component —
+only `walletName` changes — so they share these 8 strings, not new ones of their own.
+
+### NetworkMismatchBanner.tsx (4)
+
+- `:42` `"Wallet network mismatch"` (heading)
+- `:45` `"Your wallet is on <strong>{walletNetworkName}</strong>, but this app is configured for <strong>{appNetworkName}</strong>."` (description, interpolated)
+- `:46` "Signing a transaction now will target your wallet's network, not the app's. Switch your wallet's network, or switch the app's network, before signing." (description)
+- Implicit: `role="alert"` has no visible label string itself, but the heading/description above are read by screen readers via it.
+
+### NetworkMismatchBanner.stories.tsx (0)
+
+No literal strings — only mock `WalletContext`/`WalletConfigContext` provider data (network names, passphrases).
+
+### Sep24InteractiveFrame.tsx (0)
+
+No hardcoded user-facing copy: `title` (iframe a11y title) and `closeLabel` are both
+component props with default values (`'Anchor deposit and withdrawal'`, `'Close'`)
+rather than JSX text/attribute literals, matching the pattern already used by
+`LoadingBoundary.tsx`'s `label` prop. These two defaults are nonetheless real English
+strings a consumer sees if they don't override them, so they belong in the same
+extraction pass as the rest of this file's future `t(...)` conversion.
+
+### Sep24InteractiveFrame.stories.tsx (0)
+
+No literal UI copy — only story `args` (URLs, a no-op `onClose`).
+
 ## Strings needing special i18n handling
 
 These can't be solved with a plain `t('key')` lookup — they need
@@ -320,7 +355,8 @@ plural/interpolation support once a real catalog format is adopted:
    `ThemeToggle.tsx`, `TransactionStatusBadge.tsx`, `CopyButton.tsx`,
    `NetworkSwitcher.tsx`, `Skeleton.tsx`/`LoadingBoundary.tsx`.
 3. **Mid-size forms**: `BalanceDisplay.tsx`, `ContractCallForm.tsx`,
-   `ContractCallPreview.tsx`, `ReceiveForm.tsx`, `WalletConnectButton.tsx`.
+   `ContractCallPreview.tsx`, `ReceiveForm.tsx`, `WalletConnectButton.tsx`,
+   `NetworkMismatchBanner.tsx`.
 4. **`SendForm.tsx`** — largest form, several validation/status messages.
 5. **`TransactionList.tsx` as its own workstream** — the operation-type label map
    is a straightforward key-per-entry conversion, but `relativeTime()` and the

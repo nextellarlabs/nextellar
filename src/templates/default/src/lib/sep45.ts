@@ -107,7 +107,8 @@ export interface Sep45Challenge {
  * @throws if the buffer is malformed or contains trailing bytes past the declared entries.
  */
 function decodeSorobanAuthorizationEntries(raw: string): xdr.SorobanAuthorizationEntry[] {
-  const reader = new XdrReader(Buffer.from(raw, 'base64'));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const reader = new XdrReader(Buffer.from(raw, 'base64')) as any;
   const count = xdr.Uint32.read(reader);
   const entries: xdr.SorobanAuthorizationEntry[] = [];
   for (let i = 0; i < count; i++) {
@@ -124,7 +125,8 @@ function decodeSorobanAuthorizationEntries(raw: string): xdr.SorobanAuthorizatio
  * variable-length array format `decodeSorobanAuthorizationEntries` reads.
  */
 function encodeSorobanAuthorizationEntries(entries: xdr.SorobanAuthorizationEntry[]): string {
-  const writer = new XdrWriter();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const writer = new XdrWriter() as any;
   xdr.Uint32.write(entries.length, writer);
   for (const entry of entries) {
     xdr.SorobanAuthorizationEntry.write(entry, writer);

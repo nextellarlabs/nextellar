@@ -31,7 +31,7 @@ export interface InstallResult {
  */
 export function detectPackageManager(
   cwd: string,
-  packageManager?: string
+  packageManager?: string,
 ): PackageManager {
   // 1. Explicit flag takes precedence
   if (packageManager) {
@@ -62,7 +62,7 @@ export function detectPackageManager(
  * Returns the install command and arguments for the given package manager
  */
 export function getInstallCommand(
-  packageManager: PackageManager
+  packageManager: PackageManager,
 ): [string, string[]] {
   switch (packageManager) {
     case "npm":
@@ -110,9 +110,12 @@ const NETWORK_ERROR_HINTS: Array<{ pattern: RegExp; hint: string }> = [
  * Returns a targeted, human hint for a known network/registry failure
  * pattern in `errorMessage`, or undefined if nothing matched.
  */
-export function networkErrorHint(errorMessage: string | undefined): string | undefined {
+export function networkErrorHint(
+  errorMessage: string | undefined,
+): string | undefined {
   if (!errorMessage) return undefined;
-  return NETWORK_ERROR_HINTS.find(({ pattern }) => pattern.test(errorMessage))?.hint;
+  return NETWORK_ERROR_HINTS.find(({ pattern }) => pattern.test(errorMessage))
+    ?.hint;
 }
 
 /**
@@ -120,7 +123,7 @@ export function networkErrorHint(errorMessage: string | undefined): string | und
  * Streams output to console and handles errors gracefully
  */
 export async function runInstall(
-  options: InstallOptions
+  options: InstallOptions,
 ): Promise<InstallResult> {
   const {
     cwd,
@@ -154,8 +157,8 @@ export async function runInstall(
 
     spinner.succeed(
       pc.green(
-        `Dependencies installed successfully with ${pc.bold(packageManager)}`
-      )
+        `Dependencies installed successfully with ${pc.bold(packageManager)}`,
+      ),
     );
     return { success: true, packageManager };
   } catch (error: any) {
@@ -177,7 +180,7 @@ export async function runInstall(
 
     if (logPath) {
       console.error(
-        `\n📝 Full error log saved to: ${path.relative(process.cwd(), logPath)}`
+        `\n📝 Full error log saved to: ${path.relative(process.cwd(), logPath)}`,
       );
     }
 
@@ -196,7 +199,7 @@ export async function runInstall(
 async function saveInstallLog(
   cwd: string,
   error: any,
-  packageManager: string
+  packageManager: string,
 ): Promise<string | undefined> {
   try {
     const nextellarDir = path.join(cwd, ".nextellar");

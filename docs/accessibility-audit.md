@@ -34,6 +34,17 @@ Components already found to be in good shape and left unchanged: `TransactionSta
 - Existing suites (`tests/components/*`, `tests/templates-parity.test.ts`) re-run clean after these changes — no regressions.
 - Manual review confirms the changes are limited to contrast-safe color utilities, theme overlays, and the dark-variant configuration; no component structure or interaction behavior changed.
 
+## Follow-up fixes (#1141, #1142, #1143, #1144)
+
+| Component | Issue | WCAG | Fix |
+| --- | --- | --- | --- |
+| `Skeleton` / `SkeletonList` (all templates) | Loading placeholders were not marked busy, and a standalone `Skeleton` was a silent `aria-hidden` block | 4.1.3 Status Messages | `SkeletonList` is a polite `role="status"` region with `aria-busy="true"` and its rows hidden from AT; `Skeleton` takes an optional `label` that renders the same busy status region |
+| `ContractCallForm` (default) | Invalid input was not tied to its field or announced | 3.3.1 Error Identification; 1.3.1 Info and Relationships | Spec-selected functions get one typed field per argument; invalid fields get `aria-invalid`, an `aria-describedby` link to a `role="alert"` message, and focus moves to the first invalid field |
+| `ThemeToggle` (default, js-template) | The theme-switch color transition ignored `prefers-reduced-motion` | 2.3.3 Animation from Interactions | Transition dropped when `prefers-reduced-motion: reduce` is set (re-checked on each switch), with `motion-reduce:transition-none` as a CSS fallback |
+| `NetworkSwitcher` (default) | Arrowing through the closed select fired a network switch (and a disconnect prompt) on every keypress | 2.1.1 Keyboard; 3.2.2 On Input | Arrow/Home/End preview an option, Enter commits, Escape cancels, blur keeps the choice; the controls are described to screen readers |
+
+Covered by `tests/components/SkeletonA11y.test.tsx`, `ContractCallForm.validation.test.tsx`, `ThemeToggle.reduced-motion.test.tsx` and `NetworkSwitcher.keyboard.test.tsx`.
+
 ## Remediation backlog (not fixed in this PR)
 
 Tracked here rather than silently dropped, since a full AA audit surfaces more than one PR should try to fix at once:

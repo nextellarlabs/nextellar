@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { AlertCircle, Coins, RefreshCw, Wallet } from 'lucide-react';
 import { useWallet } from '../contexts';
 import { resolveAssetMetadata, type AssetMetadata } from '../lib/asset-metadata';
@@ -112,7 +113,7 @@ export default function BalanceDisplay({
   assetDomains = {},
 }: BalanceDisplayProps) {
   const { connected, publicKey: walletPublicKey } = useWallet();
-  const address = publicKey ?? walletPublicKey;
+  const address = publicKey ?? (connected ? walletPublicKey : null);
 
   const { balances, loading, error, refresh } = useStellarBalances(address, {
     ...(horizonUrl ? { horizonUrl } : {}),
@@ -254,7 +255,10 @@ export default function BalanceDisplay({
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-gray-900 dark:text-white">
                     {assetInfo?.name ?? assetCode(balance)}
-                    {assetInfo?.image && <img src={assetInfo.image} alt="" className="ml-2 inline-block h-5 w-5 rounded-full" />}
+                    {assetInfo?.image && (
+                      // Issuer-hosted logo on an arbitrary domain, so skip the optimizer.
+                      <Image unoptimized src={assetInfo.image} alt="" width={20} height={20} className="ml-2 inline-block h-5 w-5 rounded-full" />
+                    )}
                   </p>
                   {balance.asset_issuer && (
                     <p className="truncate text-xs text-gray-600 dark:text-gray-400">
@@ -266,6 +270,11 @@ export default function BalanceDisplay({
                   <p className="text-sm font-medium tabular-nums text-gray-900 dark:text-white">
                     {formatBalance(balance.balance)}
                   </p>
+                  {balance.limit && (
+                    <p className="text-xs tabular-nums text-gray-600 dark:text-gray-400">
+                      Limit: {formatBalance(balance.limit)}
+                    </p>
+                  )}
                   {fiat && (
                     <p className="text-xs tabular-nums text-gray-500 dark:text-gray-400">{fiat}</p>
                   )}

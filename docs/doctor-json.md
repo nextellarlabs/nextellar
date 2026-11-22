@@ -6,6 +6,22 @@ The `--json` flag is intended for CI pipelines. Its output shape is a versioned 
 nextellar doctor --json
 ```
 
+## Endpoint options
+
+Use `--horizon-url <url>` and `--soroban-url <url>` to override the endpoints
+probed by the Horizon and Soroban checks:
+
+```bash
+nextellar doctor --horizon-url https://horizon-testnet.stellar.org \
+  --soroban-url https://soroban-testnet.stellar.org
+```
+
+Each endpoint is resolved independently in this order: its command-line flag,
+the matching `horizonUrl` or `sorobanUrl` value in
+`.nextellar/config.json`, then the corresponding Stellar testnet endpoint.
+Flag values must be valid `http://` or `https://` URLs; invalid values fail
+before any network checks run.
+
 ## Top-level fields
 
 | Field | Type | Description |

@@ -7,11 +7,12 @@ import NetworkSwitcher from '../components/NetworkSwitcher';
 
 // Theme toggle hook
 function useTheme() {
+  // Renders light until mounted, then applies the saved/system theme. The
+  // page is deliberately not hidden until mount: gating the whole render on
+  // hydration pushed Largest Contentful Paint behind the full JS bundle.
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
     const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
     const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     const initialTheme = savedTheme || systemTheme;
@@ -39,15 +40,11 @@ function useTheme() {
     }
   };
 
-  return { theme, toggleTheme, mounted };
+  return { theme, toggleTheme };
 }
 
 export default function Home() {
-  const { theme, toggleTheme, mounted } = useTheme();
-
-  if (!mounted) {
-    return null;
-  }
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <div className="h-screen relative overflow-hidden">

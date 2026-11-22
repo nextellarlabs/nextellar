@@ -10,7 +10,7 @@ import {
   text,
 } from "@clack/prompts";
 import { detectPackageManager } from "./install.js";
-import { isValidUrl, suggestProjectName, validateProjectName } from "./validate.js";
+import { isValidUrl, validateProjectName } from "./validate.js";
 
 export interface PromptResult {
   projectName: string;
@@ -33,7 +33,7 @@ export interface PromptContext {
 }
 
 export async function runInteractivePrompts(
-  ctx: PromptContext
+  ctx: PromptContext,
 ): Promise<PromptResult | null> {
   intro(pc.bold("Nextellar"));
 
@@ -54,7 +54,6 @@ export async function runInteractivePrompts(
     return null;
   }
 
-  
   const projectName = String(nameAnswer).trim();
 
   let horizonUrl: string | undefined;
@@ -90,7 +89,8 @@ export async function runInteractivePrompts(
         message: "Horizon URL",
         initialValue: "https://horizon-testnet.stellar.org",
         validate: (value: string) => {
-          if (!isValidUrl(value)) return "Must be a valid HTTP/HTTPS URL (e.g. https://horizon-testnet.stellar.org)";
+          if (!isValidUrl(value))
+            return "Must be a valid HTTP/HTTPS URL (e.g. https://horizon-testnet.stellar.org)";
         },
       });
 
@@ -103,7 +103,8 @@ export async function runInteractivePrompts(
         message: "Soroban RPC URL",
         initialValue: "https://soroban-testnet.stellar.org",
         validate: (value: string) => {
-          if (!isValidUrl(value)) return "Must be a valid HTTP/HTTPS URL (e.g. https://horizon-testnet.stellar.org)";
+          if (!isValidUrl(value))
+            return "Must be a valid HTTP/HTTPS URL (e.g. https://horizon-testnet.stellar.org)";
         },
       });
 
@@ -127,6 +128,16 @@ export async function runInteractivePrompts(
         { value: "lobstr", label: "Lobstr" },
         { value: "xbull", label: "xBull" },
         { value: "hana", label: "Hana" },
+        {
+          value: "ledger",
+          label: "Ledger",
+          hint: "hardware wallet, default template",
+        },
+        {
+          value: "walletconnect",
+          label: "WalletConnect",
+          hint: "needs a project ID, default template",
+        },
       ],
       initialValues: ctx.defaultWallets,
       required: false,
@@ -147,17 +158,33 @@ export async function runInteractivePrompts(
   if (!ctx.packageManagerFlagProvided) {
     const detected = detectPackageManager(
       path.join(ctx.cwd, projectName),
-      ctx.packageManagerFromFlag
+      ctx.packageManagerFromFlag,
     );
 
     const pm = await select({
       message: "Package manager",
       initialValue: detected,
       options: [
-        { value: "npm", label: "npm", hint: detected === "npm" ? "detected" : undefined },
-        { value: "yarn", label: "yarn", hint: detected === "yarn" ? "detected" : undefined },
-        { value: "pnpm", label: "pnpm", hint: detected === "pnpm" ? "detected" : undefined },
-        { value: "bun", label: "bun", hint: detected === "bun" ? "detected" : undefined },
+        {
+          value: "npm",
+          label: "npm",
+          hint: detected === "npm" ? "detected" : undefined,
+        },
+        {
+          value: "yarn",
+          label: "yarn",
+          hint: detected === "yarn" ? "detected" : undefined,
+        },
+        {
+          value: "pnpm",
+          label: "pnpm",
+          hint: detected === "pnpm" ? "detected" : undefined,
+        },
+        {
+          value: "bun",
+          label: "bun",
+          hint: detected === "bun" ? "detected" : undefined,
+        },
       ],
     });
 

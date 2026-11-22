@@ -35,7 +35,7 @@ const brandColor = (text: string) => pc.magenta(text);
 export async function displaySuccess(
   appName: string,
   packageManager: string = "npm",
-  skipInstall: boolean = false
+  skipInstall: boolean = false,
 ): Promise<void> {
   if (!process.stdout.isTTY || process.env.CI) {
     console.log(`\n${pc.green("✔")} Nextellar scaffold complete!`);
@@ -52,15 +52,17 @@ export async function displaySuccess(
     console.log(`  ${packageManager} run lint        Run linter`);
     console.log(`\n${pc.bold("Deployment:")}`);
     console.log(`  npx vercel              Deploy to Vercel`);
-    console.log(`  nextellar deploy        Deploy to Nextellar Cloud (coming soon)\n`);
+    console.log(
+      `  nextellar deploy        Deploy to Nextellar Cloud (coming soon)\n`,
+    );
     return;
   }
 
   console.log(
-    `\n  ${pc.green("✔")} ${pc.bold("Project scaffolded successfully!")}`
+    `\n  ${pc.green("✔")} ${pc.bold("Project scaffolded successfully!")}`,
   );
   console.log(
-    `\n  ${pc.dim("──────────────────────────────────────────────────")}`
+    `\n  ${pc.dim("──────────────────────────────────────────────────")}`,
   );
   console.log(`  ${pc.bold("Next steps:")}`);
   console.log(`  ${brandColor("1.")} cd ${pc.cyan(appName)}`);
@@ -70,20 +72,28 @@ export async function displaySuccess(
   }
   console.log(`  ${brandColor(`${step++}.`)} ${packageManager} run dev`);
   console.log(
-    `  ${pc.dim("──────────────────────────────────────────────────")}\n`
+    `  ${pc.dim("──────────────────────────────────────────────────")}\n`,
   );
 
   console.log(`  ${pc.bold("Available commands:")}`);
-  console.log(`  ${pc.cyan(`${packageManager} run dev`)}        Start development server`);
-  console.log(`  ${pc.cyan(`${packageManager} run build`)}      Build for production`);
-  console.log(`  ${pc.cyan(`${packageManager} run start`)}      Start production server`);
+  console.log(
+    `  ${pc.cyan(`${packageManager} run dev`)}        Start development server`,
+  );
+  console.log(
+    `  ${pc.cyan(`${packageManager} run build`)}      Build for production`,
+  );
+  console.log(
+    `  ${pc.cyan(`${packageManager} run start`)}      Start production server`,
+  );
   console.log(`  ${pc.cyan(`${packageManager} run lint`)}        Run linter`);
   console.log(
-    `  ${pc.dim("──────────────────────────────────────────────────")}\n`
+    `  ${pc.dim("──────────────────────────────────────────────────")}\n`,
   );
 
   console.log(`  ${pc.magenta("✦")} ${pc.italic("Deployment:")}`);
   console.log(`  ${pc.dim("npx vercel")}              Deploy to Vercel`);
-  console.log(`  ${pc.dim("nextellar deploy")}        Deploy to Nextellar Cloud (coming soon)`);
+  console.log(
+    `  ${pc.dim("nextellar deploy")}        Deploy to Nextellar Cloud (coming soon)`,
+  );
   console.log(`  ${pc.dim("Check out nextellar.dev for more guides.")}\n`);
 }

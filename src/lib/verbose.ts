@@ -33,7 +33,11 @@ export function logVerboseError(err: unknown): void {
     console.error(pc.dim(String(err)));
   }
 
-  const anyErr = err as { stderr?: unknown; stdout?: unknown; exitCode?: unknown } | null;
+  const anyErr = err as {
+    stderr?: unknown;
+    stdout?: unknown;
+    exitCode?: unknown;
+  } | null;
   if (anyErr && typeof anyErr === "object") {
     if (typeof anyErr.exitCode !== "undefined") {
       console.error(pc.dim(`[verbose] exit code: ${anyErr.exitCode}`));

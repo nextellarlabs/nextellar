@@ -10,7 +10,10 @@ import {
   text,
 } from "@clack/prompts";
 import { isValidUrl } from "./validate.js";
-import { PROJECT_CONFIG_SCHEMA_VERSION, validateProjectConfig } from "./project-config.js";
+import {
+  PROJECT_CONFIG_SCHEMA_VERSION,
+  validateProjectConfig,
+} from "./project-config.js";
 
 export interface InitOptions {
   /** Project root (default: process.cwd()) */
@@ -41,6 +44,16 @@ const WALLET_OPTIONS = [
   { value: "lobstr", label: "Lobstr" },
   { value: "xbull", label: "xBull" },
   { value: "hana", label: "Hana" },
+  {
+    value: "ledger",
+    label: "Ledger",
+    hint: "hardware wallet, default template",
+  },
+  {
+    value: "walletconnect",
+    label: "WalletConnect",
+    hint: "needs a project ID, default template",
+  },
 ];
 
 /**

@@ -12,11 +12,15 @@ import type { NextConfig } from "next";
 //   it's the single biggest loosening in this policy.
 // - `connect-src` allowlists Stellar's public Horizon and Soroban RPC
 //   endpoints (both networks, since NEXT_PUBLIC_NETWORK can switch at
-//   runtime) plus `wss:` for wallet-connect-style relay sockets used by
-//   `@creit.tech/stellar-wallets-kit`. If you point at a self-hosted or
-//   third-party RPC provider, add its origin here too — an unlisted
-//   `connect-src` origin will be silently blocked by the browser, not
-//   just logged.
+//   runtime), explicit WalletConnect relay origins (`relay.walletconnect.com`
+//   and the legacy `relay.walletconnect.org`, both https and wss — the
+//   `@walletconnect/core` client bundled via
+//   `@creit.tech/stellar-wallets-kit`'s WalletConnect adapter opens a
+//   websocket to one of these to relay signing requests, #1261), plus a
+//   broader `wss:` for other wallet-connect-style relay sockets. If you
+//   point at a self-hosted or third-party RPC provider, add its origin
+//   here too — an unlisted `connect-src` origin will be silently blocked
+//   by the browser, not just logged.
 // - `img-src` allows `data:` and `blob:` for wallet-icon data URIs the
 //   wallets-kit renders, plus `https:` broadly since wallet icons come
 //   from many different wallet providers' own CDNs.
@@ -30,7 +34,7 @@ const CSP_DIRECTIVES = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
-  "connect-src 'self' https://horizon-testnet.stellar.org https://horizon.stellar.org https://soroban-testnet.stellar.org https://soroban.stellar.org wss: chrome-extension: moz-extension:",
+  "connect-src 'self' https://horizon-testnet.stellar.org https://horizon.stellar.org https://soroban-testnet.stellar.org https://soroban.stellar.org https://relay.walletconnect.com https://relay.walletconnect.org wss://relay.walletconnect.com wss://relay.walletconnect.org wss: chrome-extension: moz-extension:",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

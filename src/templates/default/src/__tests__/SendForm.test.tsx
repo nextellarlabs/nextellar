@@ -85,6 +85,13 @@ describe('SendForm Component (#879)', () => {
           memo: 'rent',
         }),
       );
+      expect(mockSendPayment).toHaveBeenCalledWith({
+        to: VALID_ADDRESS,
+        amount: '25',
+        asset: 'XLM',
+        memo: 'rent',
+        sponsor: undefined,
+      });
     });
 
     expect(await screen.findByText('Sent')).toBeInTheDocument();

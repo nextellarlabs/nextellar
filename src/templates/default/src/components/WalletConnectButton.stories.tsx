@@ -59,3 +59,19 @@ export const Connected: Story = {
     withMockWallet({ connected: true, walletName: 'Freighter' }),
   ],
 };
+
+/** Connected via a Ledger hardware wallet — same button, different wallet name. */
+export const LedgerConnected: Story = {
+  args: { theme: 'light' },
+  decorators: [
+    withMockWallet({ connected: true, walletName: 'Ledger' }),
+  ],
+};
+
+/** Connected via the WalletConnect adapter (mobile/QR-based wallets). */
+export const WalletConnectConnected: Story = {
+  args: { theme: 'light' },
+  decorators: [
+    withMockWallet({ connected: true, walletName: 'WalletConnect' }),
+  ],
+};

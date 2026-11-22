@@ -114,26 +114,26 @@ describe("runAdd", () => {
 
     it("falls back to the default template and says so when a file is missing", async () => {
       const cwd = await makeProject("defi");
-      // The defi template ships no Soroban hooks today.
+      // The defi template ships no multisig helpers today.
       expect(
         await fs.pathExists(
-          templateFile("defi", "hooks/useSorobanContract.ts"),
+          templateFile("defi", "hooks/useMultisigTransaction.ts"),
         ),
       ).toBe(false);
 
-      const result = await runAdd("contracts", { cwd, skipInstall: true });
+      const result = await runAdd("multisig", { cwd, skipInstall: true });
 
       expect(result.success).toBe(true);
       expect(
-        await read(path.join(cwd, "src/hooks/useSorobanContract.ts")),
+        await read(path.join(cwd, "src/hooks/useMultisigTransaction.ts")),
       ).toBe(
-        await read(templateFile("default", "hooks/useSorobanContract.ts")),
+        await read(templateFile("default", "hooks/useMultisigTransaction.ts")),
       );
 
       const logged = output();
       expect(logged).toContain("copied from");
-      expect(logged).toContain("hooks/useSorobanContract.ts");
-      expect(logged).toContain("hooks/useSorobanEvents.ts");
+      expect(logged).toContain("hooks/useMultisigTransaction.ts");
+      expect(logged).toContain("lib/multisig.ts");
     });
 
     it("does not report a fallback for files the project template does ship", async () => {
@@ -267,6 +267,56 @@ describe("runAdd", () => {
         ).toBe(true);
         expect(output()).toContain("components/SendForm.tsx");
       }
+    });
+  });
+
+  describe("network-mismatch-banner feature (#1280)", () => {
+    it("works against an existing project, copying the component and its wallet dependency", async () => {
+      const cwd = await makeProject();
+
+      const result = await runAdd("network-mismatch-banner", {
+        cwd,
+        skipInstall: true,
+      });
+
+      expect(result.success).toBe(true);
+      for (const rel of [
+        "src/components/NetworkMismatchBanner.tsx",
+        "src/hooks/useStellarWallet.ts",
+        "src/contexts/WalletProvider.tsx",
+      ]) {
+        expect(await fs.pathExists(path.join(cwd, rel))).toBe(true);
+      }
+
+      expect(
+        await read(path.join(cwd, "src/components/NetworkMismatchBanner.tsx")),
+      ).toBe(
+        await read(
+          templateFile("default", "components/NetworkMismatchBanner.tsx"),
+        ),
+      );
+    });
+
+    it("is listed by `nextellar add --list` via the feature registry", async () => {
+      const { listFeatures } = await import("../src/lib/features.js");
+      const ids = listFeatures().map((f) => f.id);
+      expect(ids).toContain("network-mismatch-banner");
+    });
+
+    it("skips already-installed files unless --force is passed", async () => {
+      const cwd = await makeProject();
+      await runAdd("network-mismatch-banner", { cwd, skipInstall: true });
+
+      const banner = path.join(cwd, "src/components/NetworkMismatchBanner.tsx");
+      await fs.writeFile(banner, "// user edit\n");
+
+      const second = await runAdd("network-mismatch-banner", {
+        cwd,
+        skipInstall: true,
+      });
+      expect(second.success).toBe(false);
+      expect(second.message).toContain("--force");
+      expect(await read(banner)).toBe("// user edit\n");
     });
   });
 

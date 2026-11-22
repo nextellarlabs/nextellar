@@ -3,8 +3,6 @@
  */
 import { jest } from "@jest/globals";
 import { renderHook, act, waitFor } from "@testing-library/react";
-
-import { useOfferBook } from "../../src/templates/js-template/src/hooks/useOfferBook.js";
 import {
   useFakeHookTimers,
   useRealHookTimers,
@@ -16,6 +14,17 @@ import {
   USDC,
   BTC,
 } from "../helpers/fixtures";
+
+// js-* template sources are compiled to CommonJS (see jest.config), so the
+// hook require()s "../contexts", which maps to the ESM wallet-contexts mock.
+// Node < 24.9 can't require() an ES module, so register a CommonJS stand-in.
+// Bracket access keeps babel-plugin-jest-hoist from rewriting this.
+jest["mock"]("../../src/mocks/wallet-contexts-mock", () => ({
+  useWalletConfig: () => undefined,
+}));
+
+const { useOfferBook } =
+  await import("../../src/templates/js-template/src/hooks/useOfferBook.js");
 
 function makeOrderbookResponse(bids: any[] = [], asks: any[] = []) {
   return { bids, asks };

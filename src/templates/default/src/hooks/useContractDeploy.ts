@@ -1,13 +1,13 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   Account,
   Address,
   BASE_FEE,
   Contract,
+  hash,
   Keypair,
   Networks,
   Operation,
-  rpc,
   StrKey,
   TransactionBuilder,
   xdr,
@@ -34,6 +34,7 @@ export interface DeployContractParams {
 export interface DeployContractResult {
   wasmHash: string;
   contractId: string;
+  uploadXdr: string;
   deployXdr: string;
   constructorXdr?: string;
 }
@@ -50,12 +51,12 @@ function randomSalt(): Buffer {
 
 /**
  * Builds Soroban deploy transactions: upload WASM, create contract, optional constructor invoke.
+ * Returns unsigned XDR strings for the caller to sign and submit.
  */
 export function useContractDeploy(
   opts: ContractDeployOptions = {},
 ): ContractDeployReturn {
   const {
-    sorobanRpc = 'https://soroban-testnet.stellar.org',
     network = 'TESTNET',
   } = opts;
 
@@ -65,18 +66,25 @@ export function useContractDeploy(
   const networkPassphrase =
     network === 'TESTNET' ? Networks.TESTNET : Networks.PUBLIC;
 
-  const rpcServer = useMemo(() => new rpc.Server(sorobanRpc), [sorobanRpc]);
-
   const buildDeployXDR = useCallback(
     async (params: DeployContractParams): Promise<DeployContractResult> => {
       setLoading(true);
       setError(null);
       try {
         const salt = params.salt ?? randomSalt();
-        const wasmHash = await rpcServer.uploadContractWasm(params.wasm, {
+        // The wasm hash is the SHA-256 of the raw wasm bytes.
+        const wasmHash = hash(params.wasm);
+
+        const sourceAccount = new Account(params.sourcePublicKey, '0');
+
+        // Transaction 1: upload the WASM.
+        const uploadTx = new TransactionBuilder(sourceAccount, {
           fee: BASE_FEE,
           networkPassphrase,
-        });
+        })
+          .addOperation(Operation.uploadContractWasm({ wasm: params.wasm }))
+          .setTimeout(30)
+          .build();
 
         const deployer = new Address(params.sourcePublicKey);
         const createOp = Operation.createCustomContract({
@@ -86,7 +94,7 @@ export function useContractDeploy(
           constructorArgs: params.constructorArgs ?? [],
         });
 
-        const sourceAccount = new Account(params.sourcePublicKey, '0');
+        // Transaction 2: instantiate the contract.
         const deployTx = new TransactionBuilder(sourceAccount, {
           fee: BASE_FEE,
           networkPassphrase,
@@ -95,6 +103,9 @@ export function useContractDeploy(
           .setTimeout(30)
           .build();
 
+        // Compute the contract ID deterministically from the deployer address,
+        // salt, and network passphrase.
+        const networkId = Buffer.from(hash(Buffer.from(networkPassphrase)));
         const preimage = xdr.ContractIdPreimage.contractIdPreimageFromAddress(
           new xdr.ContractIdPreimageFromAddress({
             address: deployer.toScAddress(),
@@ -102,7 +113,14 @@ export function useContractDeploy(
           }),
         );
         const contractId = StrKey.encodeContract(
-          xdr.HashIdPreimage.envelopeTypeContractId(preimage).hash(),
+          hash(
+            xdr.HashIdPreimage.envelopeTypeContractId(
+              new xdr.HashIdPreimageContractId({
+                networkId,
+                contractIdPreimage: preimage,
+              }),
+            ).toXDR(),
+          ),
         );
 
         let constructorXdr: string | undefined;
@@ -125,6 +143,7 @@ export function useContractDeploy(
         return {
           wasmHash: wasmHash.toString('hex'),
           contractId,
+          uploadXdr: uploadTx.toXDR(),
           deployXdr: deployTx.toXDR(),
           constructorXdr,
         };
@@ -136,7 +155,7 @@ export function useContractDeploy(
         setLoading(false);
       }
     },
-    [networkPassphrase, rpcServer],
+    [networkPassphrase],
   );
 
   return { buildDeployXDR, loading, error };

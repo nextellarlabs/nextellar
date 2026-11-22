@@ -13,7 +13,9 @@ function buildApp(
 
 describe("sendError", () => {
   it("sets the HTTP status code", async () => {
-    const app = buildApp((_req, res) => sendError(res, "SOME_CODE", "msg", 422));
+    const app = buildApp((_req, res) =>
+      sendError(res, "SOME_CODE", "msg", 422),
+    );
     const res = await request(app).get("/test");
     expect(res.status).toBe(422);
   });

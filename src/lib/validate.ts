@@ -1,5 +1,5 @@
 import validateNpmPackageName from "validate-npm-package-name";
-import { StrKey } from "@stellar/stellar-sdk";
+import { StrKey } from "@stellar/stellar-base";
 
 /**
  * Validates if a given string is a valid HTTP/HTTPS URL
@@ -86,7 +86,7 @@ export function suggestProjectName(name: string): string | null {
     .trim()
     .toLowerCase()
     .replace(/\s+/g, "-")
-    .replace(/[^a-z0-9\-]/g, "")
+    .replace(/[^a-z0-9-]/g, "")
     .replace(/^[-]+/, "");
   if (!slug) return null;
   const result = validateNpmPackageName(slug);
@@ -101,10 +101,16 @@ export function validateProjectName(name: string): void {
   if (!name || typeof name !== "string" || name.trim().length === 0) {
     throw new Error("Project name is required");
   }
+  // The name doubles as the target directory, so path separators (including
+  // the "/" of a scoped name) are rejected rather than validated piecewise.
+  const hasPathSeparator = /[\\/]/.test(name);
   const result = validateNpmPackageName(name);
-  if (!result.validForNewPackages) {
+  if (hasPathSeparator || !result.validForNewPackages) {
     const suggestion = suggestProjectName(name);
     let message = `Invalid project name: "${name}"`;
+    if (hasPathSeparator) {
+      message += "\nProject name must not contain path separators.";
+    }
     if (suggestion) {
       message += `\n\nDid you mean:\n\n${suggestion}`;
     }

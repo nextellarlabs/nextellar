@@ -81,11 +81,10 @@ await jest.unstable_mockModule("@stellar/stellar-sdk", () => ({
   BASE_FEE: "100",
 }));
 
-const [{ WalletProvider, useWallet, useWalletConfig }, { NETWORKS }] =
-  await Promise.all([
-    import("../src/templates/js-defi/src/contexts/WalletProvider"),
-    import("../src/templates/js-defi/src/config/networks"),
-  ]);
+const [{ WalletProvider, useWallet, useWalletConfig }, { NETWORKS }] = [
+  await import("../src/templates/js-defi/src/contexts/WalletProvider"),
+  await import("../src/templates/js-defi/src/config/networks"),
+];
 
 // An explicit endpoint pins the provider to that URL by design, so clear the
 // env vars to exercise the per-network defaults the switcher relies on.

@@ -27,6 +27,13 @@ We follow [npm audit severity classifications](https://docs.npmjs.com/about-audi
 
 ### Severity Gates
 
+The gate applies to **production dependencies** (`npm audit --omit=dev`):
+the packages an installed `nextellar` CLI actually loads. Dev-only tooling
+(test runners, the wallet-kit used to test templates, etc.) never ships to
+users or into scaffolded apps; its findings are still reported in CI and via
+`npm run audit:all`, but do not block merges. Scaffolded apps declare their
+own dependencies in each template's `package.json`.
+
 **CI/CD Build Status:**
 
 - ✅ **PASS** - 0 critical, 0 high vulnerabilities
@@ -240,6 +247,23 @@ Beyond dependency management:
 5. **Validation** - Input validation on all entry points
 6. **Dependencies** - Minimize external dependencies
 7. **Pinning** - Use exact versions for production
+
+## Reviewed Components
+
+Third-party wallet-adapter surfaces are tracked here individually, since they sit on the trust boundary between a scaffolded dApp and a user's signing key, and are not covered by the npm-audit pipeline above (`npm audit` only sees known CVEs, not how an adapter itself handles key material or signing requests).
+
+| Component | Trust Boundary | Review Status | Notes |
+|-----------|----------------|----------------|-------|
+| **Ledger adapter** (`src/templates/default/src/lib/wallets/ledger-module.ts`) | Browser (WebUSB) to physical hardware device | Reviewed | Private key material never leaves the device; the adapter only ever sends APDU requests and receives a public key or signature. Signing requests are built from the parsed transaction and shown on the Ledger's own screen for physical confirmation before each signature, so the host app cannot forge an approval. Requests are serialized (one in flight at a time) and the transport is always closed, including on error, so a failed call cannot leave the device in a stuck state. |
+| **WalletConnect adapter** (`src/templates/default/src/lib/wallets/walletconnect-module.ts`) | Browser to a remote WalletConnect relay server, to the user's wallet app | Reviewed | The dApp never holds key material; it only sends sign requests over the relay and receives a signed result. `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` is validated as a 32-character hex ID before use, and callback URLs (`NEXT_PUBLIC_WALLETCONNECT_APP_URL`, `NEXT_PUBLIC_WALLETCONNECT_ICON`) are required to be `https://` (or `localhost` in development) so a misconfigured env var cannot point the relay at an insecure or spoofable origin. The underlying SDK is lazy-loaded only once a user selects WalletConnect, limiting the third-party code surface on page load. |
+
+**What "Reviewed" verifies for a wallet adapter:**
+- Private key material is never logged, cached, or transmitted by the adapter.
+- Signing requests are validated (network passphrase, expected signer address) before being sent to the wallet/device, and the human-readable transaction is what the user actually approves.
+- Errors from the wallet/device/relay are mapped to adapter-level errors rather than leaking raw transport exceptions, and never silently swallow a rejection as a success.
+- Transport/session resources are always released, including on the error path.
+
+New wallet adapters (e.g. community contributions via `docs/custom-wallet-adapter-guide.md`) should be added to this table, with their own trust boundary and review status, before being added to the default wallet list.
 
 ## Monitoring & Reporting
 

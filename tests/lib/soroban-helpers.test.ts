@@ -2,14 +2,9 @@
  * @jest-environment node
  */
 import { jest } from "@jest/globals";
-// Imported from the default template's own nested node_modules, not the
-// root package's @stellar/stellar-sdk — the two are pinned to different
-// major versions (root ^12.0.0, template ^14.4.3; see PR description).
-// soroban-helpers.ts itself resolves the template's copy since it lives
-// under src/templates/default/, so its Transaction/Asset/etc. classes are
-// only instanceof-compatible with fixtures built from that same copy — a
-// real generated app only ever has one installed copy, so this mismatch is
-// specific to this dual-node_modules test topology, not a real-world issue.
+// Imported from the root package's @stellar/stellar-sdk: the template has no
+// installed node_modules of its own in this repo (CI never installs one), so
+// soroban-helpers.ts resolves this same copy and instanceof checks line up.
 import {
   Account,
   Asset,
@@ -20,7 +15,7 @@ import {
   rpc,
   xdr,
   SorobanDataBuilder,
-} from "../../src/templates/default/node_modules/@stellar/stellar-sdk";
+} from "@stellar/stellar-sdk";
 import {
   buildFeeBumpTransaction,
   simulateAndRestoreIfNeeded,

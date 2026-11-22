@@ -8,21 +8,28 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const cli = path.resolve(__dirname, "../dist/bin/nextellar.js");
-const tmpDir = path.join(__dirname, "tmp-test-app");
+// The project name doubles as the target directory and must not contain path
+// separators, so scaffold by bare name from inside tests/.
+const appName = "tmp-test-app";
+const tmpDir = path.join(__dirname, appName);
 
 describe("nextellar CLI", () => {
   beforeEach(async () => {
     await fs.remove(tmpDir);
   }, 10000);
 
+  // The scaffolded app ships its own __tests__, so don't leave it inside
+  // tests/ for a later Jest run to pick up.
+  afterAll(async () => {
+    await fs.remove(tmpDir);
+  }, 10000);
+
   it("should scaffold a new project and exit cleanly", async () => {
-    const { exitCode, stdout } = await execa("node", [
-      cli,
-      tmpDir,
-      "--typescript",
-      "--defaults",
-      "--skip-install",
-    ]);
+    const { exitCode, stdout } = await execa(
+      "node",
+      [cli, appName, "--typescript", "--defaults", "--skip-install"],
+      { cwd: __dirname },
+    );
     expect(exitCode).toBe(0);
     expect(stdout).toContain("✔ Nextellar scaffold complete!");
     expect(await fs.pathExists(tmpDir)).toBe(true);
@@ -30,26 +37,22 @@ describe("nextellar CLI", () => {
 
   describe("--yes / --defaults non-interactive flag (#948)", () => {
     it("--yes scaffolds without prompting, same as --defaults", async () => {
-      const { exitCode, stdout } = await execa("node", [
-        cli,
-        tmpDir,
-        "--typescript",
-        "--yes",
-        "--skip-install",
-      ]);
+      const { exitCode, stdout } = await execa(
+        "node",
+        [cli, appName, "--typescript", "--yes", "--skip-install"],
+        { cwd: __dirname },
+      );
       expect(exitCode).toBe(0);
       expect(stdout).toContain("✔ Nextellar scaffold complete!");
       expect(await fs.pathExists(tmpDir)).toBe(true);
     }, 30000);
 
     it("-y short flag works the same as --yes", async () => {
-      const { exitCode, stdout } = await execa("node", [
-        cli,
-        tmpDir,
-        "--typescript",
-        "-y",
-        "--skip-install",
-      ]);
+      const { exitCode, stdout } = await execa(
+        "node",
+        [cli, appName, "--typescript", "-y", "--skip-install"],
+        { cwd: __dirname },
+      );
       expect(exitCode).toBe(0);
       expect(stdout).toContain("✔ Nextellar scaffold complete!");
       expect(await fs.pathExists(tmpDir)).toBe(true);
@@ -77,14 +80,14 @@ describe("nextellar CLI", () => {
       "node",
       [
         cli,
-        tmpDir,
+        appName,
         "--javascript",
         "--template",
         "minimal",
         "--defaults",
         "--skip-install",
       ],
-      { reject: false },
+      { cwd: __dirname, reject: false },
     );
     expect(exitCode).toBe(0);
     expect(stdout).toContain("Nextellar scaffold complete");
@@ -99,14 +102,14 @@ describe("nextellar CLI", () => {
       "node",
       [
         cli,
-        tmpDir,
+        appName,
         "--javascript",
         "--template",
         "defi",
         "--defaults",
         "--skip-install",
       ],
-      { reject: false },
+      { cwd: __dirname, reject: false },
     );
     expect(exitCode).toBe(0);
     expect(stdout).toContain("Nextellar scaffold complete");
@@ -145,19 +148,25 @@ describe("nextellar CLI", () => {
   });
 
   it("prints a pre-scaffold summary of resolved options before writing files with --defaults", async () => {
-    const { exitCode, stdout } = await execa("node", [
-      cli,
-      tmpDir,
-      "--typescript",
-      "--defaults",
-      "--skip-install",
-      "--with-contracts",
-      "--no-telemetry",
-    ]);
+    const { exitCode, stdout } = await execa(
+      "node",
+      [
+        cli,
+        appName,
+        "--typescript",
+        "--defaults",
+        "--skip-install",
+        "--with-contracts",
+        "--no-telemetry",
+      ],
+      { cwd: __dirname },
+    );
 
     expect(exitCode).toBe(0);
 
-    const summaryIndex = stdout.indexOf("Scaffolding with the following options:");
+    const summaryIndex = stdout.indexOf(
+      "Scaffolding with the following options:",
+    );
     const completeIndex = stdout.indexOf("✔ Nextellar scaffold complete!");
     // Summary must print, and must print before scaffolding actually
     // completes (issue #1082: before any files are written).
@@ -165,7 +174,7 @@ describe("nextellar CLI", () => {
     expect(completeIndex).toBeGreaterThan(-1);
     expect(summaryIndex).toBeLessThan(completeIndex);
 
-    expect(stdout).toContain(tmpDir);
+    expect(stdout).toContain(appName);
     expect(stdout).toContain("TypeScript");
     expect(stdout).toContain("default");
     // --with-contracts was passed: the summary must reflect it, not just a

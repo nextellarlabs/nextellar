@@ -455,6 +455,171 @@ async function getPrice() {
 }
 ```
 
+### `useSep6(options)`
+
+Non-interactive [SEP-6](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0006.md) deposits and withdrawals (on/off-ramp) against a configured anchor `TRANSFER_SERVER`. Discover the server with `discoverSep6TransferServer(homeDomain)` (`@/lib/sep6`), which resolves `TRANSFER_SERVER` from the domain's `stellar.toml`.
+
+Nothing is fetched on mount: deposit and withdraw requests create transactions on the anchor, so every call is explicit.
+
+**Signature:**
+```typescript
+function useSep6(options: UseSep6Options): UseSep6Return
+```
+
+**Options:**
+- `transferServer` (string, required): The anchor's SEP-6 base URL.
+- `authToken` (string): SEP-10 JWT, sent as `Authorization: Bearer` on every request. Required for assets whose `/info` entry has `authenticationRequired: true`.
+- `lang` (string): Language for anchor-provided descriptions.
+- `fetchImpl` (`typeof fetch`): Custom fetch, e.g. for tests.
+
+**Returns:**
+- `getInfo()`: `GET /info`. Stores a `Sep6Info` (`deposit`/`withdraw` keyed by asset code, with `enabled`, `authenticationRequired`, limits, fees, and required `fields`/`types`) in `info`.
+- `deposit(params)`: `GET /deposit` with `assetCode` and `account` (required) plus optional `type`, `amount`, `memo`, `memoType`, `emailAddress`, `claimableBalanceSupported`, `customerId`, etc.
+- `withdraw(params)`: `GET /withdraw` with `assetCode` and `type` (required) plus optional `account`, `amount`, `dest`, `destExtra`, `refundMemo`, etc.
+- `getTransaction(id)`: `GET /transaction?id=` for status polling. Stored in `transaction`.
+- `result`: the last deposit/withdraw result, one of:
+  - `{ kind: 'deposit', how, instructions, id, eta, minAmount, maxAmount, feeFixed, feePercent, extraInfo }`
+  - `{ kind: 'withdraw', accountId, memoType, memo, id, eta, ... }` — send the Stellar payment to `accountId` with that memo.
+  - `{ kind: 'customer_info_needed', fields }` — the anchor answered 403 and needs these SEP-9 fields via SEP-12 first.
+  - `{ kind: 'customer_info_status', status, moreInfoUrl, eta }` — KYC was submitted and is `pending` or `denied`.
+- `needsCustomerInfo` (boolean): True for either KYC result. KYC responses are results, not errors.
+- `loading` (boolean), `error` (Error | null): Any other non-2xx response, network failure, or malformed body becomes a `Sep6Error` (with `status` and the parsed `body`) in `error`, and the call rejects.
+- `reset()`: Clears state and ignores in-flight responses.
+
+**Example:**
+```tsx
+import { useSep6 } from '@/hooks/useSep6';
+
+function Deposit({ transferServer, jwt, account }: { transferServer: string; jwt: string; account: string }) {
+  const { getInfo, deposit, info, result, needsCustomerInfo, loading, error } = useSep6({
+    transferServer,
+    authToken: jwt,
+  });
+
+  return (
+    <div>
+      <button onClick={() => getInfo()}>Load assets</button>
+      {info?.deposit.USDC?.enabled && (
+        <button disabled={loading} onClick={() => deposit({ assetCode: 'USDC', account, amount: '100' })}>
+          Deposit USDC
+        </button>
+      )}
+      {result?.kind === 'deposit' && <p>{result.how}</p>}
+      {needsCustomerInfo && <p>Complete identity verification to continue.</p>}
+      {error && <p>{error.message}</p>}
+    </div>
+  );
+}
+```
+
+### `useSep24Interactive(options?)`
+
+Runs the [SEP-24](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0024.md) hosted deposit/withdraw flow:
+
+1. Requests the anchor's interactive URL (`POST /transactions/{deposit|withdraw}/interactive`).
+2. Opens it in a popup, or exposes it for `<Sep24InteractiveFrame>`.
+3. Listens for the anchor's `postMessage` updates. Only messages from the anchor's origin about this transaction are accepted.
+4. Polls `GET /transaction` as a fallback, which covers anchors that redirect instead of posting messages.
+
+Discover the server with `discoverSep24TransferServer(homeDomain)` (`@/lib/sep24`). Get the `authToken` from SEP-10.
+
+**Signature:**
+```typescript
+function useSep24Interactive(options?: {
+  fetchImpl?: typeof fetch;
+  pollIntervalMs?: number;         // default 5000, 0 disables polling
+  closePopupOnComplete?: boolean;  // default true
+  onUpdate?: (tx: Sep24Transaction) => void;
+}): UseSep24InteractiveReturn
+```
+
+**Returns:**
+- `start(opts)`: `opts` is `{ transferServer, kind: 'deposit' | 'withdraw', authToken, assetCode, assetIssuer?, account?, amount?, lang?, extra?, mode?: 'popup' | 'iframe' }`.
+- `status`: one of
+  - `idle`, `starting`, `interactive`
+  - `pending`: the user finished the form. For a withdrawal, `transaction.withdraw_anchor_account` / `withdraw_memo` say where to send funds.
+  - `completed`, `failed`
+  - `closed`: the user closed the window before finishing.
+  - `error`: for example a blocked popup. `url` is still set so you can show a link.
+- `transaction`, `transactionId`, `url`, `error`
+- `cancel()`, `reset()`
+
+**Example:**
+```tsx
+import { useSep24Interactive } from '@/hooks/useSep24Interactive';
+import Sep24InteractiveFrame from '@/components/Sep24InteractiveFrame';
+import { discoverSep24TransferServer } from '@/lib/sep24';
+
+function Deposit({ jwt, account }: { jwt: string; account: string }) {
+  const sep24 = useSep24Interactive();
+
+  async function onDeposit() {
+    const transferServer = await discoverSep24TransferServer('testanchor.stellar.org');
+    await sep24.start({ transferServer, kind: 'deposit', authToken: jwt, assetCode: 'USDC', account, mode: 'iframe' });
+  }
+
+  return (
+    <>
+      <button onClick={onDeposit}>Deposit USDC</button>
+      {sep24.url && sep24.status === 'interactive' && (
+        <Sep24InteractiveFrame url={sep24.url} onClose={sep24.cancel} />
+      )}
+      {sep24.status === 'completed' && <p>Deposit complete: {sep24.transaction?.amount_out}</p>}
+    </>
+  );
+}
+```
+
+`<Sep24InteractiveFrame url onClose? closeLabel? title? height?>` only renders https URLs (or http://localhost). It sandboxes the iframe to `allow-scripts allow-same-origin allow-forms allow-popups`. Passing `onClose` (as above) renders it as a modal dialog over a dimmed overlay, with focus trapped inside and Escape calling `onClose`; without `onClose` it stays a plain inline embed.
+
+---
+
+## Multi-sig Hooks
+
+### `useMultisigTransaction(account, networkPassphrase)`
+
+Collects signatures for a transaction that needs several signers, and tracks
+which of the account's signers have signed and whether the threshold is met.
+It wraps `createMultisigSession` from `@/lib/multisig`. That module also exports:
+- `buildMultisigTransaction({ source, operations, networkPassphrase, fee?, timeoutSeconds?, memo? })`, with a default 1-hour timeout to leave time for collecting signatures
+- `evaluateSignatures(tx, account)`
+- `thresholdLevelForTransaction(tx)`
+
+`account` is the Horizon account record (`thresholds` + `signers`), e.g. from `server.loadAccount(id)`.
+
+The threshold level (low/medium/high) is derived from the operations, using Stellar's threshold table. A threshold of 0 still needs weight 1.
+
+Supported signer types:
+- `ed25519_public_key`: the signature is verified against the transaction hash. A matching hint alone is not enough.
+- `preauth_tx`
+- `sha256_hash`
+- `ed25519_signed_payload` signers are reported with `supported: false` and are not counted.
+
+**Returns:**
+- `load(txOrXdr, { thresholdLevel? })`
+- `addSignedXdr(xdr)`: merges a co-signer's signed copy. It is rejected if the copy is for a different transaction.
+- `addSignature(publicKey, base64Sig)`, `signWith(keypair)`, `reset()`
+- `status`: `{ requiredWeight, signedWeight, thresholdMet, signers[], pendingSigners[], unknownSignatures }`
+- `xdr`: the envelope with every collected signature
+- `thresholdMet`, `error`
+
+`unknownSignatures > 0` means the envelope carries a signature from a non-signer. The network rejects that with `tx_bad_auth_extra`.
+
+**Example:**
+```tsx
+import { Networks } from '@stellar/stellar-sdk';
+import { useMultisigTransaction } from '@/hooks/useMultisigTransaction';
+
+const multisig = useMultisigTransaction(accountRecord, Networks.TESTNET);
+multisig.load(unsignedXdr);
+multisig.addSignedXdr(signedByAlice);
+multisig.addSignedXdr(signedByBob);
+if (multisig.thresholdMet) await server.submitTransaction(TransactionBuilder.fromXDR(multisig.xdr!, Networks.TESTNET));
+```
+
+Limitation: only the transaction source account's signers are evaluated.
+Operations with a different `source` also need that account's threshold.
+
 ---
 
 ## Utility Hooks

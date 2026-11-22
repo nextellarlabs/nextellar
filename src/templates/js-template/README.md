@@ -371,6 +371,92 @@ export default function EventFeed({ contractId }) {
 }
 ```
 
+### `useMultisigTransaction`
+
+Collects signatures from multiple co-signers until an account's signing threshold is met, then exposes the fully-signed XDR for submission.
+
+```jsx
+import { useMultisigTransaction } from "@/hooks/useMultisigTransaction";
+import { Networks } from "@stellar/stellar-sdk";
+
+export default function MultisigApproval({ account, unsignedXdr }) {
+  const { load, signWith, addSignedXdr, thresholdMet, xdr, status, error } =
+    useMultisigTransaction(account, Networks.TESTNET);
+
+  return (
+    <div>
+      <button onClick={() => load(unsignedXdr)}>Load transaction</button>
+      <p>{status?.signedWeight ?? 0} / {status?.requiredWeight ?? "?"} weight collected</p>
+      {thresholdMet && <p>Ready to submit: {xdr}</p>}
+      {error && <p>Error: {error.message}</p>}
+    </div>
+  );
+}
+```
+
+### `useSep24Interactive`
+
+Drives a SEP-24 hosted deposit/withdrawal: opens the anchor's interactive popup, listens for `postMessage` updates, and polls as a fallback.
+
+```jsx
+import { useSep24Interactive } from "@/hooks/useSep24Interactive";
+
+export default function DepositButton({ transferServer, authToken }) {
+  const { start, status, transaction, error } = useSep24Interactive();
+
+  const handleDeposit = () =>
+    start({ transferServer, kind: "deposit", authToken, assetCode: "USDC" });
+
+  return (
+    <div>
+      <button onClick={handleDeposit}>Deposit USDC</button>
+      <p>Status: {status}</p>
+      {error && <p>Error: {error.message}</p>}
+    </div>
+  );
+}
+```
+
+### `useSep30Recovery`
+
+Registers an account's recovery signers with a SEP-30 recovery server and requests recovery signatures when a device key is lost.
+
+```jsx
+import { useSep30Recovery } from "@/hooks/useSep30Recovery";
+
+export default function RecoverySetup({ accountId, authToken }) {
+  const { register, loading, error } = useSep30Recovery({ homeDomain: "example.com" });
+
+  const handleRegister = () =>
+    register({ accountId, authToken, signers: ["GRECOVERYSIGNERKEY..."] });
+
+  return (
+    <div>
+      <button onClick={handleRegister} disabled={loading}>Register for recovery</button>
+      {error && <p>Error: {error.message}</p>}
+    </div>
+  );
+}
+```
+
+### `usePrefersReducedMotion`
+
+Reads the OS-level "reduce motion" accessibility preference so animations can be toned down or skipped.
+
+```jsx
+import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
+
+export default function AnimatedBanner() {
+  const { prefersReducedMotion } = usePrefersReducedMotion();
+
+  return (
+    <div className={prefersReducedMotion ? "" : "transition-all animate-fade-in"}>
+      Welcome!
+    </div>
+  );
+}
+```
+
 ---
 
 ## 🛠️ Development vs Production

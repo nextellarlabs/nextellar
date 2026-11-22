@@ -37,7 +37,11 @@ export const DEFAULT_TEMPLATE = "default";
 function findTemplateDir(templateName: string): string | null {
   const base = path.resolve(__dirname, "..");
   const fromSrc = path.resolve(base, "templates", templateName);
-  const fromDist = path.resolve(__dirname, "../../../src/templates", templateName);
+  const fromDist = path.resolve(
+    __dirname,
+    "../../../src/templates",
+    templateName,
+  );
   if (fs.existsSync(fromSrc)) return fromSrc;
   if (fs.existsSync(fromDist)) return fromDist;
   return null;
@@ -67,7 +71,7 @@ export interface ResolvedTemplate {
  * config, so they fall back to the default template.
  */
 export async function resolveProjectTemplate(
-  cwd: string
+  cwd: string,
 ): Promise<ResolvedTemplate> {
   const defaultDir = getDefaultTemplateDir();
   const configPath = path.join(cwd, ".nextellar", "config.json");
@@ -96,7 +100,7 @@ export async function resolveProjectTemplate(
 async function installPackages(
   cwd: string,
   packages: string[],
-  packageManager?: string
+  packageManager?: string,
 ): Promise<boolean> {
   if (packages.length === 0) return true;
   const pm = detectPackageManager(cwd, packageManager);
@@ -151,7 +155,7 @@ function relativeVariants(relativePath: string): string[] {
 /** First variant of `relativePath` that exists under `templateDir/src`. */
 async function findInTemplate(
   templateDir: string,
-  relativePath: string
+  relativePath: string,
 ): Promise<string | null> {
   for (const rel of relativeVariants(relativePath)) {
     if (await fs.pathExists(path.join(templateDir, "src", rel))) return rel;
@@ -169,7 +173,7 @@ async function copyFile(
   targetDir: string,
   relativePath: string,
   force: boolean,
-  dryRun: boolean = false
+  dryRun: boolean = false,
 ): Promise<{ result: CopyResult; path: string; fromDefault: boolean }> {
   let fromDefault = false;
   let rel = await findInTemplate(template.dir, relativePath);
@@ -186,7 +190,7 @@ async function copyFile(
   const src = path.join(
     fromDefault ? template.defaultDir : template.dir,
     "src",
-    rel
+    rel,
   );
   const dest = path.join(targetDir, "src", rel);
 
@@ -218,7 +222,7 @@ async function addFeatureFiles(
   targetDir: string,
   feature: FeatureDef,
   force: boolean,
-  dryRun: boolean = false
+  dryRun: boolean = false,
 ): Promise<FeatureCopyReport> {
   const report: FeatureCopyReport = {
     copied: [],
@@ -228,13 +232,11 @@ async function addFeatureFiles(
   };
 
   for (const rel of feature.files) {
-    const { result, path: p, fromDefault } = await copyFile(
-      template,
-      targetDir,
-      rel,
-      force,
-      dryRun
-    );
+    const {
+      result,
+      path: p,
+      fromDefault,
+    } = await copyFile(template, targetDir, rel, force, dryRun);
     if (result === "copied") report.copied.push(p);
     else if (result === "skipped") report.skipped.push(p);
     else report.missing.push(p);
@@ -249,7 +251,7 @@ async function addFeatureFiles(
  */
 export async function runAdd(
   featureId: string,
-  options: AddOptions = {}
+  options: AddOptions = {},
 ): Promise<{ success: boolean; message?: string }> {
   const cwd = path.resolve(options.cwd ?? process.cwd());
   const force = !!options.force;
@@ -271,7 +273,8 @@ export async function runAdd(
   if (!(await fs.pathExists(pkgPath))) {
     return {
       success: false,
-      message: "No package.json found in the current directory. Run this from your Next.js project root.",
+      message:
+        "No package.json found in the current directory. Run this from your Next.js project root.",
     };
   }
 
@@ -291,7 +294,7 @@ export async function runAdd(
       cwd,
       f,
       force,
-      dryRun
+      dryRun,
     );
     allCopied.push(...copied);
     allSkipped.push(...skipped);
@@ -300,7 +303,11 @@ export async function runAdd(
     f.npmDependencies.forEach((d) => allNpmDeps.add(d));
   }
 
-  if (allCopied.length === 0 && allSkipped.length === 0 && allMissing.length > 0) {
+  if (
+    allCopied.length === 0 &&
+    allSkipped.length === 0 &&
+    allMissing.length > 0
+  ) {
     return {
       success: false,
       message: `No files for "${rawId}" are available in the ${pc.bold(template.name)} or ${pc.bold(DEFAULT_TEMPLATE)} template:\n  ${allMissing.join("\n  ")}`,
@@ -326,7 +333,8 @@ export async function runAdd(
       if (!ok) {
         return {
           success: false,
-          message: "Files were copied but package installation failed. Run your package manager install manually.",
+          message:
+            "Files were copied but package installation failed. Run your package manager install manually.",
         };
       }
     }
@@ -334,7 +342,10 @@ export async function runAdd(
 
   const lines: string[] = [];
   if (dryRun) {
-    lines.push(pc.yellow("[dry-run] ") + pc.bold(`Simulating addition of feature "${rawId}". No files written.`));
+    lines.push(
+      pc.yellow("[dry-run] ") +
+        pc.bold(`Simulating addition of feature "${rawId}". No files written.`),
+    );
   } else {
     lines.push(pc.green("✔") + " " + pc.bold(`Feature "${rawId}" added.`));
   }
@@ -353,24 +364,24 @@ export async function runAdd(
     lines.push("");
     lines.push(
       pc.yellow(
-        `Not in the ${pc.bold(template.name)} template — copied from ${pc.bold(DEFAULT_TEMPLATE)}:`
-      )
+        `Not in the ${pc.bold(template.name)} template — copied from ${pc.bold(DEFAULT_TEMPLATE)}:`,
+      ),
     );
     allFallback.forEach((p) => lines.push("  " + p));
   }
   if (allMissing.length > 0) {
     lines.push("");
-    lines.push(
-      pc.yellow(
-        `Not available in any template yet (skipped):`
-      )
-    );
+    lines.push(pc.yellow(`Not available in any template yet (skipped):`));
     allMissing.forEach((p) => lines.push("  " + p));
   }
   lines.push("");
   lines.push(pc.dim("Next steps:"));
-  lines.push("  • Wrap your app with WalletProvider (if you added wallet) in layout.tsx");
-  lines.push("  • Import hooks and components from src/hooks and src/components");
+  lines.push(
+    "  • Wrap your app with WalletProvider (if you added wallet) in layout.tsx",
+  );
+  lines.push(
+    "  • Import hooks and components from src/hooks and src/components",
+  );
   console.log(lines.join("\n"));
 
   if (!dryRun) {

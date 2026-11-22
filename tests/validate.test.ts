@@ -100,9 +100,7 @@ describe("Soroban contract ID validation", () => {
     });
 
     it("returns false for the unset scaffold placeholder", () => {
-      expect(isValidContractId("C_REPLACE_WITH_YOUR_CONTRACT_ID")).toBe(
-        false,
-      );
+      expect(isValidContractId("C_REPLACE_WITH_YOUR_CONTRACT_ID")).toBe(false);
     });
 
     it("returns false for a valid Stellar account address (wrong StrKey type)", () => {
@@ -166,8 +164,41 @@ describe("Project name validation (npm package naming rules)", () => {
       expect(() => validateProjectName("my-app")).not.toThrow();
     });
 
-    it("accepts a scoped package name", () => {
-      expect(() => validateProjectName("@scope/my-app")).not.toThrow();
+    it("accepts a hyphenated name with dots", () => {
+      expect(() => validateProjectName("my-app.v2")).not.toThrow();
+    });
+
+    it("rejects a scoped package name", () => {
+      expect(() => validateProjectName("@scope/my-app")).toThrow(
+        'Invalid project name: "@scope/my-app"',
+      );
+    });
+
+    it("rejects names containing a forward slash", () => {
+      expect(() => validateProjectName("foo/bar")).toThrow(
+        'Invalid project name: "foo/bar"',
+      );
+      expect(() => validateProjectName("foo/bar")).toThrow(
+        "must not contain path separators",
+      );
+    });
+
+    it("rejects names containing a backslash", () => {
+      expect(() => validateProjectName("foo\\bar")).toThrow(
+        "must not contain path separators",
+      );
+    });
+
+    it("rejects parent-directory traversal", () => {
+      expect(() => validateProjectName("../x")).toThrow(
+        'Invalid project name: "../x"',
+      );
+    });
+
+    it("rejects absolute paths", () => {
+      expect(() => validateProjectName("/tmp/my-app")).toThrow(
+        "must not contain path separators",
+      );
     });
 
     it("accepts a name with numbers", () => {
@@ -210,9 +241,7 @@ describe("Project name validation (npm package naming rules)", () => {
     });
 
     it("rejects empty string", () => {
-      expect(() => validateProjectName("")).toThrow(
-        "Project name is required",
-      );
+      expect(() => validateProjectName("")).toThrow("Project name is required");
     });
 
     it("rejects whitespace-only string", () => {
@@ -229,21 +258,14 @@ describe("Project name validation (npm package naming rules)", () => {
 
     it("includes a suggestion when a slug can be derived", () => {
       expect(() => validateProjectName("My App")).toThrow(
-        'Did you mean:\n\nmy-app',
+        "Did you mean:\n\nmy-app",
       );
     });
 
     it("includes a suggestion for uppercase names", () => {
       expect(() => validateProjectName("MyApp")).toThrow(
-        'Did you mean:\n\nmyapp',
+        "Did you mean:\n\nmyapp",
       );
-    });
-
-    it("traversal validation remains delegated to #111", () => {
-      // Path traversal/containment validation of target directory is not performed
-      // by validateProjectName (which focuses strictly on npm package-name rules)
-      // but remains delegated to the scaffolding/add level.
-      expect(() => validateProjectName("my-app")).not.toThrow();
     });
   });
 

@@ -59,24 +59,31 @@ const mockXdr = {
       sym: () => ({ toString: () => s }),
     }),
   },
-  ScValType: {
-    scvString: () => ({ name: "scvString" }),
-    scvI32: () => ({ name: "scvI32" }),
-    scvBool: () => ({ name: "scvBool" }),
-    scvVec: () => ({ name: "scvVec" }),
-    scvMap: () => ({ name: "scvMap" }),
-    scvSymbol: () => ({ name: "scvSymbol" }),
-    scvVoid: () => ({ name: "scvVoid" }),
-    scvU32: () => ({ name: "scvU32" }),
-    scvI64: () => ({ name: "scvI64" }),
-    scvU64: () => ({ name: "scvU64" }),
-    scvU128: () => ({ name: "scvU128" }),
-    scvI128: () => ({ name: "scvI128" }),
-    scvBytes: () => ({ name: "scvBytes" }),
-    scvAddress: () => ({ name: "scvAddress" }),
-    scvTimepoint: () => ({ name: "scvTimepoint" }),
-    scvDuration: () => ({ name: "scvDuration" }),
-  },
+  // Real SDK enum members are singletons and the hook compares them by
+  // reference, so each mock member must return the same object every call.
+  ScValType: Object.fromEntries(
+    [
+      "scvString",
+      "scvI32",
+      "scvBool",
+      "scvVec",
+      "scvMap",
+      "scvSymbol",
+      "scvVoid",
+      "scvU32",
+      "scvI64",
+      "scvU64",
+      "scvU128",
+      "scvI128",
+      "scvBytes",
+      "scvAddress",
+      "scvTimepoint",
+      "scvDuration",
+    ].map((name) => {
+      const member = { name };
+      return [name, () => member];
+    }),
+  ),
   ScMapEntry: jest.fn(),
   Uint64: { fromString: (s: string) => s },
   Int64: { fromString: (s: string) => s },
@@ -106,7 +113,7 @@ const mockKeypair = { publicKey: jest.fn(() => "GDUMMY_KEY") };
 const mockKeypairRandom = jest.fn(() => mockKeypair);
 const mockKeypairFromSecret = jest.fn(() => mockKeypair);
 
-await jest.unstable_mockModule("@stellar/stellar-sdk", () => ({
+const mockSdk = () => ({
   rpc: {
     Server: mockRpcServerConstructor,
   },
@@ -132,7 +139,14 @@ await jest.unstable_mockModule("@stellar/stellar-sdk", () => ({
       (id: string) => id.startsWith("C") && id.length === 56,
     ),
   },
-}));
+});
+
+// jest.config compiles js-template sources to CommonJS, so the hook loads the
+// SDK via require(); register the mock for both module systems. Bracket
+// access keeps babel-plugin-jest-hoist from rewriting this into a require()
+// call, which doesn't exist in an ESM test file.
+jest["mock"]("@stellar/stellar-sdk", () => mockSdk());
+await jest.unstable_mockModule("@stellar/stellar-sdk", mockSdk);
 
 // Import the hook AFTER mocking the SDK
 const { useSorobanContract } =
@@ -487,7 +501,7 @@ describe("useSorobanContract (js-template)", () => {
   });
 
   it("handles restore footprint flow when simulation returns restorePreamble", async () => {
-    jest.spyOn(rpc.Server.prototype, "simulateTransaction").mockResolvedValue({
+    mockSimulateTransaction.mockResolvedValue({
       restorePreamble: {
         minResourceFee: "500",
         transactionData: "AAAAAQAAAA==",

@@ -1,10 +1,19 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useWalletConfig, useWallet } from "../contexts/WalletProvider";
 import { NETWORKS } from "../config/networks";
 
 const ADD_CUSTOM_NETWORK_VALUE = "__add_custom_network__";
+
+/**
+ * Keys that move the highlighted option of a closed <select>. Browsers commit
+ * a `change` on every one of these presses (Windows/Chrome), which would
+ * switch networks - and prompt to disconnect the wallet - once per keystroke
+ * while a keyboard user is only browsing the list. They are handled here
+ * instead, so arrowing only previews an option and Enter commits it.
+ */
+const NAVIGATION_KEYS = new Set(["ArrowDown", "ArrowUp", "Home", "End"]);
 
 export default function NetworkSwitcher() {
   const [mounted, setMounted] = useState(false);
@@ -18,6 +27,12 @@ export default function NetworkSwitcher() {
   const config = useWalletConfig();
   const wallet = useWallet();
   const labelId = "stellar-network-switcher-label";
+  const hintId = "stellar-network-switcher-hint";
+  // Option highlighted by keyboard navigation but not yet committed.
+  const [pendingKey, setPendingKey] = useState<string | null>(null);
+  // Set while a keydown is being handled, so the browser's own `change`
+  // (e.g. type-ahead) is treated as navigation rather than a commit.
+  const keyboardNavigating = useRef(false);
 
   useEffect(() => {
     setMounted(true);
@@ -43,8 +58,15 @@ export default function NetworkSwitcher() {
     setFormError(null);
   };
 
-  const handleNetworkChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newNetwork = e.target.value;
+  const optionKeys = [
+    ...Object.keys(availableNetworks),
+    ...(addCustomNetwork ? [ADD_CUSTOM_NETWORK_VALUE] : []),
+  ];
+  const displayedKey = pendingKey ?? activeNetworkKey;
+
+  /** Commit a network choice (pointer selection, Enter, or blur). */
+  const selectNetwork = (newNetwork: string) => {
+    setPendingKey(null);
     if (newNetwork === ADD_CUSTOM_NETWORK_VALUE) {
       resetForm();
       setShowAddForm(true);
@@ -61,6 +83,68 @@ export default function NetworkSwitcher() {
         }
       }
       switchNetwork(newNetwork);
+    }
+  };
+
+  const handleNetworkChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    if (keyboardNavigating.current) {
+      // Keyboard browsing (type-ahead): preview only, Enter commits.
+      setPendingKey(e.target.value);
+      return;
+    }
+    selectNetwork(e.target.value);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLSelectElement>) => {
+    // Alt/Meta + arrow opens the native popup; leave that to the browser.
+    if (e.altKey || e.metaKey) return;
+
+    if (NAVIGATION_KEYS.has(e.key)) {
+      e.preventDefault();
+      if (optionKeys.length === 0) return;
+      const current = Math.max(optionKeys.indexOf(displayedKey), 0);
+      const last = optionKeys.length - 1;
+      const next =
+        e.key === "Home"
+          ? 0
+          : e.key === "End"
+            ? last
+            : e.key === "ArrowDown"
+              ? Math.min(current + 1, last)
+              : Math.max(current - 1, 0);
+      setPendingKey(optionKeys[next] === activeNetworkKey ? null : optionKeys[next]);
+      return;
+    }
+
+    if (e.key === "Enter") {
+      if (pendingKey !== null) {
+        e.preventDefault();
+        selectNetwork(pendingKey);
+      }
+      return;
+    }
+
+    if (e.key === "Escape") {
+      if (pendingKey !== null) {
+        e.preventDefault();
+        setPendingKey(null);
+      }
+      return;
+    }
+
+    if (e.key.length === 1) {
+      // Printable key: the browser's type-ahead may fire `change` next.
+      keyboardNavigating.current = true;
+      setTimeout(() => {
+        keyboardNavigating.current = false;
+      }, 0);
+    }
+  };
+
+  /** Leaving the control keeps a previewed choice, like a native select. */
+  const handleBlur = () => {
+    if (pendingKey !== null) {
+      selectNetwork(pendingKey);
     }
   };
 
@@ -212,9 +296,12 @@ export default function NetworkSwitcher() {
         <div className="h-4 w-[1px] bg-gray-200 dark:bg-white/10" />
 
         <select
-          value={activeNetworkKey}
+          value={displayedKey}
           onChange={handleNetworkChange}
+          onKeyDown={handleKeyDown}
+          onBlur={handleBlur}
           aria-labelledby={labelId}
+          aria-describedby={hintId}
           className="bg-transparent border-none text-sm font-semibold focus:ring-0 cursor-pointer text-gray-900 dark:text-gray-100 outline-none pr-2 appearance-none"
         >
           {Object.entries(availableNetworks).map(([key, network]) => (
@@ -238,6 +325,9 @@ export default function NetworkSwitcher() {
         >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
+        <span id={hintId} className="sr-only">
+          Use the arrow keys to choose a network, Enter to switch, Escape to cancel.
+        </span>
       </div>
     </div>
   );

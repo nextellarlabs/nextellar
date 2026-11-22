@@ -23,6 +23,7 @@ import {
   isValidTemplate,
   getTemplate,
   JS_TEMPLATE_LIST,
+  templateForcesContracts,
 } from "../src/lib/templates.js";
 import {
   flushTelemetry,
@@ -142,6 +143,10 @@ program
       await exitWithTelemetry(exitCode);
     } catch (err: any) {
       printError(`Failed to preview templates: ${err?.message || err}`);
+      await exitWithTelemetry(1);
+    }
+  });
+
 // Init subcommand: revisit/reconfigure an existing project's
 // .nextellar/config.json (network, wallets) without re-scaffolding.
 program
@@ -294,6 +299,11 @@ program
   )
   .option("--dry-run", "Show what would change without applying it", false)
   .option("--check", "Dry preview with changelog display", false)
+  .option(
+    "--diff",
+    "Print a full file-by-file diff against the latest template without applying changes",
+    false,
+  )
   .option("--yes", "Apply changes without prompting", false)
   .option("--verbose", "print additional diagnostic output on failure")
   .option("--debug", "alias for --verbose")
@@ -304,6 +314,7 @@ program
         dryRun: options.dryRun,
         yes: options.yes,
         check: options.check,
+        diff: options.diff,
       });
     } catch (err: any) {
       printError(err.message);
@@ -439,6 +450,15 @@ program
   )
   .option("--force", "overwrite existing directory", false)
   .option(
+    "--workspace",
+    "scaffold into the nearest existing npm/yarn/pnpm/bun workspace (monorepo) root",
+    false,
+  )
+  .option(
+    "--workspace-root <dir>",
+    "workspace root to scaffold into (implies --workspace)",
+  )
+  .option(
     "--no-git",
     "skip initializing a git repository in the new project (defaults to on)",
   )
@@ -464,7 +484,10 @@ program.action(async (projectName, options) => {
 
   const template = options.template || "default";
   const useTs = options.typescript && !options.javascript;
-  const withContracts = options.withContracts || template === "defi";
+  const withContracts =
+    options.withContracts ||
+    template === "defi" ||
+    templateForcesContracts(template);
 
   const hasArg = (longFlag: string, shortFlag?: string) => {
     const argv = process.argv;
@@ -527,14 +550,20 @@ program.action(async (projectName, options) => {
   const walletsFlagProvided = hasArg("--wallets", "-w");
   const networkFlagProvided =
     hasArg("--horizon-url") || hasArg("--soroban-url");
-  const packageManagerFlagProvided = hasArg("--package-manager");
+  // Workspace mode (#1117): the workspace's own package manager is used, so
+  // never prompt for one.
+  const workspaceMode: boolean | string = options.workspaceRoot
+    ? String(options.workspaceRoot)
+    : !!options.workspace;
+  const packageManagerFlagProvided =
+    hasArg("--package-manager") || !!workspaceMode;
   const skipInstallFlagProvided = hasArg("--skip-install");
 
   // Validate project name against npm package naming rules early (non-interactive path).
   // The interactive prompt path performs its own inline validation via prompts.ts.
   if (!shouldPrompt) {
     try {
-      validateProjectName(path.basename(projectName));
+      validateProjectName(projectName);
     } catch (err: any) {
       printError(err.message);
       return await exitWithTelemetry(1);
@@ -599,9 +628,7 @@ program.action(async (projectName, options) => {
       `  Language:        ${pc.cyan(useTs ? "TypeScript" : "JavaScript")}`,
     );
     console.log(`  Template:        ${pc.cyan(template)}`);
-    console.log(
-      `  Contracts:       ${pc.cyan(options.withContracts ? "Yes" : "No")}`,
-    );
+    console.log(`  Contracts:       ${pc.cyan(withContracts ? "Yes" : "No")}`);
     console.log(
       `  Wallets:         ${pc.cyan(finalWallets.length > 0 ? finalWallets.join(", ") : "none")}`,
     );
@@ -644,7 +671,7 @@ program.action(async (projectName, options) => {
       noTelemetryFlag: options.telemetry === false,
     });
 
-    await scaffold({
+    const result = await scaffold({
       appName: finalProjectName,
       useTs,
       template,
@@ -660,14 +687,32 @@ program.action(async (projectName, options) => {
       cliVersion: pkg.version,
       force: options.force,
       git: options.git !== false,
+      workspace: workspaceMode || undefined,
     });
 
-    const pkgManager = detectPackageManager(
-      path.join(process.cwd(), finalProjectName),
-      finalPackageManager,
-    );
+    if (result?.workspace) {
+      console.log(
+        `  Workspace:       ${pc.cyan(result.workspace.root)} (${result.workspace.packageManager}${result.workspace.turbo ? ", Turborepo" : ""})`,
+      );
+      console.log(
+        `  App path:        ${pc.cyan(result.workspace.relativeDir)}\n`,
+      );
+    }
 
-    await displaySuccess(finalProjectName, pkgManager, finalSkipInstall);
+    const pkgManager =
+      result?.packageManager ??
+      detectPackageManager(
+        path.join(process.cwd(), finalProjectName),
+        finalPackageManager,
+      );
+
+    await displaySuccess(
+      result?.workspace
+        ? path.relative(process.cwd(), result.targetDir) || "."
+        : finalProjectName,
+      pkgManager,
+      finalSkipInstall,
+    );
   } catch (err: any) {
     printError(err.message);
     logVerboseError(err);

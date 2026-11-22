@@ -9,11 +9,17 @@ import {
   PROJECT_CONFIG_SCHEMA_VERSION,
   migrateProjectConfig,
 } from "./project-config.js";
+import { getTemplate } from "./templates.js";
 
 interface UpgradeOptions {
   dryRun?: boolean;
   yes?: boolean;
   check?: boolean;
+  /**
+   * Print a full, untruncated file-by-file diff between the project and the
+   * latest template, then exit without prompting or writing anything (#1116).
+   */
+  diff?: boolean;
 }
 
 const STELLAR_PKGS = [
@@ -92,6 +98,35 @@ function renderFileDiff(
   return shown;
 }
 
+/**
+ * Renders a complete unified-style diff for one file, with `---`/`+++`
+ * headers so the output reads like `git diff`. Unlike renderFileDiff() this
+ * is never truncated: `--diff` exists to show everything before upgrading.
+ * A missing project file (template-only, i.e. "added") diffs against "".
+ */
+export function renderFullFileDiff(
+  rel: string,
+  projectContent: string | null,
+  templateContent: string,
+): string[] {
+  const relPosix = rel.split(path.sep).join("/");
+  const header = [
+    pc.bold(
+      projectContent === null
+        ? `--- /dev/null`
+        : `--- a/src/${relPosix} (project)`,
+    ),
+    pc.bold(`+++ b/src/${relPosix} (template)`),
+  ];
+  if (projectContent === null) {
+    return [
+      ...header,
+      ...templateContent.split("\n").map((line) => pc.green(`+ ${line}`)),
+    ];
+  }
+  return [...header, ...diffLines(projectContent, templateContent)];
+}
+
 /** Compares dotted version strings numerically; non-numeric parts sort as 0. */
 function compareVersions(a: string, b: string): number {
   const pa = a.split(".").map((p) => parseInt(p, 10) || 0);
@@ -105,12 +140,16 @@ function compareVersions(a: string, b: string): number {
 
 function findTemplateDir(templateName: string) {
   const base = path.resolve(path.dirname(fileURLToPath(import.meta.url)));
+  // A registered template's TypeScript starter may live in a directory with a
+  // different name (e.g. `full` is composed on top of `default`, #1112), so
+  // resolve through the registry first and fall back to the raw name.
+  const dirName = getTemplate(templateName)?.tsDir ?? templateName;
   // src/lib/upgrade.ts, dist/src/lib/upgrade.js and a bundled dist/templates
   // all resolve the template from a different depth.
   const candidates = [
-    path.resolve(base, "../templates", templateName),
-    path.resolve(base, "../../templates", templateName),
-    path.resolve(base, "../../../src/templates", templateName),
+    path.resolve(base, "../templates", dirName),
+    path.resolve(base, "../../templates", dirName),
+    path.resolve(base, "../../../src/templates", dirName),
   ];
   return (
     candidates.find((candidate) => fs.existsSync(candidate)) ??
@@ -189,7 +228,7 @@ export async function upgrade(opts: UpgradeOptions = {}) {
     console.log(
       pc.red("Upgrading would downgrade project files. Update the CLI first."),
     );
-    if (!opts.yes) {
+    if (!opts.yes && !opts.diff) {
       console.log(pc.yellow("Re-run with --yes to proceed anyway."));
       return;
     }
@@ -272,6 +311,42 @@ export async function upgrade(opts: UpgradeOptions = {}) {
   if (changes.length === 0 && Object.keys(pkgChanges).length === 0) {
     console.log(pc.green("✔️  No template updates to apply."));
     if (!opts.dryRun && !opts.check) await persistMigration();
+    return;
+  }
+
+  // --diff (#1116): read-only, file-by-file preview of every drifted file.
+  // Runs before any prompt, backup or write, and wins over --yes.
+  if (opts.diff) {
+    console.log(pc.cyan("Template diff (project -> latest template):"));
+    for (const c of changes) {
+      const templateContent = await fs.readFile(c.templateFile, "utf8");
+      const projectContent =
+        c.status === "added" ? null : await fs.readFile(c.projectFile, "utf8");
+      console.log("");
+      for (const line of renderFullFileDiff(
+        c.file,
+        projectContent,
+        templateContent,
+      )) {
+        console.log(line);
+      }
+    }
+    if (Object.keys(pkgChanges).length > 0) {
+      console.log("");
+      console.log(pc.bold("--- a/package.json (project)"));
+      console.log(pc.bold("+++ b/package.json (template)"));
+      for (const [k, v] of Object.entries(pkgChanges)) {
+        if (v.from) console.log(pc.red(`- "${k}": "${v.from}"`));
+        console.log(pc.green(`+ "${k}": "${v.to}"`));
+      }
+    }
+    console.log("");
+    console.log(
+      pc.dim(
+        `${changes.length} file(s) differ, ${Object.keys(pkgChanges).length} package(s) differ, ${unchangedCount} file(s) unchanged.`,
+      ),
+    );
+    console.log(pc.magenta("--diff specified; no files were modified."));
     return;
   }
 

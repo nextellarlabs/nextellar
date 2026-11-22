@@ -14,6 +14,10 @@ These variables are consumed by Next.js client-side code and must be prefixed wi
 | `NEXT_PUBLIC_FRIENDBOT_URL` | `https://friendbot.stellar.org` | Friendbot API URL for funding test accounts on testnet. |
 | `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` | Canonical web application URL used for OpenGraph images and OAuth redirects. |
 | `NEXT_PUBLIC_WALLET_NETWORK_PASSPHRASE` | `Test SDF Network ; July 2015` | Network passphrase passed to Stellar Wallet Kit and transaction builders. |
+| `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | none (WalletConnect hidden) | Required to enable the WalletConnect wallet option. Must be the 32-character hex project ID from a project created at [cloud.reown.com](https://cloud.reown.com) (formerly WalletConnect Cloud). When unset, `readWalletConnectConfig` returns `null` and the app simply does not offer WalletConnect as a wallet choice; other wallet adapters are unaffected. See `docs/custom-wallet-adapter-guide.md`. |
+| `NEXT_PUBLIC_WALLETCONNECT_APP_URL` | current page origin (or `http://localhost:3000` during server-side rendering) | Optional `https://` URL of your dApp, shown to the user inside their wallet app during a WalletConnect pairing request. Ignored if `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` is unset. |
+| `NEXT_PUBLIC_WALLETCONNECT_ICON` | none (no icon shown) | Optional `https://` URL of a square icon, shown alongside the app name during pairing. Ignored if `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` is unset. |
+| `NEXT_PUBLIC_APP_NAME` | `Nextellar dApp` | Display name shown to the user inside their wallet app during a WalletConnect pairing request. |
 
 ## CLI & Development Environment Variables
 
