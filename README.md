@@ -81,6 +81,7 @@ Options:
   --skip-install                  skip dependency installation after scaffolding
   --package-manager <manager>    choose package manager (npm, yarn, pnpm, bun)
   -c, --with-contracts            scaffold Soroban smart contracts alongside the frontend
+  --with-devcontainer            add a Dev Container setup with a local Stellar network
   --force                         overwrite existing directory
   --workspace                     scaffold into the nearest npm/yarn/pnpm/bun workspace (monorepo) root
   --workspace-root <dir>          workspace root to scaffold into (implies --workspace)
@@ -124,7 +125,14 @@ npx nextellar my-app --template minimal       # minimal starter
 npx nextellar my-app --template minimal -j    # minimal starter, JavaScript
 npx nextellar my-app --template defi -j       # DeFi starter, JavaScript
 npx nextellar my-app --template full          # default + defi demo + contracts overlay
+npx nextellar my-app --with-devcontainer      # Node, Rust, Stellar CLI, and local Stellar network
 ```
+
+The optional `--with-devcontainer` flag adds a `.devcontainer` configuration and
+Docker Compose setup for a local Stellar network. Opening the project in VS Code
+Dev Containers installs npm dependencies and the Stellar CLI after the container
+is created. The app container includes Node and Rust; the local network exposes
+Horizon on port `8000` and Soroban RPC on port `8001`.
 
 An unrecognised name fails before anything is written, and the error lists
 every valid option:
