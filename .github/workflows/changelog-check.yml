@@ -1,0 +1,33 @@
+name: Changelog check
+
+# Fails a PR that changes scaffolded template files without a CHANGELOG.md
+# entry. Apply the `skip-changelog` label to opt out (see CONTRIBUTING.md).
+# `labeled`/`unlabeled` are included so adding the label re-runs the check.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+jobs:
+  changelog:
+    name: Template changes need a changelog entry
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Check changelog
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: |
+          CHANGED_FILES="$(git diff --name-only "origin/${BASE_REF}...HEAD")"
+          export CHANGED_FILES
+          node scripts/check-changelog.mjs

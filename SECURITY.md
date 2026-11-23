@@ -365,6 +365,57 @@ In addition to dependency vulnerabilities, CI scans every push to `main` and eve
 
 For step-by-step procedures on rotating leaked or expiring wallet keys, RPC endpoints, and anchor API credentials, see [Secret Rotation Guidance](./docs/secret-rotation.md).
 
+## Wallet keys in generated apps
+
+`npx nextellar` writes a Next.js app that talks to Stellar. The scaffold is a
+starting point. It does not hold a signing key, and a generated app must not
+grow one.
+
+### Never store secrets
+
+- Do not put secret keys (`S…`), seed phrases, or wallet keystore passwords in
+  source, snapshots, Storybook stories, fixtures, or git history.
+- Do not write them to `localStorage`, `sessionStorage`, cookies, or a
+  database the browser can read back.
+- Do not commit `.env`, `.env.local`, or a funded test account. `.env*` is
+  gitignored; keep it that way. If a secret is pushed, rotate it. Deleting the
+  line does not unpublish it. See [Secret Rotation Guidance](./docs/secret-rotation.md)
+  and the [secret scanning](#secret-scanning) workflow above.
+
+### Signing boundary
+
+The generated UI asks a wallet (Freighter, or another kit the template wires
+up) to sign. The app's job ends at building the transaction XDR and sending
+the signed result to the network.
+
+- Browser code may see a public key (`G…`) and a signed XDR envelope.
+- Browser code must not see the secret that produced the signature.
+- A server route in the scaffold, if you add one, may hold a server-only
+  secret for its own account. That secret stays in the process environment,
+  never in a response body, log line, or `NEXT_PUBLIC_*` variable.
+- Do not add a "paste your secret key" field. If a flow needs a signature,
+  send the user back to the wallet.
+
+### Environment exposure
+
+Next.js inlines any `NEXT_PUBLIC_` variable into the client bundle. Treat
+that prefix as public.
+
+| Safe in `NEXT_PUBLIC_` | Never in `NEXT_PUBLIC_` |
+| --- | --- |
+| Network name (`testnet` / `mainnet`) | Secret keys and seeds |
+| Public Horizon or Soroban RPC URL | RPC URLs that embed an API token |
+| Contract ids and asset issuers that are already public | Anchor API keys, webhook secrets, database URLs |
+
+Server-only variables have no `NEXT_PUBLIC_` prefix and are read in Server
+Components or route handlers. The template docs in
+[CONTRIBUTING.md](./CONTRIBUTING.md) and the template comparison in
+[docs/template-comparison.md](./docs/template-comparison.md) show which
+starters ship a wallet UI. None of them ship a place to persist a secret.
+
+A maintainer should review changes to this section and to anything in
+`src/templates/` that reads `process.env` or touches wallet signing.
+
 ## References
 
 - [npm audit documentation](https://docs.npmjs.com/auditing-package-contents-for-security-vulnerabilities)

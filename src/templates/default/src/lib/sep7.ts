@@ -16,6 +16,32 @@
 
 const SEP7_SCHEME = 'web+stellar';
 
+/** Stable, machine-readable reasons a SEP-7 URI could not be built or parsed. */
+export type Sep7ErrorCode =
+  | 'INVALID_INPUT'
+  | 'INVALID_URI'
+  | 'UNSUPPORTED_OPERATION'
+  | 'MISSING_DESTINATION'
+  | 'INVALID_ASSET'
+  | 'INVALID_MEMO_TYPE'
+  | 'MSG_TOO_LONG';
+
+/**
+ * Typed error thrown by the SEP-7 helpers. It is still an `Error` (the
+ * messages are unchanged), but carries a `code` callers can branch on instead
+ * of matching message text.
+ */
+export class Sep7Error extends Error {
+  readonly code: Sep7ErrorCode;
+
+  constructor(code: Sep7ErrorCode, message: string) {
+    super(message);
+    this.name = 'Sep7Error';
+    this.code = code;
+    Object.setPrototypeOf(this, Sep7Error.prototype);
+  }
+}
+
 /** Fields accepted by the `pay` operation, per SEP-7 §Operations. */
 export interface Sep7PayParams {
   /** Destination account (`G...`) or contract (`C...`) address that will receive the payment. Required. */
@@ -65,15 +91,16 @@ export function buildSep7PayUri(params: Sep7PayParams): string {
     params;
 
   if (!destination || destination.trim().length === 0) {
-    throw new Error('buildSep7PayUri: "destination" is required.');
+    throw new Sep7Error('MISSING_DESTINATION', 'buildSep7PayUri: "destination" is required.');
   }
 
   if (asset && (!asset.code || !asset.issuer)) {
-    throw new Error('buildSep7PayUri: "asset" requires both "code" and "issuer".');
+    throw new Sep7Error('INVALID_ASSET', 'buildSep7PayUri: "asset" requires both "code" and "issuer".');
   }
 
   if (msg && msg.length > MAX_MSG_LENGTH) {
-    throw new Error(
+    throw new Sep7Error(
+      'MSG_TOO_LONG',
       `buildSep7PayUri: "msg" must be at most ${MAX_MSG_LENGTH} characters (got ${msg.length}).`,
     );
   }
@@ -120,29 +147,38 @@ export interface ParsedSep7PayUri extends Sep7PayParams {
  */
 export function parseSep7PayUri(uri: string): ParsedSep7PayUri {
   if (!uri || typeof uri !== 'string') {
-    throw new Error('parseSep7PayUri: expected a non-empty string.');
+    throw new Sep7Error('INVALID_INPUT', 'parseSep7PayUri: expected a non-empty string.');
   }
 
   const match = uri.match(/^web\+stellar:\/{0,2}(\w+)\??(.*)$/i);
   if (!match) {
-    throw new Error(`parseSep7PayUri: not a valid "web+stellar:" URI: "${uri}"`);
+    throw new Sep7Error('INVALID_URI', `parseSep7PayUri: not a valid "web+stellar:" URI: "${uri}"`);
   }
 
   const [, operation, queryString] = match;
   if (operation.toLowerCase() !== 'pay') {
-    throw new Error(`parseSep7PayUri: expected a "pay" operation, got "${operation}".`);
+    throw new Sep7Error(
+      'UNSUPPORTED_OPERATION',
+      `parseSep7PayUri: expected a "pay" operation, got "${operation}".`,
+    );
   }
 
   const query = new URLSearchParams(queryString);
   const destination = query.get('destination');
   if (!destination) {
-    throw new Error('parseSep7PayUri: URI is missing the required "destination" parameter.');
+    throw new Sep7Error(
+      'MISSING_DESTINATION',
+      'parseSep7PayUri: URI is missing the required "destination" parameter.',
+    );
   }
 
   const assetCode = query.get('asset_code');
   const assetIssuer = query.get('asset_issuer');
   if ((assetCode && !assetIssuer) || (!assetCode && assetIssuer)) {
-    throw new Error('parseSep7PayUri: "asset_code" and "asset_issuer" must both be present or both absent.');
+    throw new Sep7Error(
+      'INVALID_ASSET',
+      'parseSep7PayUri: "asset_code" and "asset_issuer" must both be present or both absent.',
+    );
   }
 
   const result: ParsedSep7PayUri = {
@@ -163,7 +199,7 @@ export function parseSep7PayUri(uri: string): ParsedSep7PayUri {
   const memoType = query.get('memo_type');
   if (memoType !== null) {
     if (!['MEMO_TEXT', 'MEMO_ID', 'MEMO_HASH', 'MEMO_RETURN'].includes(memoType)) {
-      throw new Error(`parseSep7PayUri: invalid "memo_type": "${memoType}".`);
+      throw new Sep7Error('INVALID_MEMO_TYPE', `parseSep7PayUri: invalid "memo_type": "${memoType}".`);
     }
     result.memoType = memoType as Sep7PayParams['memoType'];
   }

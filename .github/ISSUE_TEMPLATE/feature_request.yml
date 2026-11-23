@@ -1,0 +1,47 @@
+name: Feature request
+description: A change to the CLI, a template, or the docs.
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: What should change
+      description: The user-facing outcome, not a line-by-line design.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - cli
+        - templates
+        - docs
+        - ci
+        - tests
+    validations:
+      required: true
+  - type: dropdown
+    id: complexity
+    attributes:
+      label: Complexity
+      description: Rough size of the work. Used by the Stellar Wave checklist.
+      options:
+        - Small
+        - Medium
+        - High
+    validations:
+      required: true
+  - type: checkboxes
+    id: wave
+    attributes:
+      label: Stellar Wave checklist
+      description: Confirm what the change needs to include.
+      options:
+        - label: Tests (unit, template, or a note that none apply)
+          required: true
+        - label: Docs (README, CONTRIBUTING, SECURITY, or docs/)
+          required: true
+        - label: Complexity above matches the work
+          required: true

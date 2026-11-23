@@ -99,6 +99,51 @@ npm run test:e2e
 
 See `tests/e2e/README.md` for details.
 
+### Writing and running template unit tests
+
+Template behavior is covered by the root Jest suite in `jest.config.mjs`.
+This repo does **not** split templates into a Jest `projects` array. One
+config runs every template, and the boundary between templates is the test
+file plus the import path under `src/templates/<name>/`.
+
+| Piece | Where it lives |
+| --- | --- |
+| Jest config | `jest.config.mjs` (one project: `testEnvironment: "node"`, ESM via `extensionsToTreatAsEsm`) |
+| Template tests | `tests/**/*.test.ts` and `tests/**/*.test.tsx` |
+| Shared mocks | `src/mocks/` and `tests/mocks/`. `moduleNameMapper` redirects wallet context, `@clack/prompts`, and `next/image` so tests never open a browser wallet or a real Next image pipeline |
+| JS templates | The `templates/js-*/src/.+\\.js` transform compiles those modules as CJS. TypeScript templates stay on the ESM Babel transform. Importing a `js-*` template file with the ESM transform throws `Unexpected export statement in CJS module` |
+| Snapshots | `toMatchSnapshot()` writes under `tests/**/__snapshots__/`. Commit the `.snap` file. Review the diff; do not regenerate it to hide a real markup change |
+
+Run one template's tests:
+
+```bash
+npm test -- tests/components/TransactionStatusBadge.minimal.test.tsx
+npm test -- tests/components/TransactionStatusBadge.minimal.test.tsx -u   # rewrite snapshots on purpose
+```
+
+Worked example: a snapshot test for the minimal template's status badge.
+The import points at that template, the mock wallet comes from the shared
+helper, and the snapshot locks the rendered markup.
+
+```tsx
+import { render } from "@testing-library/react";
+import { TransactionStatusBadge } from "../../src/templates/minimal/src/components/TransactionStatusBadge";
+
+it("matches the pending snapshot", () => {
+  const { container } = render(<TransactionStatusBadge status="pending" />);
+  expect(container).toMatchSnapshot();
+});
+```
+
+The committed result is
+`tests/components/__snapshots__/TransactionStatusBadge.minimal.test.tsx.snap`.
+If the badge markup changes, the snapshot fails in `npm test` and in the
+coverage-gate job. Update it only when the new markup is what you meant to
+ship, and say so in the PR.
+
+The pull request template links back to this section. Fill that checklist
+before requesting review.
+
 ### Flaky tests
 
 Occasionally a test fails intermittently for reasons unrelated to the change
@@ -130,6 +175,7 @@ Every PR runs the workflows in `.github/workflows/`:
 | E2E (default) | scoped `tests/e2e/scaffold-default.e2e.test.ts` | Default template scaffolds and builds. |
 | Pack guard | `npm run build` + `node scripts/check-pack-size.mjs` | Tarball/unpacked size thresholds. |
 | Coverage report | `npm run test:coverage` | Posts a coverage summary as a PR comment. |
+| Changelog check | `node scripts/check-changelog.mjs` | Fails PRs that change `src/templates/**` without a `CHANGELOG.md` entry (see [Changelog entries](#changelog-entries-for-template-changes)). |
 
 If your change adds or modifies behavior, add or update tests so the
 coverage gate stays green.
@@ -167,6 +213,9 @@ Labels are applied automatically; you don't need to add them manually.
 Commonly used to route work: `good first issue`, `help wanted`, `product`,
 `bug`, `enhancement`, `question`, `documentation`, `duplicate`, `invalid`,
 `wontfix`. Pick issues filtered by these on the Issues tab.
+
+`skip-changelog` is the opt-out for the changelog check described under
+[Changelog entries for template changes](#changelog-entries-for-template-changes).
 
 ---
 
@@ -212,6 +261,28 @@ line.
 Keep PRs focused on a single concern (an issue or a tightly-related group of
 issues). The path-based labeler will categorize it automatically, so you
 don't need to set area/size labels yourself.
+
+### Changelog entries for template changes
+
+Everything under `src/templates/` ships into every project generated after the
+next release, so changes there need a changelog entry. The **Changelog check**
+workflow (`.github/workflows/changelog-check.yml`) fails a PR that changes any
+file under `src/templates/` without also changing `CHANGELOG.md`.
+
+To satisfy it, add a bullet under `## [Unreleased]` in `CHANGELOG.md` (under
+`Added`, `Changed`, `Fixed` or `Removed`) describing the user-visible effect.
+Link the issue, e.g. `(#1512)`.
+
+If a template change genuinely needs no entry (a typo in a comment, a
+formatting-only change, a test or story file), ask a maintainer to apply the
+**`skip-changelog`** label to the PR. The check re-runs automatically when the
+label is added or removed. Changes outside `src/templates/` are never checked.
+
+You can run the same logic locally:
+
+```bash
+CHANGED_FILES="$(git diff --name-only origin/main...HEAD)" PR_LABELS='[]' node scripts/check-changelog.mjs
+```
 
 ---
 

@@ -143,6 +143,10 @@ Unknown template "nope". Available templates: default, minimal, defi, full.
 `src/templates/js-full`) overlay on top, which adds `CounterDemo` and renders
 it on the landing page, then applies the contracts overlay.
 
+The component and hook set for every template, including `full` and
+`js-full`, is generated from the tree and checked in CI:
+[docs/template-comparison.md](docs/template-comparison.md).
+
 ### Previewing an upgrade
 
 `nextellar upgrade --diff` prints a complete, untruncated diff for every
@@ -178,17 +182,17 @@ my-app/
 
 The following components and tools are planned but **not yet included** in scaffolded projects. Track progress or contribute via their issue links:
 
-| Feature                                                   | Status                                                                                                                                                | Issue |
-| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
-| `<BalanceDisplay>` component                              | Installable via `nextellar add balance-display`                                                                                                       | —     |
-| `<SendForm>` component                                    | Installable via `nextellar add send-form`                                                                                                             | —     |
-| `<TransactionList>` component                             | Installable via `nextellar add transaction-list`                                                                                                      | —     |
-| `<ContractCallForm>` / `<ContractCallPreview>` components | Installable via `nextellar add contract-call`                                                                                                         | —     |
-| `<ReceiveForm>` component                                 | Planned                                                                                                                                               | —     |
-| `<TransactionStatusBadge>` component                      | Planned                                                                                                                                               | —     |
-| Full `shadcn/ui` integration                              | Templates ship inline shadcn/ui-inspired components; full setup is manual                                                                             | —     |
-| Storybook for component previews                          | Planned                                                                                                                                               | —     |
-| GitHub Actions CI in generated apps                       | Planned (repo-level CI: [#679](https://github.com/nextellarlabs/nextellar/issues/679), [#680](https://github.com/nextellarlabs/nextellar/issues/680)) | —     |
+| Feature | Status | Issue |
+| --- | --- | --- |
+| `<BalanceDisplay>` component | Installable via `nextellar add balance-display` | — |
+| `<SendForm>` component | Installable via `nextellar add send-form` | — |
+| `<TransactionList>` component | Installable via `nextellar add transaction-list` | — |
+| `<ContractCallForm>` / `<ContractCallPreview>` components | Installable via `nextellar add contract-call` | — |
+| `<ReceiveForm>` component | Ships in the default template (`nextellar add receive-form` elsewhere) | #662 |
+| `<TransactionStatusBadge>` component | Planned | — |
+| Full `shadcn/ui` integration | Templates ship inline shadcn/ui-inspired components; full setup is manual | — |
+| Storybook for component previews | Planned | — |
+| GitHub Actions CI in generated apps | Planned (repo-level CI: [#679](https://github.com/nextellarlabs/nextellar/issues/679), [#680](https://github.com/nextellarlabs/nextellar/issues/680)) | — |
 
 > 💡 Use `nextellar add --list` to see all currently installable features.
 
