@@ -67,6 +67,50 @@ jobs:
           npm run build
           if grep -q '"build-storybook"' package.json; then npm run build-storybook; fi
 
+  windows-long-path:
+    # Scaffolds into a deeply nested directory addressed with backslashes, past the 260
+    # character MAX_PATH limit, then checks placeholder replacement and .gitignore handling (#1492).
+    # Any failure fails the workflow: there is no continue-on-error here.
+    needs: template-junk
+    if: github.event_name == 'pull_request' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    name: windows long path (${{ matrix.variant.name }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        variant:
+          - { name: default, args: "--template default" }
+          - { name: default-js, args: "--template default --javascript" }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Enable long paths
+        shell: pwsh
+        run: |
+          Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name LongPathsEnabled -Value 1
+          git config --system core.longpaths true
+      - run: npm ci
+      - run: npm run build
+      - name: Scaffold into a deeply nested directory
+        shell: pwsh
+        run: |
+          $segments = 1..14 | ForEach-Object { 'nested-directory-level-{0:d2}' -f $_ }
+          $parent = Join-Path $env:RUNNER_TEMP ($segments -join '\')
+          New-Item -ItemType Directory -Path $parent -Force | Out-Null
+          Write-Host "parent path length: $($parent.Length)"
+          if ($parent.Length -lt 260) { throw "parent path is $($parent.Length) characters, not past MAX_PATH" }
+          Push-Location $parent
+          node "$env:GITHUB_WORKSPACE\dist\bin\nextellar.js" long-path-app --defaults --skip-install ${{ matrix.variant.args }}
+          if ($LASTEXITCODE -ne 0) { throw "scaffold failed with exit code $LASTEXITCODE" }
+          Pop-Location
+          "APP_DIR=$parent\long-path-app" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Verify placeholders and .gitignore
+        shell: pwsh
+        run: node scripts/verify-scaffold-output.mjs "$env:APP_DIR" long-path-app --min-path-length=260
+
   bundle-budgets:
     # Runs once (not matrixed) since scripts/analyze-template-bundles.mjs
     # already iterates every template itself. See docs/bundle-budgets.md
