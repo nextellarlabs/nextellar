@@ -78,8 +78,9 @@ describe("upgrade dry run", () => {
     await upgrade({ dryRun: true });
 
     expect(await snapshotTree(projectDir)).toEqual(before);
+    // Upgrade reports managed files with POSIX separators on every platform.
     expect(consoleLogSpy.mock.calls.flat().join("\n")).toContain(
-      path.join("hooks", "useSorobanContract.ts"),
+      "hooks/useSorobanContract.ts",
     );
   });
 });

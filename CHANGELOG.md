@@ -18,3 +18,14 @@ Pull requests that change files under `src/templates/` must add an entry under
   unchanged, so existing `catch` blocks keep working. (#1512)
 - CI check that fails pull requests changing `src/templates/**` without a
   changelog entry, with a `skip-changelog` opt-out label. (#1519)
+- `nextellar upgrade --interactive` (`-i`) reviews each drifted template file
+  individually with a diff preview and an `apply` / `skip` / `quit` prompt.
+  Skip decisions are persisted in `.nextellar/upgrade-state.json` keyed by the
+  incoming template's SHA-256, so unchanged templates are auto-skipped on later
+  runs and a changed template is prompted again. (#1487)
+
+### Fixed
+
+- Repaired a malformed `src/templates/default/package.json` (missing comma and
+  duplicate `lucide-react` key) that made the default template's package
+  metadata unreadable.
