@@ -12,6 +12,7 @@ import {
   Transaction
 } from '@stellar/stellar-sdk';
 import { useWalletConfig } from '../contexts';
+import { classifyHorizonError, toThrowableHorizonError } from '../lib/horizon-errors';
 
 /**
  * Trustline interface representing an account's ability to hold a specific issued asset
@@ -250,30 +251,24 @@ export function useTrustlines(
       
       return parsedTrustlines;
     } catch (err: unknown) {
-      const errorObj = err as { response?: { status?: number }; message?: string; name?: string };
-      // Handle specific error cases
-      if (errorObj?.response?.status === 404 || errorObj?.name === 'NotFoundError') {
-        // Account doesn't exist on network (needs funding) - return empty trustlines
+      const horizonError = classifyHorizonError(err, { context: 'read' });
+
+      // Account doesn't exist on network (needs funding) - return empty trustlines
+      if (horizonError.kind === 'not_found') {
         return [];
       }
-      // Network or server errors
-      if (errorObj?.message?.includes('fetch') || (errorObj.response?.status && errorObj.response.status >= 500)) {
-        throw new Error(`Network error: ${errorObj.message || 'Failed to connect to Horizon'}`);
-      }
-      
-      // Client errors (400-499)
-      if (errorObj.response?.status && errorObj.response.status >= 400 && errorObj.response.status < 500) {
+
+      // Client errors (400-499, excluding 404 and 429, which have their own kinds)
+      if (horizonError.kind === 'bad_request' || horizonError.kind === 'client_error') {
         console.error('Horizon client error details:', {
-          status: errorObj.response.status,
-          message: errorObj.message,
+          status: horizonError.status,
+          message: err instanceof Error ? err.message : undefined,
           publicKey: key,
           horizonUrl: lastHorizonUrlRef.current
         });
-        throw new Error(`Client error: ${errorObj.message || 'Invalid request to Horizon'} (Status: ${errorObj.response.status})`);
       }
-      
-      // Re-throw with more context
-      throw err instanceof Error ? err : new Error('Unknown error fetching trustlines');
+
+      throw toThrowableHorizonError(err, horizonError, 'Unknown error fetching trustlines');
     }
   }, [isValidPublicKey, parseTrustlinesFromBalances]);
 
@@ -383,20 +378,9 @@ export function useTrustlines(
       // Return unsigned XDR
       return transaction.toXDR();
     } catch (err: unknown) {
-      const errorObj = err as { response?: { status?: number }; message?: string };
-      // Handle specific Horizon errors
-      if (errorObj?.response?.status === 404) {
-        throw new Error(`Account ${publicKey} not found. Account may need funding.`);
-      }
-      if (errorObj.response?.status && errorObj.response.status >= 500) {
-        throw new Error(`Horizon server error: ${errorObj.message || 'Network unavailable'}`);
-      }
-      if (errorObj.response?.status && errorObj.response.status >= 400) {
-        throw new Error(`Invalid request: ${errorObj.message || 'Bad request to Horizon'}`);
-      }
-      
-      // Re-throw validation and other errors
-      throw err instanceof Error ? err : new Error('Failed to build change trust transaction');
+      const horizonError = classifyHorizonError(err, { context: 'build', accountId: publicKey });
+      // Re-throw validation and other errors unchanged
+      throw toThrowableHorizonError(err, horizonError, 'Failed to build change trust transaction');
     }
   }, [publicKey, isValidPublicKey, getNetworkPassphrase, serverRef, isValidAssetCode]);
 
@@ -468,26 +452,23 @@ export function useTrustlines(
         raw: result
       };
     } catch (err: unknown) {
-      const errorObj = err as { response?: { status?: number; data?: { extras?: { result_codes?: { transaction?: string; operations?: string[] } } } }; message?: string };
       console.error('Change trust submission failed:', err);
-      
-      // Handle specific submission errors
-      let errorMessage = 'Change trust transaction failed';
-      if (errorObj?.response?.data?.extras?.result_codes) {
-        const codes = errorObj.response.data.extras.result_codes;
-        errorMessage = `Transaction failed - ${codes.transaction || codes.operations?.join(', ') || 'Unknown error'}`;
-      } else if (errorObj?.response?.status === 400) {
-        errorMessage = 'Invalid transaction format or content';
-      } else if (errorObj.response?.status && errorObj.response.status >= 500) {
-        errorMessage = 'Horizon server error during submission';
-      } else if (errorObj?.message) {
-        errorMessage = errorObj.message;
-      }
-      
+
+      const horizonError = classifyHorizonError(err, {
+        context: 'submit',
+        fallbackMessage: 'Change trust transaction failed'
+      });
+
+      // Keep this hook's established wording for result-code failures.
+      const codes = horizonError.resultCodes;
+      const errorMessage = codes
+        ? `Transaction failed - ${codes.transaction || codes.operations?.join(', ') || 'Unknown error'}`
+        : horizonError.userMessage;
+
       return {
         success: false,
         error: errorMessage,
-        raw: errorObj?.response?.data
+        raw: horizonError.raw
       };
     }
   }, [serverRef, isValidSecret, publicKey, getNetworkPassphrase, refresh]);

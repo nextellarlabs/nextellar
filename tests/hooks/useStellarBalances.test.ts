@@ -218,6 +218,22 @@ describe("useStellarBalances (default template)", () => {
     expect(result.current.balances).toEqual([]);
   });
 
+  it("surfaces a rate-limit error when Horizon returns 429", async () => {
+    mockAccountsCall.mockRejectedValue(
+      Object.assign(new Error("Too Many Requests"), { response: { status: 429 } }),
+    );
+
+    const { result } = renderHook(() =>
+      useStellarBalances(ADDRESS, { pollIntervalMs: null }),
+    );
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.error).toBeInstanceOf(Error);
+    expect(result.current.error?.message).toMatch(/rate limit/i);
+    expect(result.current.balances).toEqual([]);
+  });
+
   it("throws a validation error for an invalid public key format", async () => {
     const { result } = renderHook(() =>
       useStellarBalances("not-a-valid-key", { pollIntervalMs: null }),

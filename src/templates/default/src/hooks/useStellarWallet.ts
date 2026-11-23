@@ -13,6 +13,7 @@ import {
 import { ISupportedWallet } from "@creit.tech/stellar-wallets-kit";
 import { kit } from '../lib/stellar-wallet-kit';
 import { storage } from '../lib/storage';
+import { classifyHorizonError } from '../lib/horizon-errors';
 
 // Use Horizon.Server instead of just Server
 const Server = Horizon.Server;
@@ -187,7 +188,7 @@ export function useStellarWallet(
       setBalances(account.balances);
     } catch (error: unknown) {
       // Account doesn't exist on the network yet (needs funding)
-      if (error && typeof error === 'object' && 'response' in error && (error as { response?: { status?: number } }).response?.status === 404) {
+      if (classifyHorizonError(error).kind === 'not_found') {
         setBalances([]);
       } else {
         console.error('Failed to load balances:', error);

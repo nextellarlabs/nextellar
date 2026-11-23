@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { Horizon } from '@stellar/stellar-sdk';
 import { useWalletConfig } from '../contexts';
 import { useHorizonStreaming } from './useHorizonStreaming';
+import { classifyHorizonError, toThrowableHorizonError } from '../lib/horizon-errors';
 
 /**
  * Balance interface matching Stellar Horizon API format
@@ -174,31 +175,24 @@ export function useStellarBalances(
 
       return mappedBalances;
     } catch (err: unknown) {
-      // Handle specific error cases
-      if (err && typeof err === 'object' && 'response' in err && (err as { response?: { status?: number } }).response?.status === 404) {
-        // Account doesn't exist on network (needs funding) - this is not an error
+      const horizonError = classifyHorizonError(err, { context: 'read' });
+
+      // Account doesn't exist on network (needs funding) - this is not an error
+      if (horizonError.kind === 'not_found') {
         return [];
       }
-      
-      // Network or server errors
-      const errorObj = err as { message?: string; response?: { status?: number } };
-      if (errorObj?.message?.includes('fetch') || (errorObj.response?.status && errorObj.response.status >= 500)) {
-        throw new Error(`Network error: ${errorObj.message || 'Failed to connect to Horizon'}`);
-      }
-      
-      // Client errors (400-499)
-      if (errorObj.response?.status && errorObj.response.status >= 400 && errorObj.response.status < 500) {
+
+      // Client errors (400-499, excluding 404 and 429, which have their own kinds)
+      if (horizonError.kind === 'bad_request' || horizonError.kind === 'client_error') {
         console.error('Horizon client error details:', {
-          status: errorObj.response.status,
-          message: errorObj.message,
+          status: horizonError.status,
+          message: err instanceof Error ? err.message : undefined,
           publicKey: key,
           horizonUrl: lastHorizonUrlRef.current
         });
-        throw new Error(`Client error: ${errorObj.message || 'Invalid request to Horizon'} (Status: ${errorObj.response.status})`);
       }
-      
-      // Re-throw with more context
-      throw err instanceof Error ? err : new Error('Unknown error fetching balances');
+
+      throw toThrowableHorizonError(err, horizonError, 'Unknown error fetching balances');
     }
   }, [isValidPublicKey]);
 

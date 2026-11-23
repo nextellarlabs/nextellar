@@ -13,7 +13,7 @@ import {
   Transaction
 } from '@stellar/stellar-sdk';
 import { useWalletConfig } from '../contexts';
-import { decodeResultCodes } from '../lib/stellarResultCodes';
+import { classifyHorizonError, toThrowableHorizonError } from '../lib/horizon-errors';
 
 /**
  * Payment parameters for building transactions
@@ -248,20 +248,9 @@ export function useStellarPayment(
       // Return unsigned XDR
       return transaction.toXDR();
     } catch (err: unknown) {
-      const errorObj = err as { response?: { status?: number }; message?: string };
-      // Handle specific Horizon errors
-      if (errorObj?.response?.status === 404) {
-        throw new Error(`Account ${params.from} not found. Account may need funding.`);
-      }
-      if (errorObj?.response?.status && errorObj.response.status >= 500) {
-        throw new Error(`Horizon server error: ${errorObj.message || 'Network unavailable'}`);
-      }
-      if (errorObj?.response?.status && errorObj.response.status >= 400) {
-        throw new Error(`Invalid request: ${errorObj.message || 'Bad request to Horizon'}`);
-      }
-      
-      // Re-throw validation and other errors
-      throw err instanceof Error ? err : new Error('Failed to build payment transaction');
+      const horizonError = classifyHorizonError(err, { context: 'build', accountId: params.from });
+      // Re-throw validation and other errors unchanged
+      throw toThrowableHorizonError(err, horizonError, 'Failed to build payment transaction');
     }
   }, [serverRef, validatePaymentParams, getNetworkPassphrase]);
 
@@ -299,29 +288,18 @@ export function useStellarPayment(
         raw: result
       };
     } catch (err: unknown) {
-      const errorObj = err as { response?: { status?: number; data?: { extras?: { result_codes?: { transaction?: string; operations?: string[] } } } }; message?: string };
       console.error('Transaction submission failed:', err);
-      
-      // Handle specific submission errors
-      let errorMessage = 'Transaction failed';
-      let resultCodes: PaymentResult['resultCodes'];
-      if (errorObj?.response?.data?.extras?.result_codes) {
-        const codes = errorObj.response.data.extras.result_codes;
-        resultCodes = codes;
-        errorMessage = decodeResultCodes(codes).reason;
-      } else if (errorObj?.response?.status === 400) {
-        errorMessage = 'Invalid transaction format or content';
-      } else if (errorObj?.response?.status && errorObj.response.status >= 500) {
-        errorMessage = 'Horizon server error during submission';
-      } else if (errorObj?.message) {
-        errorMessage = errorObj.message;
-      }
+
+      const horizonError = classifyHorizonError(err, {
+        context: 'submit',
+        fallbackMessage: 'Transaction failed'
+      });
 
       return {
         success: false,
-        error: errorMessage,
-        raw: errorObj?.response?.data,
-        resultCodes
+        error: horizonError.userMessage,
+        raw: horizonError.raw,
+        resultCodes: horizonError.resultCodes
       };
     }
   }, [serverRef, getNetworkPassphrase]);
