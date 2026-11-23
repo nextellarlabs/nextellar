@@ -130,6 +130,7 @@ Every PR runs the workflows in `.github/workflows/`:
 | E2E (default) | scoped `tests/e2e/scaffold-default.e2e.test.ts` | Default template scaffolds and builds. |
 | Pack guard | `npm run build` + `node scripts/check-pack-size.mjs` | Tarball/unpacked size thresholds. |
 | Coverage report | `npm run test:coverage` | Posts a coverage summary as a PR comment. |
+| Changelog check | `node scripts/check-changelog.mjs` | Fails PRs that change `src/templates/**` without a `CHANGELOG.md` entry (see [Changelog entries](#changelog-entries-for-template-changes)). |
 
 If your change adds or modifies behavior, add or update tests so the
 coverage gate stays green.
@@ -167,6 +168,9 @@ Labels are applied automatically; you don't need to add them manually.
 Commonly used to route work: `good first issue`, `help wanted`, `product`,
 `bug`, `enhancement`, `question`, `documentation`, `duplicate`, `invalid`,
 `wontfix`. Pick issues filtered by these on the Issues tab.
+
+`skip-changelog` is the opt-out for the changelog check described under
+[Changelog entries for template changes](#changelog-entries-for-template-changes).
 
 ---
 
@@ -212,6 +216,28 @@ line.
 Keep PRs focused on a single concern (an issue or a tightly-related group of
 issues). The path-based labeler will categorize it automatically, so you
 don't need to set area/size labels yourself.
+
+### Changelog entries for template changes
+
+Everything under `src/templates/` ships into every project generated after the
+next release, so changes there need a changelog entry. The **Changelog check**
+workflow (`.github/workflows/changelog-check.yml`) fails a PR that changes any
+file under `src/templates/` without also changing `CHANGELOG.md`.
+
+To satisfy it, add a bullet under `## [Unreleased]` in `CHANGELOG.md` (under
+`Added`, `Changed`, `Fixed` or `Removed`) describing the user-visible effect.
+Link the issue, e.g. `(#1512)`.
+
+If a template change genuinely needs no entry (a typo in a comment, a
+formatting-only change, a test or story file), ask a maintainer to apply the
+**`skip-changelog`** label to the PR. The check re-runs automatically when the
+label is added or removed. Changes outside `src/templates/` are never checked.
+
+You can run the same logic locally:
+
+```bash
+CHANGED_FILES="$(git diff --name-only origin/main...HEAD)" PR_LABELS='[]' node scripts/check-changelog.mjs
+```
 
 ---
 
