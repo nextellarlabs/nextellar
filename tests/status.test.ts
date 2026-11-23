@@ -3,6 +3,7 @@ import fs from "fs-extra";
 import os from "os";
 import path from "path";
 import { runStatus } from "../src/lib/status.js";
+import { scaffold } from "../src/lib/scaffold.js";
 
 describe("nextellar status", () => {
   const tmpDirs: string[] = [];
@@ -40,6 +41,24 @@ describe("nextellar status", () => {
     }
 
     return dir;
+  };
+
+  const scaffoldProject = async (useTs: boolean) => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "nextellar-status-"));
+    tmpDirs.push(dir);
+    const { targetDir } = await scaffold({
+      appName: path.join(dir, "demo"),
+      template: useTs ? "defi" : "full",
+      useTs,
+      skipInstall: true,
+      git: false,
+      wallets: ["freighter"],
+      horizonUrl: "https://horizon-public.example.org",
+      sorobanUrl: "https://soroban.example.org",
+      telemetryEnabled: false,
+    });
+    logSpy.mockClear();
+    return targetDir;
   };
 
   beforeEach(() => {
@@ -181,5 +200,59 @@ describe("nextellar status", () => {
     await runStatus({ cwd: dir });
 
     expect(output()).toContain("scaffolded with v1.2.3");
+  });
+
+  it("reports a fresh TypeScript scaffold as clean in JSON", async () => {
+    const dir = await scaffoldProject(true);
+
+    await runStatus({ cwd: dir, json: true });
+
+    const { usage } = JSON.parse(output());
+    expect(usage).toMatchObject({
+      template: "defi",
+      language: "typescript",
+      drift: { modified: [], missing: [] },
+    });
+    expect(usage.features).toContain("wallet");
+  });
+
+  it("reports edited and missing files from the composed JavaScript starter", async () => {
+    const dir = await scaffoldProject(false);
+    const edited = "src/app/page.jsx";
+    const removed = "src/components/CounterDemo.jsx";
+    await fs.appendFile(path.join(dir, edited), "\n// local customization\n");
+    await fs.remove(path.join(dir, removed));
+    await fs.outputFile(path.join(dir, "src/local-only.js"), "// local file\n");
+
+    await runStatus({ cwd: dir, json: true });
+
+    const { usage } = JSON.parse(output());
+    expect(usage).toMatchObject({
+      template: "full",
+      language: "javascript",
+      drift: { modified: [edited], missing: [removed] },
+    });
+    expect(usage.features).toContain("wallet");
+
+    logSpy.mockClear();
+    await runStatus({ cwd: dir });
+    expect(output()).toContain("Language: JavaScript");
+    expect(output()).toContain("Template drift: 1 modified, 1 missing.");
+    expect(output()).toContain(`Modified: ${edited}`);
+    expect(output()).toContain(`Missing: ${removed}`);
+  });
+
+  it("reports an unavailable comparison for an unknown template", async () => {
+    const dir = await makeProject({ template: "custom" });
+    await fs.outputJson(path.join(dir, "tsconfig.json"), {});
+
+    await runStatus({ cwd: dir, json: true });
+
+    expect(JSON.parse(output()).usage).toEqual({
+      template: "custom",
+      language: "typescript",
+      features: [],
+      drift: null,
+    });
   });
 });
