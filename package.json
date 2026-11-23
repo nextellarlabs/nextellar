@@ -26,6 +26,8 @@
     "test:mutation": "npx --yes -p @stryker-mutator/core@9 -p @stryker-mutator/jest-runner@9 stryker run",
     "mutation:score": "node scripts/mutation-score.mjs",
     "test:visual": "node scripts/visual-regression.mjs",
+    "templates:matrix": "node scripts/generate-template-matrix.mjs",
+    "templates:matrix:check": "node scripts/generate-template-matrix.mjs --check",
     "prepublishOnly": "npm run clean && npm test && npm run build",
     "prepare": "husky"
   },
