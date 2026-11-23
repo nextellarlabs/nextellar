@@ -114,26 +114,26 @@ describe("runAdd", () => {
 
     it("falls back to the default template and says so when a file is missing", async () => {
       const cwd = await makeProject("defi");
-      // The defi template ships no multisig helpers today.
+      // The defi template ships no federation lookup hook.
       expect(
         await fs.pathExists(
-          templateFile("defi", "hooks/useMultisigTransaction.ts"),
+          templateFile("defi", "hooks/useFederationLookup.ts"),
         ),
       ).toBe(false);
 
-      const result = await runAdd("multisig", { cwd, skipInstall: true });
+      const result = await runAdd("send-form", { cwd, skipInstall: true });
 
       expect(result.success).toBe(true);
       expect(
-        await read(path.join(cwd, "src/hooks/useMultisigTransaction.ts")),
+        await read(path.join(cwd, "src/hooks/useFederationLookup.ts")),
       ).toBe(
-        await read(templateFile("default", "hooks/useMultisigTransaction.ts")),
+        await read(templateFile("default", "hooks/useFederationLookup.ts")),
       );
 
       const logged = output();
       expect(logged).toContain("copied from");
-      expect(logged).toContain("hooks/useMultisigTransaction.ts");
-      expect(logged).toContain("lib/multisig.ts");
+      expect(logged).toContain("hooks/useFederationLookup.ts");
+      expect(logged).toContain("lib/memo.ts");
     });
 
     it("does not report a fallback for files the project template does ship", async () => {

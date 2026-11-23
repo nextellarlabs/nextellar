@@ -48,7 +48,7 @@ Story files (`*.stories.*`) are not components and are omitted.
 | `useContractUpgrade` |  | yes |  | yes |  | yes |  | yes |  |
 | `useFederationLookup` |  | yes |  | yes |  |  |  |  |  |
 | `useHorizonStreaming` |  | yes |  | yes |  | yes |  | yes |  |
-| `useMultisigTransaction` |  | yes |  | yes |  | yes |  | yes |  |
+| `useMultisigTransaction` |  | yes | yes | yes |  | yes |  | yes |  |
 | `useOfferBook` |  | yes | yes | yes | yes | yes |  | yes |  |
 | `usePathPayment` |  |  | yes |  |  |  |  |  |  |
 | `usePrefersReducedMotion` |  | yes | yes | yes |  | yes |  | yes | yes |
