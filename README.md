@@ -143,6 +143,10 @@ Unknown template "nope". Available templates: default, minimal, defi, full.
 `src/templates/js-full`) overlay on top, which adds `CounterDemo` and renders
 it on the landing page, then applies the contracts overlay.
 
+The component and hook set for every template, including `full` and
+`js-full`, is generated from the tree and checked in CI:
+[docs/template-comparison.md](docs/template-comparison.md).
+
 ### Previewing an upgrade
 
 `nextellar upgrade --diff` prints a complete, untruncated diff for every

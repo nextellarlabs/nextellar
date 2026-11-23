@@ -267,3 +267,17 @@ jobs:
         env:
           REPORT: ${{ steps.fork-coverage.outputs.report }}
         run: echo "$REPORT" >> "$GITHUB_STEP_SUMMARY"
+
+  template-matrix:
+    name: Template comparison drift
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # Regenerates docs/template-comparison.md from src/templates and fails
+      # if the committed page drifted. No install: the script is plain Node.
+      - run: node scripts/generate-template-matrix.mjs --check
