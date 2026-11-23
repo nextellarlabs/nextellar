@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Horizon } from '@stellar/stellar-sdk';
 import { useWalletConfig } from '../contexts';
+import { useNetworkPaused } from '../contexts/NetworkStatusContext';
 
 const DEFAULT_HORIZON_URL = 'https://horizon-testnet.stellar.org';
 const MIN_POLL_MS = 5000;
@@ -34,6 +35,9 @@ export function useHorizonStreaming(
   options: UseHorizonStreamingOptions = {},
 ): HorizonStreamingState {
   const providerConfig = useWalletConfig();
+  // Horizon known to be down (NetworkStatusProvider): drop the stream and the
+  // polling fallback, then reconnect when it recovers.
+  const paused = useNetworkPaused('horizon');
   const {
     horizonUrl = providerConfig?.horizonUrl ?? DEFAULT_HORIZON_URL,
     pollIntervalMs = 15_000,
@@ -77,7 +81,7 @@ export function useHorizonStreaming(
   }, [pollIntervalMs]);
 
   useEffect(() => {
-    if (!enabled || !publicKey || typeof window === 'undefined') {
+    if (!enabled || paused || !publicKey || typeof window === 'undefined') {
       stop();
       return;
     }
@@ -125,7 +129,7 @@ export function useHorizonStreaming(
       cancelled = true;
       stop();
     };
-  }, [enabled, publicKey, horizonUrl, streamType, startPolling, stop]);
+  }, [enabled, paused, publicKey, horizonUrl, streamType, startPolling, stop]);
 
   return { streaming, polling, stop };
 }

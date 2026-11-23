@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { WalletProvider, ThemeProvider } from "@/contexts";
+import { WalletProvider, ThemeProvider, NetworkStatusProvider } from "@/contexts";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import NetworkStatusIndicator from "@/components/NetworkStatusIndicator";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -45,7 +46,10 @@ export default function RootLayout({
         <ErrorBoundary>
           <ThemeProvider>
             <WalletProvider>
-              {children}
+              <NetworkStatusProvider>
+                <NetworkStatusIndicator />
+                {children}
+              </NetworkStatusProvider>
             </WalletProvider>
           </ThemeProvider>
         </ErrorBoundary>

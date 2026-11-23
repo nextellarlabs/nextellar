@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { Horizon } from '@stellar/stellar-sdk';
 import { useWalletConfig } from '../contexts';
 import { useHorizonStreaming } from './useHorizonStreaming';
+import { useNetworkPaused } from '../contexts/NetworkStatusContext';
 
 /**
  * Balance interface matching Stellar Horizon API format
@@ -95,6 +96,8 @@ export function useStellarBalances(
 ): StellarBalancesState {
   // Auto-consume provider config as fallback
   const providerConfig = useWalletConfig();
+  // Horizon known to be down (NetworkStatusProvider): stop polling, resume on recovery.
+  const paused = useNetworkPaused('horizon');
   const { 
     horizonUrl = providerConfig?.horizonUrl ?? DEFAULT_HORIZON_URL, 
     pollIntervalMs,
@@ -270,6 +273,12 @@ export function useStellarBalances(
       return;
     }
 
+    // Horizon is down: stay idle. This effect re-runs when `paused` clears,
+    // which refreshes once and restarts polling.
+    if (paused) {
+      return;
+    }
+
     // Initial load
     refresh();
 
@@ -289,7 +298,7 @@ export function useStellarBalances(
     return () => {
       stopPolling();
     };
-  }, [publicKey, pollIntervalMs, refresh, stopPolling]);
+  }, [publicKey, pollIntervalMs, paused, refresh, stopPolling]);
 
   // Cleanup on unmount
   useEffect(() => {

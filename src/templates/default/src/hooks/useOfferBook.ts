@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useWalletConfig } from '../contexts'
+import { useNetworkPaused } from '../contexts/NetworkStatusContext'
 
 export type Offer = {
     price: string
@@ -36,6 +37,8 @@ export function useOfferBook(
 ): ReturnType {
     // Auto-consume provider config as fallback
     const providerConfig = useWalletConfig();
+    // Horizon known to be down (NetworkStatusProvider): stop polling, resume on recovery.
+    const paused = useNetworkPaused('horizon');
     const {
         horizonUrl = providerConfig?.horizonUrl ?? 'https://horizon.stellar.org',
         limit = 20,
@@ -96,12 +99,13 @@ export function useOfferBook(
     }, [])
 
     useEffect(() => {
+        if (paused) return
         fetchOrderbook()
         if (pollIntervalMs) {
             pollTimer.current = setInterval(fetchOrderbook, pollIntervalMs)
         }
         return () => stopPolling()
-    }, [fetchOrderbook, pollIntervalMs, stopPolling])
+    }, [fetchOrderbook, pollIntervalMs, paused, stopPolling])
 
     return { bids, asks, loading, refresh, stopPolling, error }
 }

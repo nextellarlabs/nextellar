@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { rpc } from '@stellar/stellar-sdk';
 import { useWalletConfig } from '../contexts';
+import { useNetworkPaused } from '../contexts/NetworkStatusContext';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -140,6 +141,8 @@ export function useSorobanEvents(
   opts: Options = {}
 ): UseSorobanEventsReturn {
   const providerConfig = useWalletConfig();
+  // Soroban RPC known to be down (NetworkStatusProvider): stop polling, resume on recovery.
+  const paused = useNetworkPaused('rpc');
   const {
     sorobanRpc = providerConfig?.sorobanUrl ?? DEFAULT_SOROBAN_RPC,
     fromCursor,
@@ -162,6 +165,9 @@ export function useSorobanEvents(
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
   const isFetchingRef = useRef(false);
+  const pausedRef = useRef(paused);
+  pausedRef.current = paused;
+  const wasPausedRef = useRef(false);
 
   // ── RPC client ─────────────────────────────────────────────────────────────
 
@@ -255,14 +261,14 @@ export function useSorobanEvents(
    */
   const scheduleNextPoll = useCallback(
     (errorMode: boolean) => {
-      if (!pollIntervalMs || !isMountedRef.current) return;
+      if (!pollIntervalMs || !isMountedRef.current || pausedRef.current) return;
 
       const interval = errorMode
         ? Math.min(pollIntervalMs * ERROR_POLL_MULTIPLIER, MAX_BACKOFF_MS)
         : pollIntervalMs;
 
       pollTimerRef.current = setTimeout(async () => {
-        if (!isMountedRef.current || isFetchingRef.current) return;
+        if (!isMountedRef.current || isFetchingRef.current || pausedRef.current) return;
 
         isFetchingRef.current = true;
         setLoading(true);
@@ -326,8 +332,10 @@ export function useSorobanEvents(
     isFetchingRef.current = false;
     cursorRef.current = fromCursor;
 
-    // Run initial fetch immediately, then let refresh schedule polling
-    refresh();
+    // Run initial fetch immediately, then let refresh schedule polling.
+    // If RPC is already known to be down, the pause effect below runs the
+    // first fetch once it recovers.
+    if (!pausedRef.current) refresh();
 
     return () => {
       isMountedRef.current = false;
@@ -335,6 +343,20 @@ export function useSorobanEvents(
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contractId, sorobanRpc]);
+
+  // ── Pause while RPC is down, catch up when it recovers ─────────────────────
+
+  useEffect(() => {
+    if (paused) {
+      wasPausedRef.current = true;
+      stopPolling();
+      return;
+    }
+    if (wasPausedRef.current) {
+      wasPausedRef.current = false;
+      void refresh();
+    }
+  }, [paused, stopPolling, refresh]);
 
   return { events, loading, refresh, stopPolling, error, isRecovering };
 }
