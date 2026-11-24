@@ -448,6 +448,11 @@ program
     "scaffold Soroban smart contracts alongside the frontend",
     false,
   )
+  .option(
+    "--with-pwa",
+    "add a PWA manifest, icons, offline shell and service worker",
+    false,
+  )
   .option("--force", "overwrite existing directory", false)
   .option(
     "--workspace",
@@ -536,7 +541,10 @@ program.action(async (projectName, options) => {
     );
     console.log(`  ${pc.magenta("◆")} Template: ${pc.cyan(template)}`);
     console.log(
-      `  ${pc.magenta("◆")} Contracts: ${pc.cyan(withContracts ? "Yes" : "No")}\n`,
+      `  ${pc.magenta("◆")} Contracts: ${pc.cyan(withContracts ? "Yes" : "No")}`,
+    );
+    console.log(
+      `  ${pc.magenta("◆")} PWA:       ${pc.cyan(options.withPwa ? "Yes" : "No")}\n`,
     );
   }
 
@@ -630,6 +638,9 @@ program.action(async (projectName, options) => {
     console.log(`  Template:        ${pc.cyan(template)}`);
     console.log(`  Contracts:       ${pc.cyan(withContracts ? "Yes" : "No")}`);
     console.log(
+      `  PWA:             ${pc.cyan(options.withPwa ? "Yes" : "No")}`,
+    );
+    console.log(
       `  Wallets:         ${pc.cyan(finalWallets.length > 0 ? finalWallets.join(", ") : "none")}`,
     );
     if (finalHorizonUrl) {
@@ -676,6 +687,7 @@ program.action(async (projectName, options) => {
       useTs,
       template,
       withContracts,
+      withPwa: options.withPwa,
       horizonUrl: finalHorizonUrl,
       sorobanUrl: finalSorobanUrl,
       wallets: finalWallets,

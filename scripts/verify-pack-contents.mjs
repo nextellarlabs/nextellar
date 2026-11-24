@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readdirSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 
 // package.json's `files` allowlist is the package boundary. Keep these checks
@@ -31,13 +31,24 @@ if (!hookEntries.length || !envExampleEntries.length) {
   process.exit(1);
 }
 
+// `configEntries` is filtered to files that exist, so guard against the filter
+// silently emptying it.
+if (!configEntries.length) {
+  console.error(
+    "Template discovery failed: no .nextellar/config.json files found under src/templates.",
+  );
+  process.exit(1);
+}
+
 const templateEntries = [...hookEntries, ...envExampleEntries];
 
-// Every template ships .nextellar/config.json; require it per template so a
-// missing or ignored file cannot slip through the walk above.
+// Every starter and overlay that ships .nextellar/config.json must pack it, so
+// a missing or ignored file cannot slip through the walk above. Add-on
+// overlays that only contribute public assets (pwa-template) have no config.
 const configEntries = readdirSync("src/templates", { withFileTypes: true })
   .filter((entry) => entry.isDirectory())
-  .map((entry) => `src/templates/${entry.name}/.nextellar/config.json`);
+  .map((entry) => `src/templates/${entry.name}/.nextellar/config.json`)
+  .filter((entry) => existsSync(entry));
 
 const requiredEntries = [
   "dist/bin/nextellar.js",
@@ -47,7 +58,7 @@ const requiredEntries = [
 
 const forbiddenDirectories = ["tests", "backend", "routes-d"];
 const isWindows = process.platform === "win32";
-const npmCommand = isWindows ? process.env.ComSpec ?? "cmd.exe" : "npm";
+const npmCommand = isWindows ? (process.env.ComSpec ?? "cmd.exe") : "npm";
 const npmArgs = isWindows
   ? ["/d", "/s", "/c", "npm pack --dry-run --json"]
   : ["pack", "--dry-run", "--json"];
