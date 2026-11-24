@@ -53,3 +53,30 @@ Tracked here rather than silently dropped, since a full AA audit surfaces more t
 2. **Screen reader spot-checks** (VoiceOver/NVDA) of the wallet connect → account switch → send payment flow, to confirm the ARIA additions in this PR read the way they're intended to.
 3. **Extend automated coverage** to `NetworkSwitcher` and `CounterDemo` with the missing test mocking infrastructure (a `moduleNameMapper`/mock for `../contexts/WalletProvider` and the `@/` path alias respectively).
 4. **`minimal` and `js-defi` templates** don't ship `NetworkSwitcher`/`AccountSwitcher` at all (by design — they're the intentionally reduced templates), so the fixes above don't apply there; worth a follow-up check whenever those components are added to a template.
+
+## Testing accessibility for new components
+
+When adding a new component to Nextellar, include accessibility testing as part of your contribution:
+
+1. **Add an axe test** in `tests/accessibility.test.tsx` or `tests/accessibility.mocked-wallet.test.tsx` using `jest-axe`:
+   ```tsx
+   import { axe, toHaveNoViolations } from 'jest-axe';
+   import { render } from '@testing-library/react';
+   import MyComponent from '../src/templates/default/src/components/MyComponent';
+   
+   describe('MyComponent accessibility', () => {
+     it('has no axe violations', async () => {
+       const { container } = render(<MyComponent {...defaultProps} />);
+       const results = await axe(container);
+       expect(results).toHaveNoViolations();
+     });
+   });
+   ```
+
+2. **Review ARIA semantics** manually for custom interactive elements (dropdowns, modals, accordions) to ensure they have proper `role`, `aria-label`, `aria-expanded`, and keyboard handlers.
+
+3. **Test keyboard navigation** in a Storybook `play` function to confirm Tab order, Enter/Space activation, and Escape to close/cancel patterns work correctly.
+
+4. **Check color contrast** if your component introduces new colors by comparing foreground and background RGB values against WCAG AA minimums (4.5:1 for normal text, 3:1 for indicators).
+
+For full validation, run the generated scaffold app in a real browser with a screen reader (VoiceOver on macOS, NVDA on Windows) to confirm the component reads and navigates as intended.
