@@ -57,3 +57,8 @@ A sequence number mismatch occurs when concurrent transactions are submitted fro
 
 ### 10. How do I configure production deployments on Vercel or Netlify?
 Set `NEXT_PUBLIC_STELLAR_NETWORK=PUBLIC` and `NEXT_PUBLIC_HORIZON_URL=https://horizon.stellar.org` in your environment variables. Ensure CSP headers in `next.config.js` whitelist your Horizon and Soroban RPC endpoints.
+
+---
+
+### 11. How do I debug Soroban contract invocation errors?
+Enable verbose logging with the `--verbose` flag when using `stellar contract invoke`. Check that your contract WASM binary was built with the correct network, your contract ID is correct, and function parameters match the contract's ABI. Use `stellar contract invoke --help` to list available functions and their signatures for your deployed contract.
