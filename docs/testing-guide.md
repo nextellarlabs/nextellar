@@ -199,6 +199,31 @@ formatter) or extend a hook like `useTransactionHistory`, a Storybook story
 has nothing to render against. For this, add Jest or Vitest as described
 below rather than forcing a story around logic that isn't UI.
 
+### Testing async hooks and data fetching
+
+Storybook's `play` function also works for async operations and side effects.
+Use `userEvent.click()` to trigger async actions and `expect()` to verify
+results after the Promise resolves:
+
+```tsx
+export const FetchTransactionHistory: Story = {
+  decorators: [withMockWallet()],
+  play: async ({ canvasElement }) => {
+    const { within, userEvent, expect, waitFor } = await import('@storybook/test');
+    const canvas = within(canvasElement);
+    
+    await userEvent.click(canvas.getByRole('button', { name: /load history/i }));
+    
+    // Wait for async data to load and render
+    await waitFor(() => {
+      expect(canvas.getByText(/transaction 1/i)).toBeInTheDocument();
+    });
+  },
+};
+```
+
+This pattern ensures components handle loading states, errors, and data updates correctly.
+
 ## Adding Jest or Vitest if you need it
 
 Neither ships by default, since most of a generated app's own code is UI
