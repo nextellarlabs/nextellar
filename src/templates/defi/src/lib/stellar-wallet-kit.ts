@@ -44,7 +44,10 @@ export const getKit = (network?: WalletNetwork): StellarWalletsKit => {
     currentNetwork = targetNetwork;
 
     kitInstance = new StellarWalletsKit({
-      network: ('{{NETWORK}}' as string) === 'PUBLIC' ? WalletNetwork.PUBLIC : WalletNetwork.TESTNET,
+      // Build for the resolved network (#797): previously this re-read the
+      // scaffold-time placeholder, so a re-created kit still targeted the
+      // original network after a switch.
+      network: targetNetwork,
       selectedWalletId: FREIGHTER_ID,
       modules: modules.length > 0 ? modules : [new FreighterModule(), new AlbedoModule(), new LobstrModule()],
     });

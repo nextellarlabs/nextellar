@@ -111,6 +111,27 @@ to derive the active `horizonUrl`, `sorobanUrl`, and `network` (passphrase)
 passed to every hook and contract call. No env change or rebuild is required to
 toggle networks in the running app.
 
+### Signing after a network switch
+
+The wallet kit (`src/lib/stellar-wallet-kit.*`) is network-aware in every
+template: `kit(network)` rebuilds the `StellarWalletsKit` when the requested
+network differs from the one it was built for, and builds it for that network
+(#797). In the JavaScript templates, `WalletProvider.sendPayment` also passes
+the active network and passphrase to `signTransaction`, so a payment made after
+switching to mainnet is built, signed and submitted for mainnet.
+
+Manual check:
+
+1. Run the app, connect a wallet on testnet.
+2. Switch to mainnet with `NetworkSwitcher` (this disconnects), reconnect.
+3. Send a small payment. The wallet prompt should show **Public Global Stellar
+   Network ; September 2015** and the transaction should land on mainnet
+   Horizon.
+
+Only set `NEXT_PUBLIC_HORIZON_URL` / `NEXT_PUBLIC_SOROBAN_URL` /
+`NEXT_PUBLIC_NETWORK` when you want to pin the app to one network: an explicit
+value always wins over the per-network defaults, so a switch can't re-point it.
+
 ## Troubleshooting
 
 - **"Invalid Horizon URL" / fetch errors** — verify `NEXT_PUBLIC_HORIZON_URL`
