@@ -102,6 +102,7 @@ Options:
 | `nextellar upgrade` | Upgrade an existing project to the latest template (`--dry-run` to preview, `--check` for a changelog preview, `--diff` for a full file-by-file diff without applying anything, `--yes` to skip prompts) |
 | `nextellar deploy` | Validate and prepare a deployment bundle for Nextellar Cloud (`--dry-run` to preview) |
 | `nextellar clean` | Remove `.nextellar/` build artifacts |
+| `nextellar config get\|set\|list` | Read or edit `.nextellar/config.json` by dotted key; `--json` for scripting |
 | `nextellar telemetry <status\|enable\|disable>` | Manage anonymous telemetry settings |
 
 ---
