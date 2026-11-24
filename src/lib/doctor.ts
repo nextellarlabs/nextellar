@@ -372,6 +372,136 @@ async function checkWalletAdapterSdks(): Promise<CheckResult> {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Soroban CLI / SDK compatibility (#1504)
+// ---------------------------------------------------------------------------
+
+/**
+ * Compatibility rule: the `stellar` CLI and the `soroban-sdk` crate must share
+ * a major version (e.g. CLI 22.x with soroban-sdk 22.x). Kept as one small
+ * function so the rule is easy to update if Stellar's policy changes.
+ */
+export function areSorobanVersionsCompatible(
+  cliVersion: string,
+  sdkVersion: string,
+): boolean {
+  return majorOf(cliVersion) === majorOf(sdkVersion);
+}
+
+function majorOf(v: string): number {
+  return parseInt(v.split(".")[0], 10);
+}
+
+function extractSemver(raw: string): string | undefined {
+  return raw.match(/(\d+\.\d+\.\d+)/)?.[1];
+}
+
+// Resolved version from Cargo.lock (preferred), e.g.
+//   [[package]]
+//   name = "soroban-sdk"
+//   version = "22.0.8"
+function sdkVersionFromLock(lock: string): string | undefined {
+  const m = lock.match(
+    /name\s*=\s*"soroban-sdk"\s*\r?\n\s*version\s*=\s*"(\d+\.\d+\.\d+)[^"]*"/,
+  );
+  return m?.[1];
+}
+
+// Declared requirement from a Cargo.toml: `"22.0.0"`, `"=22.0.0"` or
+// `{ version = "22.0.0", ... }`. Missing minor/patch are padded ("22" -> 22.0.0).
+function sdkVersionFromManifest(toml: string): string | undefined {
+  const line = toml.match(/^\s*soroban-sdk\s*=\s*(.+)$/m)?.[1];
+  if (!line) return undefined;
+  const m =
+    line.match(/version\s*=\s*"[^\d"]*(\d+(?:\.\d+){0,2})/) ??
+    line.match(/^"[^\d"]*(\d+(?:\.\d+){0,2})/);
+  if (!m) return undefined;
+  const parts = m[1].split(".");
+  while (parts.length < 3) parts.push("0");
+  return parts.join(".");
+}
+
+function readSdkVersion(contractsDir: string): string | undefined {
+  const read = (p: string) => {
+    try {
+      return fs.existsSync(p) ? fs.readFileSync(p, "utf8") : undefined;
+    } catch {
+      return undefined;
+    }
+  };
+
+  const lock = read(path.join(contractsDir, "Cargo.lock"));
+  const fromLock = lock ? sdkVersionFromLock(lock) : undefined;
+  if (fromLock) return fromLock;
+
+  let members: string[] = [];
+  try {
+    members = fs
+      .readdirSync(contractsDir, { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .map((d) => path.join(contractsDir, d.name, "Cargo.toml"));
+  } catch {
+    // unreadable directory -> treated as "no version found"
+  }
+  for (const manifest of [path.join(contractsDir, "Cargo.toml"), ...members]) {
+    const toml = read(manifest);
+    const v = toml ? sdkVersionFromManifest(toml) : undefined;
+    if (v) return v;
+  }
+  return undefined;
+}
+
+/**
+ * Flags a `stellar` CLI / `soroban-sdk` crate pair whose major versions
+ * differ, which otherwise fails at build time with confusing errors.
+ * Skips (ok, with an explanatory detail) when there is nothing to compare:
+ * no `contracts/` directory, no soroban-sdk dependency found, CLI missing
+ * (the Stellar CLI check already reports that), or an unparseable version.
+ */
+async function checkSorobanCompat(): Promise<CheckResult> {
+  const base = {
+    id: "soroban-compat",
+    name: "Soroban SDK/CLI",
+    required: false,
+  };
+  const skip = (detail: string): CheckResult => ({ ...base, ok: true, detail });
+
+  const contractsDir = path.join(process.cwd(), "contracts");
+  if (!fs.existsSync(contractsDir)) {
+    return skip("Not applicable (no contracts/ directory)");
+  }
+
+  const sdk = readSdkVersion(contractsDir);
+  if (!sdk) return skip("Skipped (no soroban-sdk version found in contracts/)");
+
+  const res = await runCommand("stellar --version", 3000);
+  if (!res.ok || !res.out) return skip("Skipped (Stellar CLI not installed)");
+  const cli = extractSemver(res.out);
+  if (!cli) {
+    return skip(`Skipped (could not parse Stellar CLI version: ${res.out})`);
+  }
+
+  if (areSorobanVersionsCompatible(cli, sdk)) {
+    return {
+      ...base,
+      ok: true,
+      detail: `stellar-cli ${cli} / soroban-sdk ${sdk}`,
+    };
+  }
+
+  const sdkMajor = majorOf(sdk);
+  const cliMajor = majorOf(cli);
+  return {
+    ...base,
+    ok: false,
+    detail: `Incompatible: stellar-cli ${cli} / soroban-sdk ${sdk} (major versions must match)`,
+    fix:
+      `Install a matching CLI: cargo install --locked stellar-cli --version '^${sdkMajor}'` +
+      ` — or set soroban-sdk to ${cliMajor}.x in contracts/Cargo.toml`,
+    link: "https://github.com/stellar/rs-soroban-sdk/releases",
+  };
+}
+
 async function checkHorizon(horizonUrl: string): Promise<CheckResult> {
   try {
     const controller = new AbortController();
@@ -532,6 +662,7 @@ export async function runDoctor(opts?: DoctorOptions) {
     checkStellarCli(),
     checkWasmTarget(),
     checkWalletAdapterSdks(),
+    checkSorobanCompat(),
     checkHorizon(horizonUrl),
     checkSoroban(sorobanUrl),
     checkDisk(),
@@ -582,6 +713,7 @@ export async function runDoctor(opts?: DoctorOptions) {
             checkStellarCli(),
             checkWasmTarget(),
             checkWalletAdapterSdks(),
+            checkSorobanCompat(),
             checkHorizon(horizonUrl),
             checkSoroban(sorobanUrl),
             checkDisk(),

@@ -78,6 +78,13 @@
       "detail": "Not configured (no ledger/walletconnect in .nextellar/config.json)"
     },
     {
+      "id": "soroban-compat",
+      "name": "Soroban SDK/CLI",
+      "required": false,
+      "ok": true,
+      "detail": "Not applicable (no contracts/ directory)"
+    },
+    {
       "id": "horizon",
       "name": "Horizon API",
       "required": true,
@@ -104,7 +111,7 @@
       "fix": "Free up at least 1GB of RAM"
     }
   ],
-  "passed": 12,
+  "passed": 13,
   "failed": 0,
   "requiredFailures": 0
 }

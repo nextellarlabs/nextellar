@@ -206,6 +206,7 @@ describe("doctor", () => {
           "pnpm",
           "rustc",
           "soroban",
+          "soroban-compat",
           "stellar-cli",
           "wallet-adapter-sdks",
           "wasm32",
@@ -370,6 +371,140 @@ describe("doctor", () => {
       expect(
         parsed.checks.find((c: { id: string }) => c.id === "yarn").ok,
       ).toBe(false);
+    });
+  });
+
+  describe("soroban SDK/CLI compatibility check (#1504)", () => {
+    const origCwd = process.cwd();
+    const tmpDirs: string[] = [];
+
+    // Creates a project dir; `manifest`/`lock` are written under contracts/.
+    const project = async (files: Record<string, string> | null) => {
+      const dir = await fs.mkdtemp(
+        path.join(os.tmpdir(), "nextellar-doctor-compat-"),
+      );
+      tmpDirs.push(dir);
+      if (files) {
+        await fs.ensureDir(path.join(dir, "contracts"));
+        for (const [rel, content] of Object.entries(files)) {
+          await fs.outputFile(path.join(dir, "contracts", rel), content);
+        }
+      }
+      process.chdir(dir);
+    };
+
+    const run = async (cliOut: string | null) => {
+      setCommandRunnerForTest(
+        withRunner({
+          "stellar --version":
+            cliOut === null
+              ? { ok: false, out: "not found" }
+              : { ok: true, out: cliOut },
+        }),
+      );
+      let captured = "";
+      console.log = jest.fn((line: string) => {
+        captured += line;
+      });
+      await runDoctor({ json: true });
+      const parsed = JSON.parse(captured);
+      return parsed.checks.find(
+        (c: { id: string }) => c.id === "soroban-compat",
+      );
+    };
+
+    afterEach(async () => {
+      process.chdir(origCwd);
+      await Promise.all(tmpDirs.map((d) => fs.remove(d).catch(() => {})));
+      tmpDirs.length = 0;
+    });
+
+    const manifest = (dep: string) =>
+      `[package]\nname = "c"\n\n[dependencies]\n${dep}\n`;
+
+    it("passes for a compatible pair (same major)", async () => {
+      await project({
+        "hello/Cargo.toml": manifest('soroban-sdk = "22.0.0"'),
+      });
+      const check = await run("stellar 22.8.1 (abc)");
+      expect(check.ok).toBe(true);
+      expect(check.detail).toMatch(/22\.8\.1.*22\.0\.0/);
+      expect(check.fix).toBeUndefined();
+    });
+
+    it("flags CLI too old for the SDK, with remediation in --json", async () => {
+      await project({
+        "hello/Cargo.toml": manifest('soroban-sdk = "22.0.0"'),
+      });
+      const check = await run("stellar 21.5.0 (abc)");
+      expect(check.ok).toBe(false);
+      expect(check.required).toBe(false);
+      expect(check.detail).toMatch(/Incompatible/);
+      expect(check.fix).toMatch(/cargo install --locked stellar-cli/);
+      expect(check.fix).toMatch(/\^22/);
+      expect(check).not.toHaveProperty("fixCommand");
+    });
+
+    it("flags SDK too new for the CLI", async () => {
+      await project({
+        "hello/Cargo.toml": manifest('soroban-sdk = { version = "23.1.0" }'),
+      });
+      const check = await run("stellar 22.0.0");
+      expect(check.ok).toBe(false);
+      expect(check.detail).toMatch(/22\.0\.0.*23\.1\.0/);
+    });
+
+    it("prefers the resolved version in Cargo.lock over Cargo.toml", async () => {
+      await project({
+        "hello/Cargo.toml": manifest('soroban-sdk = "21"'),
+        "Cargo.lock": `[[package]]\nname = "soroban-sdk"\nversion = "22.0.8"\n`,
+      });
+      const check = await run("stellar 22.0.0");
+      expect(check.ok).toBe(true);
+      expect(check.detail).toMatch(/22\.0\.8/);
+    });
+
+    it("parses pinned and short-form requirements", async () => {
+      await project({
+        "hello/Cargo.toml": manifest(
+          'soroban-sdk = { version = "=22", features = ["testutils"] }',
+        ),
+      });
+      const check = await run("stellar 22.1.0");
+      expect(check.ok).toBe(true);
+      expect(check.detail).toMatch(/22\.0\.0/);
+    });
+
+    it("skips (ok) when there is no contracts/ directory", async () => {
+      await project(null);
+      const check = await run("stellar 22.0.0");
+      expect(check.ok).toBe(true);
+      expect(check.detail).toMatch(/not applicable/i);
+    });
+
+    it("skips (ok) when the Stellar CLI is not installed", async () => {
+      await project({
+        "hello/Cargo.toml": manifest('soroban-sdk = "22.0.0"'),
+      });
+      const check = await run(null);
+      expect(check.ok).toBe(true);
+      expect(check.detail).toMatch(/not installed/i);
+    });
+
+    it("skips (ok) when the CLI version is unparseable", async () => {
+      await project({
+        "hello/Cargo.toml": manifest('soroban-sdk = "22.0.0"'),
+      });
+      const check = await run("garbage output");
+      expect(check.ok).toBe(true);
+      expect(check.detail).toMatch(/could not parse/i);
+    });
+
+    it("skips (ok) when no soroban-sdk dependency is found", async () => {
+      await project({ "hello/Cargo.toml": manifest('serde = "1"') });
+      const check = await run("stellar 22.0.0");
+      expect(check.ok).toBe(true);
+      expect(check.detail).toMatch(/no soroban-sdk/i);
     });
   });
 
