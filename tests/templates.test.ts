@@ -250,6 +250,14 @@ describe("full template (#1112)", () => {
     ["js-full", "src/components/AccountSwitcher.jsx"],
     ["js-full", "src/components/NetworkSwitcher.jsx"],
     ["js-full", "src/components/NetworkMismatchBanner.jsx"],
+    // #1208 — UI utility components mirrored into the js-full overlay.
+    ["js-full", "src/components/CopyButton.jsx"],
+    ["js-full", "src/components/EmptyState.jsx"],
+    ["js-full", "src/components/ErrorBoundary.jsx"],
+    ["js-full", "src/components/LoadingBoundary.jsx"],
+    ["js-full", "src/components/Skeleton.jsx"],
+    ["js-full", "src/components/SkeletonList.jsx"],
+    ["js-full", "src/components/ThemeToggle.jsx"],
     ["js-full", "src/app/page.jsx"],
   ])("%s overlay ships %s", async (dir, rel) => {
     expect(await fs.pathExists(path.join(TEMPLATES_ROOT, dir, rel))).toBe(true);
