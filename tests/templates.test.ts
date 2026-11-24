@@ -245,6 +245,11 @@ describe("full template (#1112)", () => {
     ["full", ".storybook/mocks/contracts.ts"],
     ["full", ".storybook/mocks/useSorobanContract.ts"],
     ["js-full", "src/components/CounterDemo.jsx"],
+    // #1206 — wallet/account components mirrored into the js-full overlay.
+    ["js-full", "src/components/WalletConnectButton.jsx"],
+    ["js-full", "src/components/AccountSwitcher.jsx"],
+    ["js-full", "src/components/NetworkSwitcher.jsx"],
+    ["js-full", "src/components/NetworkMismatchBanner.jsx"],
     ["js-full", "src/app/page.jsx"],
   ])("%s overlay ships %s", async (dir, rel) => {
     expect(await fs.pathExists(path.join(TEMPLATES_ROOT, dir, rel))).toBe(true);
