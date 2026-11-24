@@ -2,6 +2,15 @@
 
 This page provides a complete reference for all environment variables supported by Nextellar CLI and scaffolded applications.
 
+## Validation & Required Variables
+
+Environment variables are validated during CLI initialization. Missing or invalid values fall back to defaults, but warnings are logged when required variables for a specific network are absent:
+
+- `NEXT_PUBLIC_STELLAR_NETWORK`: Must be one of `testnet`, `mainnet`, `futurenet`, or `standalone`. Invalid values default to `testnet`.
+- `NEXT_PUBLIC_HORIZON_URL` and `NEXT_PUBLIC_SOROBAN_RPC_URL`: Must be valid HTTPS URLs (or `http://localhost` for development). Validation occurs at build time; malformed URLs will cause the scaffolded app's initialization to fail with a clear error message.
+
+Always validate these values in your CI/CD pipeline before deploying to production.
+
 ## Public Web Application Variables
 
 These variables are consumed by Next.js client-side code and must be prefixed with `NEXT_PUBLIC_` to be bundled into browser builds.
