@@ -11,6 +11,7 @@ imported from the generated app's `src/lib`.
 | [Claimable balances](./claimable-balances.md) | Creating and claiming claimable balances with `Claimant` predicates and escrow/refund windows. |
 | [Reading and writing Soroban contracts](./useSorobanContract.md) | Type-safe contract reads, writes and simulation. |
 | [Deploying and upgrading a Soroban contract](./contract-deploy-and-upgrade.md) | End-to-end lifecycle: deploy, invoke, upgrade WASM, extend TTL. |
+| [Liquidity pools](./liquidity-pools.md) | Pool-share trustlines, AMM deposits and withdrawals, price bounds and risks. |
 
 Looking for the full hook signatures rather than a walkthrough? See
 [docs/hooks.md](../hooks.md).
