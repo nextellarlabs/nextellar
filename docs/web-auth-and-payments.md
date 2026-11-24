@@ -154,3 +154,5 @@ bare-address QR code rather than crashing.
 
 - [Components Reference](./components-reference.md)
 - [React Hooks Reference](./hooks.md)
+- [Anchor Discovery, Authentication & KYC](./anchor-discovery-and-kyc.md) —
+  SEP-10 (classic account web auth), SEP-12 (KYC submission), SEP-6, SEP-9.
