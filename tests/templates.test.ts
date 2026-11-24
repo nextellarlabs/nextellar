@@ -230,6 +230,14 @@ describe("full template (#1112)", () => {
     ["full", "src/components/Sep24InteractiveFrame.tsx"],
     ["full", "src/components/Sep24InteractiveFrame.stories.tsx"],
     ["full", "src/hooks/useSorobanContract.ts"],
+    // #1203 — core hooks ported into the full overlay.
+    ["full", "src/hooks/useStellarWallet.ts"],
+    ["full", "src/hooks/useStellarBalances.ts"],
+    ["full", "src/hooks/useStellarPayment.ts"],
+    ["full", "src/hooks/useTransactionHistory.ts"],
+    ["full", "src/hooks/useTrustlines.ts"],
+    ["full", "src/hooks/useClipboard.ts"],
+    ["full", "src/hooks/useOfferBook.ts"],
     ["full", "src/lib/contract-spec.ts"],
     ["full", "src/lib/sep24.ts"],
     ["full", "src/app/page.tsx"],
@@ -237,6 +245,19 @@ describe("full template (#1112)", () => {
     ["full", ".storybook/mocks/contracts.ts"],
     ["full", ".storybook/mocks/useSorobanContract.ts"],
     ["js-full", "src/components/CounterDemo.jsx"],
+    // #1206 — wallet/account components mirrored into the js-full overlay.
+    ["js-full", "src/components/WalletConnectButton.jsx"],
+    ["js-full", "src/components/AccountSwitcher.jsx"],
+    ["js-full", "src/components/NetworkSwitcher.jsx"],
+    ["js-full", "src/components/NetworkMismatchBanner.jsx"],
+    // #1208 — UI utility components mirrored into the js-full overlay.
+    ["js-full", "src/components/CopyButton.jsx"],
+    ["js-full", "src/components/EmptyState.jsx"],
+    ["js-full", "src/components/ErrorBoundary.jsx"],
+    ["js-full", "src/components/LoadingBoundary.jsx"],
+    ["js-full", "src/components/Skeleton.jsx"],
+    ["js-full", "src/components/SkeletonList.jsx"],
+    ["js-full", "src/components/ThemeToggle.jsx"],
     ["js-full", "src/app/page.jsx"],
   ])("%s overlay ships %s", async (dir, rel) => {
     expect(await fs.pathExists(path.join(TEMPLATES_ROOT, dir, rel))).toBe(true);
