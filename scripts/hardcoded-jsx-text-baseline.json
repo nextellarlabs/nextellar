@@ -51,6 +51,11 @@
       "line": 225,
       "text": "XLM",
       "kind": "jsx-text"
+    },
+    {
+      "line": 275,
+      "text": "Limit:",
+      "kind": "jsx-text"
     }
   ],
   "src/templates/default/src/components/ContractCallForm.tsx": [
@@ -265,6 +270,11 @@
       "line": 46,
       "text": ". Signing a transaction now\n            will target your wallet&apos;s network, not the app&apos;s. Switch your\n            wallet&apos;s network, or switch the app&apos;s network, before signing.",
       "kind": "jsx-text"
+    },
+    {
+      "line": 63,
+      "text": "Dismiss",
+      "kind": "prop:aria-label"
     }
   ],
   "src/templates/default/src/components/NetworkSwitcher.tsx": [
@@ -371,6 +381,11 @@
       "kind": "prop:aria-label"
     },
     {
+      "line": 236,
+      "text": "Download QR code as SVG",
+      "kind": "prop:aria-label"
+    },
+    {
       "line": 231,
       "text": "Download QR",
       "kind": "jsx-text"
@@ -403,6 +418,16 @@
       "kind": "prop:placeholder"
     },
     {
+      "line": 212,
+      "text": "GABC...1234 or name*domain.com",
+      "kind": "prop:placeholder"
+    },
+    {
+      "line": 227,
+      "text": "Resolves to",
+      "kind": "jsx-text"
+    },
+    {
       "line": 168,
       "text": "Asset",
       "kind": "jsx-text"
@@ -415,6 +440,11 @@
     {
       "line": 191,
       "text": "Amount (",
+      "kind": "jsx-text"
+    },
+    {
+      "line": 293,
+      "text": "Memo type",
       "kind": "jsx-text"
     },
     {

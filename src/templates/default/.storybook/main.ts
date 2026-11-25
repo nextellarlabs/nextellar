@@ -34,6 +34,10 @@ const config: StorybookConfig = {
             dirname,
             "./mocks/useStellarBalances.ts"
           ),
+          "../hooks/useClaimableBalances": path.resolve(
+            dirname,
+            "./mocks/useClaimableBalances.ts"
+          ),
           // Storybook-only mock so ContractCallForm stories simulate and
           // build contract calls without reaching a live Soroban RPC.
           "../hooks/useSorobanContract": path.resolve(

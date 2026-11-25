@@ -160,12 +160,20 @@ function main() {
   const newFindings = [];
 
   for (const [file, findings] of Object.entries(results)) {
-    const baselineTexts = new Set(
-      (baseline[file] ?? []).map((f) => `${f.line}:${f.text}`),
-    );
+    // A nearby edit can move a baseline string to another line without
+    // introducing new UI copy. Compare occurrence counts so duplicate new
+    // strings are still caught while harmless line shifts are ignored.
+    const baselineCounts = new Map();
+    for (const finding of baseline[file] ?? []) {
+      const key = `${finding.kind}:${finding.text}`;
+      baselineCounts.set(key, (baselineCounts.get(key) ?? 0) + 1);
+    }
     for (const finding of findings) {
-      const key = `${finding.line}:${finding.text}`;
-      if (!baselineTexts.has(key)) {
+      const key = `${finding.kind}:${finding.text}`;
+      const remaining = baselineCounts.get(key) ?? 0;
+      if (remaining > 0) {
+        baselineCounts.set(key, remaining - 1);
+      } else {
         newFindings.push({ file, ...finding });
       }
     }
