@@ -12,7 +12,7 @@ export interface UseHorizonStreamingOptions {
   horizonUrl?: string;
   /** Poll interval when streaming is unavailable (ms). */
   pollIntervalMs?: number;
-  streamType?: 'payments' | 'operations';
+  streamType?: 'payments' | 'operations' | 'effects';
   enabled?: boolean;
 }
 
@@ -85,9 +85,11 @@ export function useHorizonStreaming(
     let cancelled = false;
     const server = new Horizon.Server(horizonUrl);
     const requestBuilder =
-      streamType === 'operations'
-        ? server.operations().forAccount(publicKey)
-        : server.payments().forAccount(publicKey);
+      streamType === 'effects'
+        ? server.effects().forAccount(publicKey)
+        : streamType === 'operations'
+          ? server.operations().forAccount(publicKey)
+          : server.payments().forAccount(publicKey);
 
     const connectStream = () => {
       if (cancelled) return;
