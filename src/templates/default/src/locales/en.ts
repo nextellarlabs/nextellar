@@ -13,6 +13,13 @@ export const en = {
     copy: 'Copy',
     copied: 'Copied',
   },
+  assetPicker: {
+    label: 'Asset',
+    list: 'Available assets',
+    native: 'Native asset',
+    issuer: 'Issuer: {issuer}',
+    noResults: 'No matching assets',
+  },
   nav: {
     home: 'Home',
     dashboard: 'Dashboard',
