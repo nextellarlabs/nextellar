@@ -28,6 +28,8 @@ import ErrorBoundary from "../src/templates/default/src/components/ErrorBoundary
 import ErrorBoundaryJs from "../src/templates/js-template/src/components/ErrorBoundary.jsx";
 import WalletConnectButton from "../src/templates/default/src/components/WalletConnectButton";
 import AccountSwitcher from "../src/templates/default/src/components/AccountSwitcher";
+import TransactionConfirmModal from "../src/templates/default/src/components/TransactionConfirmModal";
+import { I18nProvider } from "../src/templates/default/src/contexts/I18nProvider";
 import {
   ACCOUNT_MAIN,
   ACCOUNT_SECOND,
@@ -177,6 +179,26 @@ describe("accessibility (#946)", () => {
 
       fireEvent.keyDown(document, { key: "Escape" });
       expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("TransactionConfirmModal", () => {
+    it("has no axe violations when open", async () => {
+      const { container } = render(
+        React.createElement(
+          I18nProvider,
+          null,
+          React.createElement(TransactionConfirmModal, {
+            open: true,
+            operations: [{ type: "Payment", summary: "Send 25 XLM to GABC…WXYZ" }],
+            fee: { amount: "100", asset: "stroops" },
+            onConfirm: () => {},
+            onCancel: () => {},
+          }),
+        ),
+      );
+
+      expect(await axe(container)).toHaveNoViolations();
     });
   });
 });

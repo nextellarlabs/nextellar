@@ -22,6 +22,7 @@ Story files (`*.stories.*`) are not components and are omitted.
 | `ContractCallPreview` |  | yes |  | yes |  | yes |  | yes |  |
 | `CopyButton` |  | yes | yes | yes | yes | yes | yes | yes | yes |
 | `CounterDemo` |  |  | yes | yes | yes | yes |  |  |  |
+| `DisconnectConfirmDialog` |  | yes |  | yes |  |  |  |  |  |
 | `EmptyState` |  | yes | yes | yes | yes | yes | yes | yes | yes |
 | `ErrorBoundary` |  | yes | yes | yes | yes | yes | yes | yes | yes |
 | `LoadingBoundary` |  | yes |  | yes |  | yes |  | yes | yes |
@@ -34,9 +35,11 @@ Story files (`*.stories.*`) are not components and are omitted.
 | `SkeletonList` |  |  |  |  |  | yes |  | yes |  |
 | `SwapForm` |  |  | yes |  |  |  |  |  |  |
 | `ThemeToggle` |  | yes | yes | yes |  | yes |  | yes | yes |
+| `TransactionConfirmModal` |  | yes |  | yes |  |  |  |  |  |
 | `TransactionList` |  | yes | yes | yes | yes | yes |  | yes | yes |
 | `TransactionStatusBadge` |  | yes | yes | yes | yes | yes |  | yes | yes |
 | `WalletConnectButton` |  | yes | yes | yes | yes | yes | yes | yes | yes |
+| `WalletSelectModal` |  | yes |  | yes |  |  |  |  |  |
 
 ## Hooks
 
