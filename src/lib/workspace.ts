@@ -361,3 +361,61 @@ export function assertPackageManagerMatches(
     );
   }
 }
+
+/**
+ * Adds root scripts to the workspace's root package.json for building contracts
+ * and generating bindings across packages (#1506).
+ */
+export async function wireWorkspaceContracts(
+  info: WorkspaceInfo,
+): Promise<boolean> {
+  const rootPkgPath = path.join(info.root, "package.json");
+  let pkg: Record<string, any> = {};
+  if (await fs.pathExists(rootPkgPath)) {
+    try {
+      pkg = await fs.readJson(rootPkgPath);
+    } catch {
+      pkg = {};
+    }
+  }
+
+  pkg.scripts = pkg.scripts || {};
+  let modified = false;
+
+  const scriptsByPm: Record<PackageManager, Record<string, string>> = {
+    npm: {
+      "contracts:build": "npm run contracts:build --workspaces --if-present",
+      "contracts:bindings": "npm run contracts:bindings --workspaces --if-present",
+      "generate:bindings": "npm run generate:bindings --workspaces --if-present",
+    },
+    pnpm: {
+      "contracts:build": "pnpm -r --if-present run contracts:build",
+      "contracts:bindings": "pnpm -r --if-present run contracts:bindings",
+      "generate:bindings": "pnpm -r --if-present run generate:bindings",
+    },
+    yarn: {
+      "contracts:build": "yarn workspaces run contracts:build",
+      "contracts:bindings": "yarn workspaces run contracts:bindings",
+      "generate:bindings": "yarn workspaces run generate:bindings",
+    },
+    bun: {
+      "contracts:build": "bun --filter '*' run contracts:build",
+      "contracts:bindings": "bun --filter '*' run contracts:bindings",
+      "generate:bindings": "bun --filter '*' run generate:bindings",
+    },
+  };
+
+  const scriptsToAdd = scriptsByPm[info.packageManager] ?? scriptsByPm.npm;
+  for (const [key, cmd] of Object.entries(scriptsToAdd)) {
+    if (!pkg.scripts[key]) {
+      pkg.scripts[key] = cmd;
+      modified = true;
+    }
+  }
+
+  if (modified) {
+    await fs.writeJson(rootPkgPath, pkg, { spaces: 2 });
+  }
+
+  return modified;
+}

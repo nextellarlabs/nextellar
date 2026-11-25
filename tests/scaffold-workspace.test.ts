@@ -280,4 +280,104 @@ describe("scaffold --workspace (#1117)", () => {
     expect(result.workspace).toBeUndefined();
     expect(mockExeca).toHaveBeenCalledWith("git", ["init"], expect.anything());
   });
+
+  test("npm workspace with contracts wires root scripts and app contracts scripts", async () => {
+    const root = await makeWorkspace({
+      "package.json": {
+        name: "mono-contracts-npm",
+        private: true,
+        workspaces: ["apps/*"],
+      },
+      "package-lock.json": "{}",
+    });
+    process.chdir(root);
+
+    const result = await scaffold({
+      appName: "web",
+      useTs: true,
+      template: "minimal",
+      workspace: true,
+      withContracts: true,
+      skipInstall: true,
+    });
+
+    const rootPkg = await fs.readJson(path.join(root, "package.json"));
+    expect(rootPkg.scripts?.["contracts:build"]).toBe(
+      "npm run contracts:build --workspaces --if-present",
+    );
+    expect(rootPkg.scripts?.["contracts:bindings"]).toBe(
+      "npm run contracts:bindings --workspaces --if-present",
+    );
+    expect(rootPkg.scripts?.["generate:bindings"]).toBe(
+      "npm run generate:bindings --workspaces --if-present",
+    );
+
+    const appPkg = await fs.readJson(path.join(result.targetDir, "package.json"));
+    expect(appPkg.scripts?.["contracts:build"]).toBe(
+      "cd contracts && stellar contract build",
+    );
+    expect(appPkg.scripts?.["contracts:test"]).toBe(
+      "cd contracts && cargo test",
+    );
+  });
+
+  test("pnpm workspace with contracts wires root pnpm recursive scripts", async () => {
+    const root = await makeWorkspace({
+      "package.json": { private: true },
+      "pnpm-workspace.yaml": "packages:\n  - 'apps/*'\n",
+      "pnpm-lock.yaml": "",
+    });
+    process.chdir(root);
+
+    await scaffold({
+      appName: "apps/dapp",
+      useTs: true,
+      template: "minimal",
+      workspace: root,
+      withContracts: true,
+      skipInstall: true,
+    });
+
+    const rootPkg = await fs.readJson(path.join(root, "package.json"));
+    expect(rootPkg.scripts?.["contracts:build"]).toBe(
+      "pnpm -r --if-present run contracts:build",
+    );
+    expect(rootPkg.scripts?.["contracts:bindings"]).toBe(
+      "pnpm -r --if-present run contracts:bindings",
+    );
+    expect(rootPkg.scripts?.["generate:bindings"]).toBe(
+      "pnpm -r --if-present run generate:bindings",
+    );
+  });
+
+  test("yarn workspace with contracts wires root yarn workspaces run scripts", async () => {
+    const root = await makeWorkspace({
+      "package.json": {
+        private: true,
+        workspaces: ["packages/*"],
+      },
+      "yarn.lock": "",
+    });
+    process.chdir(root);
+
+    await scaffold({
+      appName: "packages/app",
+      useTs: true,
+      template: "minimal",
+      workspace: root,
+      withContracts: true,
+      skipInstall: true,
+    });
+
+    const rootPkg = await fs.readJson(path.join(root, "package.json"));
+    expect(rootPkg.scripts?.["contracts:build"]).toBe(
+      "yarn workspaces run contracts:build",
+    );
+    expect(rootPkg.scripts?.["contracts:bindings"]).toBe(
+      "yarn workspaces run contracts:bindings",
+    );
+    expect(rootPkg.scripts?.["generate:bindings"]).toBe(
+      "yarn workspaces run generate:bindings",
+    );
+  });
 });
