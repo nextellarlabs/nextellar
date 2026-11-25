@@ -184,6 +184,78 @@ function PaymentForm() {
 
 ---
 
+## Account Hooks
+
+### `useAccountMerge()`
+
+Builds an unsigned `accountMerge` transaction only after a pre-flight safety
+check. Account merge is irreversible, so the hook blocks the operation while
+the source account still has open offers, non-zero non-native balances, or
+sponsored entries, and requires an explicit `confirm: true` flag.
+
+**Signature:**
+```typescript
+function useAccountMerge(options?: { horizonUrl?: string, network?: 'TESTNET' | 'PUBLIC' }): {
+  loading: boolean,
+  error: Error | null,
+  blockers: AccountMergeBlocker[],
+  checkSafety: (source: string) => Promise<AccountMergeSafetyReport>,
+  buildAccountMergeXDR: (params: AccountMergeParams) => Promise<string>
+}
+```
+
+**Parameters:**
+- `options` (object, optional): `horizonUrl` defaults to the wallet provider URL
+  or testnet Horizon; `network` selects the transaction passphrase.
+
+**Returns:**
+An object containing:
+- `loading` (boolean): True while a safety check or XDR build is in flight.
+- `error` (Error | null): The latest Horizon, validation, or blocked-merge error.
+- `blockers` (array): Any pre-flight blockers, each with a `type`, `message`,
+  and human-readable `details`.
+- `checkSafety` (function): Runs the pre-flight check without building a
+  transaction. Useful for rendering the blockers before asking for consent.
+- `buildAccountMergeXDR` (function): Runs the same check, then returns an
+  unsigned XDR for the connected wallet to sign.
+
+`AccountMergeParams` requires `source`, `destination`, and `confirm: true`; an
+optional `fee` overrides the base fee.
+
+**Example:**
+```tsx
+import { useAccountMerge } from 'nextellar/hooks';
+
+function MergeAccount({ publicKey, destination }) {
+  const { loading, error, blockers, buildAccountMergeXDR } = useAccountMerge();
+
+  const handleMerge = async () => {
+    const xdr = await buildAccountMergeXDR({
+      source: publicKey,
+      destination,
+      confirm: true
+    });
+    // Pass `xdr` to the wallet for signing.
+  };
+
+  if (loading) return <p>Checking account safety...</p>;
+  if (error) return <p role="alert">{error.message}</p>;
+  if (blockers.length) {
+    return (
+      <ul>
+        {blockers.map((blocker) => (
+          <li key={blocker.type}>{blocker.message}</li>
+        ))}
+      </ul>
+    );
+  }
+
+  return <button onClick={handleMerge}>Merge account</button>;
+}
+```
+
+---
+
 ## History Hooks
 
 ### `useTransactionHistory(publicKey)`

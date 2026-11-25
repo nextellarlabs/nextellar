@@ -22,6 +22,7 @@ Story files (`*.stories.*`) are not components and are omitted.
 | `ContractCallPreview` |  | yes |  | yes |  | yes |  | yes |  |
 | `CopyButton` |  | yes | yes | yes | yes | yes | yes | yes | yes |
 | `CounterDemo` |  |  | yes | yes | yes | yes |  |  |  |
+| `DisconnectConfirmDialog` |  | yes |  | yes |  |  |  |  |  |
 | `EmptyState` |  | yes | yes | yes | yes | yes | yes | yes | yes |
 | `ErrorBoundary` |  | yes | yes | yes | yes | yes | yes | yes | yes |
 | `LoadingBoundary` |  | yes |  | yes |  | yes |  | yes | yes |
@@ -37,11 +38,13 @@ Story files (`*.stories.*`) are not components and are omitted.
 | `TransactionList` |  | yes | yes | yes | yes | yes |  | yes | yes |
 | `TransactionStatusBadge` |  | yes | yes | yes | yes | yes |  | yes | yes |
 | `WalletConnectButton` |  | yes | yes | yes | yes | yes | yes | yes | yes |
+| `WalletSelectModal` |  | yes |  | yes |  |  |  |  |  |
 
 ## Hooks
 
 | Hook | contracts-template | default | defi | full | js-defi | js-full | js-minimal | js-template | minimal |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| `useAccountMerge` |  | yes |  | yes |  |  |  |  |  |
 | `useClipboard` |  | yes | yes | yes | yes | yes | yes | yes | yes |
 | `useContractDeploy` |  | yes |  | yes |  | yes |  | yes |  |
 | `useContractEventHistory` |  | yes |  | yes |  | yes |  | yes |  |

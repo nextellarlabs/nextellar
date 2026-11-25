@@ -11,6 +11,9 @@ Pull requests that change files under `src/templates/` must add an entry under
 
 ### Added
 
+- `useAccountMerge` hook in the default template builds account-merge XDRs only
+  after pre-flight checks for open offers, non-zero non-native balances, and
+  sponsored entries, and only when the caller passes `confirm: true`. (#1442)
 - SEP-7 helpers in the default template now throw a typed `Sep7Error` with a
   stable `code` (`INVALID_INPUT`, `INVALID_URI`, `UNSUPPORTED_OPERATION`,
   `MISSING_DESTINATION`, `INVALID_ASSET`, `INVALID_MEMO_TYPE`, `MSG_TOO_LONG`)
