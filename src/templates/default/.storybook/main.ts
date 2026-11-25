@@ -40,6 +40,12 @@ const config: StorybookConfig = {
             dirname,
             "./mocks/useSorobanContract.ts"
           ),
+          // Storybook-only mock so LiquidityPoolCard stories render pool data
+          // without performing a live Horizon RPC call.
+          "../hooks/useLiquidityPool": path.resolve(
+            dirname,
+            "./mocks/useLiquidityPool.ts"
+          ),
         },
       },
     });
