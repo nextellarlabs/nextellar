@@ -3,6 +3,7 @@ import fs from "fs-extra";
 import pc from "picocolors";
 import { getTelemetryStatus, isTelemetryDisabledByEnv } from "./telemetry.js";
 import { defaultTemplatesRoot, getTemplate } from "./templates.js";
+import { collectStatusUsage, type StatusUsage } from "./status-usage.js";
 
 /**
  * Stellar packages a project's health score cares about staying current on.
@@ -30,6 +31,7 @@ export interface StatusReport {
   score: number;
   maxScore: number;
   checks: StatusCheck[];
+  usage: StatusUsage;
 }
 
 export const STATUS_JSON_SCHEMA_VERSION = 1;
@@ -212,14 +214,24 @@ export async function runStatus(opts: StatusOptions = {}): Promise<number> {
   }
 
   const projectConfig = await fs.readJson(configPath).catch(() => ({}));
-  const templateName = projectConfig.template || "default";
+  const templateName =
+    [
+      projectConfig?.template,
+      projectConfig?.templateName,
+      projectConfig?.templateId,
+    ]
+      .find(
+        (value): value is string =>
+          typeof value === "string" && value.trim().length > 0,
+      )
+      ?.trim() ?? "default";
 
   const checks: StatusCheck[] = [
     {
       id: "project",
       name: "Project",
       ok: true,
-      detail: `Template: ${templateName}${projectConfig.nextellarVersion ? ` (scaffolded with v${projectConfig.nextellarVersion})` : ""}`,
+      detail: `Template: ${templateName}${projectConfig?.nextellarVersion ? ` (scaffolded with v${projectConfig.nextellarVersion})` : ""}`,
     },
     await checkOutdatedDependencies(cwd, templateName),
     await checkEnvVars(cwd),
@@ -229,6 +241,7 @@ export async function runStatus(opts: StatusOptions = {}): Promise<number> {
 
   const score = checks.filter((c) => c.ok).length;
   const maxScore = checks.length;
+  const usage = await collectStatusUsage(cwd, templateName);
 
   if (opts.json) {
     const report: StatusReport = {
@@ -236,6 +249,7 @@ export async function runStatus(opts: StatusOptions = {}): Promise<number> {
       score,
       maxScore,
       checks,
+      usage,
     };
     console.log(JSON.stringify(report, null, 2));
     return score === maxScore ? 0 : 1;
@@ -248,6 +262,28 @@ export async function runStatus(opts: StatusOptions = {}): Promise<number> {
   }
   console.log("");
   console.log(pc.bold(`Health score: ${score}/${maxScore}`));
+  console.log("");
+  console.log(pc.bold("Project usage"));
+  const language =
+    usage.language === "typescript"
+      ? "TypeScript"
+      : usage.language === "javascript"
+        ? "JavaScript"
+        : "Unknown";
+  console.log(`Language: ${language}`);
+  console.log(
+    `Installed features: ${usage.features.join(", ") || "None detected"}`,
+  );
+  if (!usage.drift) {
+    console.log("Template drift: comparison unavailable.");
+  } else {
+    const { modified, missing } = usage.drift;
+    console.log(
+      `Template drift: ${modified.length} modified, ${missing.length} missing.`,
+    );
+    for (const file of modified) console.log(`  Modified: ${file}`);
+    for (const file of missing) console.log(`  Missing: ${file}`);
+  }
   console.log("");
 
   return score === maxScore ? 0 : 1;

@@ -104,18 +104,15 @@ program
 // Status subcommand: nextellar status [--json]
 program
   .command("status")
-  .description(
-    "Show a scaffolded project's health score (deps, env vars, telemetry, git)",
-  )
+  .description("Show project health, installed features, and template drift")
   .option("--json", "output results as JSON for CI integration")
   .action(async (cmdOpts: { json?: boolean }) => {
     try {
       const { runStatus } = await import("../src/lib/status.js");
-      const exitCode = await runStatus({ json: !!cmdOpts.json });
-      await exitWithTelemetry(exitCode);
+      process.exitCode = await runStatus({ json: !!cmdOpts.json });
     } catch (err: any) {
       printError(`Failed to run status: ${err?.message || err}`);
-      await exitWithTelemetry(1);
+      process.exitCode = 1;
     }
   });
 

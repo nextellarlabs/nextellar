@@ -98,11 +98,18 @@ Options:
 | `nextellar add [feature]` | Add a Stellar feature to an existing project (`--list` to see all, `--force` to overwrite, `--skip-install`, `--package-manager`) |
 | `nextellar templates [name]` | Preview each template's file tree and description without scaffolding (name to preview just one, `--json` for machine-readable output) |
 | `nextellar doctor` | Run environment diagnostics (`--json` for CI, `--fix` to auto-remediate safe issues) |
-| `nextellar status` | Show a scaffolded project's health score: outdated deps, missing env vars, telemetry status, git init (`--json` for CI) |
+| `nextellar status` | Show project health, template, language, detected features, and template drift (`--json` for CI) |
 | `nextellar upgrade` | Upgrade an existing project to the latest template (`--dry-run` to preview, `--check` for a changelog preview, `--diff` for a full file-by-file diff without applying anything, `--yes` to skip prompts) |
 | `nextellar deploy` | Validate and prepare a deployment bundle for Nextellar Cloud (`--dry-run` to preview) |
 | `nextellar clean` | Remove `.nextellar/` build artifacts |
 | `nextellar telemetry <status\|enable\|disable>` | Manage anonymous telemetry settings |
+
+`nextellar status` detects registered features from their local source files and
+compares the starter's `src/` files with the version bundled with your installed
+CLI. It reports modified or missing starter files and ignores new project files.
+The `--json` output includes a `usage` object. Its `drift` field is `null` if
+the starter or language cannot be resolved. The usage summary runs offline
+and does not affect the health score or exit code.
 
 ---
 
