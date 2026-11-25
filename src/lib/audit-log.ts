@@ -2,7 +2,7 @@ import path from "path";
 import fs from "fs-extra";
 import { getTelemetryStatus } from "./telemetry.js";
 
-export type AuditAction = "add" | "upgrade";
+export type AuditAction = "add" | "add-contract" | "upgrade";
 
 export interface AuditLogEntry {
   timestamp: string;
