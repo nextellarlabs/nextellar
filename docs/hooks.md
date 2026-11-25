@@ -347,6 +347,33 @@ function ContractEvents({ contractId }) {
 }
 ```
 
+### `useContractStorage(opts)`
+
+Reads a contract instance entry or one contract data entry from Soroban RPC,
+decodes its ScVal, and exposes the entry's TTL metadata.
+
+```tsx
+import { xdr } from '@stellar/stellar-sdk';
+import { useContractStorage } from '@/hooks/useContractStorage';
+
+const { value, liveUntilLedgerSeq, loading, error, refresh } =
+  useContractStorage({
+    contractId: 'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQAHHXK3AWCM',
+    key: xdr.ScVal.scvSymbol('counter'),
+    durability: 'persistent',
+    network: 'TESTNET',
+  });
+```
+
+Pass an `xdr.ScVal` key to read a persistent or temporary data entry. Omit the
+key to read the contract instance. Data entries default to persistent
+durability. `sorobanRpc` defaults to the provider's Soroban URL or the testnet
+RPC URL. Set `enabled` to `false` to skip the initial request and call
+`refresh()` manually. The decoded `value` is also returned in `entry`, with
+`lastModifiedLedgerSeq`, `liveUntilLedgerSeq` (null when absent),
+`latestLedger`, and `durability`. A missing entry and RPC failure are reported
+through `error`.
+
 ### `useSorobanContract(opts)`
 
 Simulates, builds and (dev-only) submits calls to a Soroban smart contract, encoding plain JavaScript arguments to XDR `ScVal`s and decoding return values back. No provider is required.
