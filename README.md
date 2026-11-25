@@ -99,7 +99,7 @@ Options:
 | `nextellar templates [name]` | Preview each template's file tree and description without scaffolding (name to preview just one, `--json` for machine-readable output) |
 | `nextellar doctor` | Run environment diagnostics (`--json` for CI, `--fix` to auto-remediate safe issues) |
 | `nextellar status` | Show a scaffolded project's health score: outdated deps, missing env vars, telemetry status, git init (`--json` for CI) |
-| `nextellar upgrade` | Upgrade an existing project to the latest template (`--dry-run` to preview, `--check` for a changelog preview, `--diff` for a full file-by-file diff without applying anything, `--yes` to skip prompts) |
+| `nextellar upgrade` | Upgrade an existing project to the latest template (`--dry-run` to preview, `--check` for a changelog preview, `--diff` for a full file-by-file diff without applying anything, `-i`/`--interactive` to review each file with apply/skip/quit, `--yes` to skip prompts) |
 | `nextellar deploy` | Validate and prepare a deployment bundle for Nextellar Cloud (`--dry-run` to preview) |
 | `nextellar clean` | Remove `.nextellar/` build artifacts |
 | `nextellar telemetry <status\|enable\|disable>` | Manage anonymous telemetry settings |
@@ -154,6 +154,21 @@ template file (`src/hooks`, `src/lib`) that differs from the latest template,
 plus Stellar package version changes in `package.json`. It never prompts and
 never writes, even with `--yes`. `--check` shows a shorter changelog (diffs
 are capped at 20 lines per file).
+
+### Upgrading interactively
+
+`nextellar upgrade --interactive` (`-i`) walks through each drifted file one at
+a time. For every candidate it prints the relative path, a `[MODIFIED]` or
+`[NEW FILE]` tag, and a diff preview, then asks whether to `apply`, `skip`, or
+`quit`. Files whose local bytes already match the template are ignored.
+
+Skip decisions are saved to `.nextellar/upgrade-state.json` (POSIX relative
+paths mapped to the incoming template's SHA-256). On a later interactive run,
+a file that was skipped and whose template has not changed is auto-skipped
+without prompting again; if the template changed, it is shown again. Choosing
+`quit` keeps every earlier apply/skip decision and leaves the remaining files
+untouched. `--interactive` cannot be combined with `--yes`, and it requires an
+interactive terminal (pass `--yes` for non-interactive upgrades).
 
 ---
 

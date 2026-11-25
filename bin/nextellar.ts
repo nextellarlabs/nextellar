@@ -305,16 +305,26 @@ program
     false,
   )
   .option("--yes", "Apply changes without prompting", false)
+  .option(
+    "-i, --interactive",
+    "Review each changed file individually (apply/skip/quit)",
+    false,
+  )
   .option("--verbose", "print additional diagnostic output on failure")
   .option("--debug", "alias for --verbose")
-  .action(async (options) => {
+  .action(async (options, command) => {
     setVerbose(!!(options.verbose || options.debug));
+    // The root program also defines --yes (scaffolding alias), which shadows
+    // the subcommand's own --yes on the plain options object. Read the merged
+    // value so `upgrade --yes` and `upgrade --interactive --yes` behave.
+    const merged = command.optsWithGlobals();
     try {
       await upgrade({
         dryRun: options.dryRun,
-        yes: options.yes,
+        yes: !!merged.yes,
         check: options.check,
         diff: options.diff,
+        interactive: options.interactive,
       });
     } catch (err: any) {
       printError(err.message);

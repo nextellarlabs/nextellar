@@ -113,12 +113,22 @@ describe("upgrade changelog diff colorization", () => {
     });
     process.chdir(dir);
 
-    // Jest's stdout is never a TTY and FORCE_COLOR/CI aren't set for this
-    // test, so picocolors' own color-support detection should already
-    // produce plain, uncolored output here.
-    const { upgrade: freshUpgrade } = await import("../src/lib/upgrade.js");
-    await freshUpgrade({ dryRun: true });
-    const raw = output();
+    // picocolors enables color unconditionally on win32, so explicitly opt
+    // out (and re-import in an isolated registry) to exercise the plain-text
+    // path on every platform.
+    const prevNoColor = process.env.NO_COLOR;
+    process.env.NO_COLOR = "1";
+    let raw = "";
+    try {
+      await jest.isolateModulesAsync(async () => {
+        const { upgrade: freshUpgrade } = await import("../src/lib/upgrade.js");
+        await freshUpgrade({ dryRun: true });
+        raw = output();
+      });
+    } finally {
+      if (prevNoColor === undefined) delete process.env.NO_COLOR;
+      else process.env.NO_COLOR = prevNoColor;
+    }
 
     // eslint-disable-next-line no-control-regex
     expect(raw).not.toMatch(/\x1b\[/);

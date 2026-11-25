@@ -10,6 +10,17 @@ import {
   migrateProjectConfig,
 } from "./project-config.js";
 import { getTemplate } from "./templates.js";
+import {
+  createReadlineUpgradePrompt,
+  formatBytes,
+  isProbablyBinary,
+  loadUpgradeState,
+  saveUpgradeState,
+  sha256Hex,
+  toPosix,
+  type UpgradeDecision,
+  type UpgradePromptHandler,
+} from "./upgrade-interactive.js";
 
 interface UpgradeOptions {
   dryRun?: boolean;
@@ -20,6 +31,22 @@ interface UpgradeOptions {
    * latest template, then exit without prompting or writing anything (#1116).
    */
   diff?: boolean;
+  /**
+   * Review each drifted file individually (apply/skip/quit) instead of
+   * prompting once for everything (#1487). Skip decisions are persisted in
+   * `.nextellar/upgrade-state.json` keyed by the template's SHA-256.
+   */
+  interactive?: boolean;
+  /** Injectable prompt handler; primarily for tests and custom UIs. */
+  prompt?: UpgradePromptHandler;
+}
+
+/** One template file that differs from the local project (or is missing). */
+interface UpgradeChange {
+  file: string;
+  projectFile: string;
+  templateFile: string;
+  status: "added" | "updated";
 }
 
 const STELLAR_PKGS = [
@@ -127,6 +154,53 @@ export function renderFullFileDiff(
   return [...header, ...diffLines(projectContent, templateContent)];
 }
 
+/**
+ * Renders the per-file preview shown before each interactive prompt: the
+ * relative path, an explicit status tag, and a capped unified diff. New files
+ * diff against nothing (all `+` lines); binary files get a byte-size summary
+ * instead of raw bytes so the terminal stays readable.
+ */
+export function renderInteractivePreview(
+  rel: string,
+  status: "added" | "updated",
+  local: Buffer | null,
+  template: Buffer,
+): string[] {
+  const label =
+    status === "added" ? pc.green("[NEW FILE]") : pc.yellow("[MODIFIED]");
+  const header = `${pc.bold(toPosix(rel))} ${label}`;
+
+  const localIsBinary = local ? isProbablyBinary(local) : false;
+  if (localIsBinary || isProbablyBinary(template)) {
+    const localDesc = local ? formatBytes(local.length) : "absent";
+    return [
+      header,
+      pc.dim(
+        `  binary file (local: ${localDesc}, template: ${formatBytes(template.length)})`,
+      ),
+    ];
+  }
+
+  const newContent = template.toString("utf8");
+  const oldContent = local ? local.toString("utf8") : null;
+
+  let lines: string[];
+  if (oldContent === null) {
+    lines = newContent.split("\n").map((line) => pc.green(`+ ${line}`));
+  } else {
+    lines = diffLines(oldContent, newContent);
+  }
+
+  const maxLines = 40;
+  if (lines.length > maxLines) {
+    const shown = lines.slice(0, maxLines);
+    shown.push(pc.dim(`  … ${lines.length - maxLines} more line(s) not shown`));
+    lines = shown;
+  }
+
+  return [header, ...lines];
+}
+
 /** Compares dotted version strings numerically; non-numeric parts sort as 0. */
 function compareVersions(a: string, b: string): number {
   const pa = a.split(".").map((p) => parseInt(p, 10) || 0);
@@ -157,7 +231,218 @@ function findTemplateDir(templateName: string) {
   );
 }
 
+interface InteractiveUpgradeContext {
+  cwd: string;
+  nextellarDir: string;
+  configPath: string;
+  projectConfig: Record<string, unknown>;
+  templateName: string;
+  currentVersion: string;
+  cliVersion: string;
+  changes: UpgradeChange[];
+  pkgChanges: Record<string, { from?: string; to?: string }>;
+  projPkgPath: string;
+  prompt?: UpgradePromptHandler;
+  persistMigration: () => Promise<void>;
+}
+
+/**
+ * Per-file interactive apply/skip/quit loop (#1487).
+ *
+ * Every decision is flushed to `.nextellar/upgrade-state.json` immediately so
+ * earlier `apply`/`skip` outcomes survive a later `quit` (or Ctrl+C). Files
+ * already skipped against the current template hash are auto-skipped without
+ * prompting.
+ */
+async function runInteractiveUpgrade(
+  ctx: InteractiveUpgradeContext,
+): Promise<void> {
+  const {
+    cwd,
+    nextellarDir,
+    configPath,
+    projectConfig,
+    templateName,
+    currentVersion,
+    cliVersion,
+    changes,
+    pkgChanges,
+    projPkgPath,
+  } = ctx;
+
+  if (!ctx.prompt && !process.stdin.isTTY) {
+    throw new Error(
+      "--interactive requires an interactive terminal. Use --yes to apply all changes without prompting.",
+    );
+  }
+
+  let closePrompt: (() => void) | undefined;
+  let promptHandler: UpgradePromptHandler;
+  if (ctx.prompt) {
+    promptHandler = ctx.prompt;
+  } else {
+    const prompt = createReadlineUpgradePrompt();
+    promptHandler = prompt.handler;
+    closePrompt = prompt.close;
+  }
+
+  const { state, corrupted } = await loadUpgradeState(cwd);
+  if (corrupted) {
+    console.log(
+      pc.yellow(
+        "Ignoring malformed .nextellar/upgrade-state.json; starting fresh.",
+      ),
+    );
+  }
+
+  const backupDir = path.join(
+    nextellarDir,
+    "backups",
+    new Date().toISOString().replace(/[:.]/g, "-"),
+  );
+  let backupReady = false;
+  const ensureBackupDir = async () => {
+    if (backupReady) return;
+    await fs.ensureDir(backupDir);
+    backupReady = true;
+  };
+
+  let applied = 0;
+  let skipped = 0;
+  let autoSkipped = 0;
+  let quit = false;
+  const appliedFiles: string[] = [];
+
+  try {
+    for (const change of changes) {
+      const relPosix = toPosix(change.file);
+      const templateBuf = await fs.readFile(change.templateFile);
+      const templateHash = sha256Hex(templateBuf);
+      const localExists = await fs.pathExists(change.projectFile);
+      const localBuf = localExists
+        ? await fs.readFile(change.projectFile)
+        : null;
+
+      if (state.skipped[relPosix] === templateHash) {
+        autoSkipped++;
+        console.log(
+          pc.dim(`Auto-skipped (unchanged since last run): ${relPosix}`),
+        );
+        continue;
+      }
+
+      console.log("");
+      for (const line of renderInteractivePreview(
+        relPosix,
+        change.status,
+        localBuf,
+        templateBuf,
+      )) {
+        console.log(line);
+      }
+
+      let decision: UpgradeDecision;
+      try {
+        decision = await promptHandler({
+          file: relPosix,
+          status: change.status,
+        });
+      } catch {
+        console.log("\nUpgrade cancelled.");
+        decision = "quit";
+      }
+
+      if (decision === "apply") {
+        await ensureBackupDir();
+        if (localExists) {
+          const relPath = path.relative(cwd, change.projectFile);
+          const destBackup = path.join(backupDir, relPath);
+          await fs.ensureDir(path.dirname(destBackup));
+          await fs.copyFile(change.projectFile, destBackup);
+        }
+        await fs.ensureDir(path.dirname(change.projectFile));
+        await fs.copyFile(change.templateFile, change.projectFile);
+        if (state.skipped[relPosix] !== undefined) {
+          delete state.skipped[relPosix];
+        }
+        await saveUpgradeState(cwd, state);
+        applied++;
+        appliedFiles.push(relPosix);
+        console.log(pc.green(`Applied ${relPosix}`));
+      } else if (decision === "skip") {
+        state.skipped[relPosix] = templateHash;
+        await saveUpgradeState(cwd, state);
+        skipped++;
+        console.log(pc.dim(`Skipped ${relPosix}`));
+      } else {
+        quit = true;
+        break;
+      }
+    }
+  } finally {
+    closePrompt?.();
+  }
+
+  const pkgEntries = Object.entries(pkgChanges);
+  const applyPackages = !quit && pkgEntries.length > 0;
+  if (applyPackages) {
+    await ensureBackupDir();
+    const projPkg = await fs.readJson(projPkgPath);
+    for (const [pkg, v] of pkgEntries) {
+      if (v.to) {
+        if (projPkg.dependencies && pkg in projPkg.dependencies)
+          projPkg.dependencies[pkg] = v.to;
+        else if (projPkg.devDependencies && pkg in projPkg.devDependencies)
+          projPkg.devDependencies[pkg] = v.to;
+        else if (!projPkg.dependencies) projPkg.dependencies = { [pkg]: v.to };
+      }
+    }
+    await fs.copyFile(projPkgPath, path.join(backupDir, "package.json"));
+    await fs.writeJson(projPkgPath, projPkg, { spaces: 2 });
+    console.log(pc.green("Updated package.json dependencies"));
+  }
+
+  const changedSomething = applied > 0 || applyPackages;
+  if (changedSomething) {
+    projectConfig.nextellarVersion = cliVersion;
+    projectConfig.updatedAt = new Date().toISOString();
+    await fs.writeJson(configPath, projectConfig, { spaces: 2 });
+  }
+  await ctx.persistMigration();
+
+  if (changedSomething) {
+    await recordAuditEvent(cwd, "upgrade", {
+      template: templateName,
+      fromVersion: currentVersion,
+      toVersion: cliVersion,
+      filesChanged: appliedFiles,
+      skippedFiles: Object.keys(state.skipped),
+      packagesChanged: pkgChanges,
+    });
+  }
+
+  const remaining = changes.length - (applied + skipped + autoSkipped);
+
+  console.log("");
+  console.log(pc.bold("Interactive upgrade summary:"));
+  console.log(`  Applied:      ${applied}`);
+  console.log(`  Skipped:      ${skipped}`);
+  console.log(`  Auto-skipped: ${autoSkipped}`);
+  console.log(`  Remaining:    ${remaining}`);
+  if (applied > 0) {
+    console.log(
+      pc.dim(`Backups saved to ${path.relative(cwd, backupDir) || backupDir}`),
+    );
+  }
+  if (quit) {
+    console.log(pc.yellow("Quit before reviewing every file."));
+  }
+}
+
 export async function upgrade(opts: UpgradeOptions = {}) {
+  if (opts.interactive && opts.yes) {
+    throw new Error("--interactive cannot be combined with --yes; choose one.");
+  }
   const cwd = process.cwd();
 
   // Detect Nextellar project marker
@@ -250,21 +535,17 @@ export async function upgrade(opts: UpgradeOptions = {}) {
     const dir = path.join(templateSrc, sub);
     if (await fs.pathExists(dir)) {
       const files = await fs.readdir(dir);
+      files.sort();
       for (const f of files) {
         const full = path.join(dir, f);
         const stat = await fs.stat(full);
-        if (stat.isFile()) candidates.push(path.join(sub, f));
+        if (stat.isFile()) candidates.push(toPosix(path.join(sub, f)));
       }
     }
   }
 
   // Compare and collect diffs
-  const changes: {
-    file: string;
-    projectFile: string;
-    templateFile: string;
-    status: "added" | "updated";
-  }[] = [];
+  const changes: UpgradeChange[] = [];
   let unchangedCount = 0;
   for (const rel of candidates) {
     const templateFile = path.join(templateSrc, rel);
@@ -273,11 +554,13 @@ export async function upgrade(opts: UpgradeOptions = {}) {
       changes.push({ file: rel, projectFile, templateFile, status: "added" });
       continue;
     }
+    // Compare bytes (not decoded text) so any byte-level drift counts, and so
+    // a file whose bytes already match the template is never prompted about.
     const [a, b] = await Promise.all([
-      fs.readFile(templateFile, "utf8"),
-      fs.readFile(projectFile, "utf8"),
+      fs.readFile(templateFile),
+      fs.readFile(projectFile),
     ]);
-    if (a !== b) {
+    if (!a.equals(b)) {
       changes.push({ file: rel, projectFile, templateFile, status: "updated" });
     } else {
       unchangedCount++;
@@ -347,6 +630,27 @@ export async function upgrade(opts: UpgradeOptions = {}) {
       ),
     );
     console.log(pc.magenta("--diff specified; no files were modified."));
+    return;
+  }
+
+  // --interactive (#1487): per-file apply/skip/quit instead of one global
+  // confirmation. Runs before the normal summary/changelog and returns; all
+  // writes and state persistence happen inside the loop.
+  if (opts.interactive) {
+    await runInteractiveUpgrade({
+      cwd,
+      nextellarDir,
+      configPath,
+      projectConfig,
+      templateName,
+      currentVersion,
+      cliVersion,
+      changes,
+      pkgChanges,
+      projPkgPath,
+      prompt: opts.prompt,
+      persistMigration,
+    });
     return;
   }
 
