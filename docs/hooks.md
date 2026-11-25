@@ -222,6 +222,78 @@ function History({ publicKey }) {
 
 ---
 
+## Claimable Balance Hooks
+
+### `useClaimableBalances(options?)`
+
+Fetches claimable balances for the connected wallet, evaluates each claimant's
+predicate locally, and provides a wallet-signed claim action. Use this hook
+inside `WalletProvider`.
+
+**Signature:**
+
+```typescript
+function useClaimableBalances(
+  options?: UseClaimableBalancesOptions,
+): ClaimableBalancesState;
+```
+
+**Parameters:**
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `options.horizonUrl` | `string` (optional) | Horizon server URL. Defaults to the wallet provider's URL, then `https://horizon-testnet.stellar.org`. |
+| `options.network` | `'TESTNET' \| 'PUBLIC'` (optional) | Network selector for transaction construction and parsing. Defaults to the wallet provider's active network, then testnet. |
+
+**Returns:**
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `balances` | `ClaimableBalance[]` | Horizon records with parsed asset details, sponsor, claimants, predicates, and an `isClaimable` flag for the connected account. |
+| `loading` | `boolean` | True while balances are being fetched. |
+| `error` | `Error \| null` | Fetch or claim error, if one occurred. |
+| `refresh` | `() => Promise<void>` | Re-fetches claimable balances for the connected account. |
+| `claimBalance` | `(balanceId: string) => Promise<SubmitTransactionResponse>` | Verifies current claimability, signs the claim transaction with the connected wallet, submits it, and refreshes the list. Rejects if disconnected, unclaimable, signing fails, or submission fails. |
+
+`ClaimableBalance` exposes `id`, the canonical Horizon `asset` string, parsed
+`asset_type`/`asset_code`/`asset_issuer`, `amount`, optional `sponsor` and
+`last_modified_time`, `claimants`, and `isClaimable`. Each claimant includes
+its `destination`, original `predicate`, and an `isClaimable` flag. Relative
+predicates are evaluated from `last_modified_time`; an unknown or invalid
+predicate is treated as unclaimable.
+
+**Example:**
+
+```tsx
+import { useClaimableBalances } from "@/hooks";
+
+function ClaimableBalancesList() {
+  const { balances, loading, error, refresh, claimBalance } =
+    useClaimableBalances();
+
+  if (loading) return <p>Loading claimable balances...</p>;
+  if (error) return <p>Error: {error.message}</p>;
+
+  return (
+    <ul>
+      {balances.map((balance) => (
+        <li key={balance.id}>
+          {balance.amount} {balance.asset_code ?? balance.asset}
+          {balance.isClaimable ? (
+            <button onClick={() => claimBalance(balance.id)}>Claim</button>
+          ) : (
+            <span>Not yet claimable</span>
+          )}
+        </li>
+      ))}
+      <button onClick={refresh}>Refresh</button>
+    </ul>
+  );
+}
+```
+
+---
+
 ## Trustline Hooks
 
 ### `useTrustlines()`
