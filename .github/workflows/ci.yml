@@ -169,6 +169,49 @@ jobs:
         env:
           LHCI_BUILD_CONTEXT__CURRENT_HASH: ${{ github.sha }}
 
+  lighthouse-pwa:
+    name: Lighthouse + PWA checks — --with-pwa scaffold
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+
+      # Scaffolds the default starter with the PWA option (#1496), builds it
+      # for production, then asserts the installability surface (manifest,
+      # 192/512 + maskable icons, offline shell, root-scoped service worker
+      # and its never-cache guards) before running Lighthouse CI against the
+      # production server. See docs/pwa-guide.md.
+      - name: Scaffold PWA app
+        run: node dist/bin/nextellar.js lhci-pwa-app --defaults --skip-install --template default --with-pwa
+
+      - name: Install scaffolded app dependencies
+        working-directory: lhci-pwa-app
+        run: npm install
+
+      - name: Build scaffolded app
+        working-directory: lhci-pwa-app
+        run: npm run build
+
+      - name: Check PWA installability surface
+        run: node scripts/check-pwa.mjs lhci-pwa-app
+
+      - name: Copy Lighthouse CI config
+        run: cp .lighthouserc.pwa.json lhci-pwa-app/.lighthouserc.pwa.json
+
+      - name: Run Lighthouse CI
+        working-directory: lhci-pwa-app
+        run: npx --yes @lhci/cli@0.15.x autorun --config=.lighthouserc.pwa.json
+        env:
+          LHCI_BUILD_CONTEXT__CURRENT_HASH: ${{ github.sha }}
+
   visual-regression:
     name: Visual regression — default template Storybook
     runs-on: ubuntu-latest

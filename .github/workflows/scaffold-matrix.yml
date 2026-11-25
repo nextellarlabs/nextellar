@@ -46,6 +46,7 @@ jobs:
               name: with-contracts,
               args: "--template default --with-contracts",
             }
+          - { name: with-pwa, args: "--template default --with-pwa" }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

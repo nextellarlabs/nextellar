@@ -1,7 +1,8 @@
 [workspace]
 resolver = "2"
 members = [
-    "hello_world"
+    "hello_world",
+    "token"
 ]
 
 [profile.release]

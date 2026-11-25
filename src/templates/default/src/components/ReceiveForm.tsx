@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import { useWallet } from '../contexts';
 import { buildSep7PayUri } from '../lib/sep7';

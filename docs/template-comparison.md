@@ -14,52 +14,52 @@ Story files (`*.stories.*`) are not components and are omitted.
 
 ## Components
 
-| Component | contracts-template | default | defi | full | js-defi | js-full | js-minimal | js-template | minimal |
-| --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| `AccountSwitcher` |  | yes |  | yes |  | yes |  | yes | yes |
-| `BalanceDisplay` |  | yes | yes | yes | yes | yes |  | yes | yes |
-| `ContractCallForm` |  | yes |  | yes |  | yes |  | yes |  |
-| `ContractCallPreview` |  | yes |  | yes |  | yes |  | yes |  |
-| `CopyButton` |  | yes | yes | yes | yes | yes | yes | yes | yes |
-| `CounterDemo` |  |  | yes | yes | yes | yes |  |  |  |
-| `EmptyState` |  | yes | yes | yes | yes | yes | yes | yes | yes |
-| `ErrorBoundary` |  | yes | yes | yes | yes | yes | yes | yes | yes |
-| `LoadingBoundary` |  | yes |  | yes |  | yes |  | yes | yes |
-| `NetworkMismatchBanner` |  | yes |  | yes |  | yes |  | yes | yes |
-| `NetworkSwitcher` |  | yes | yes | yes | yes | yes |  | yes | yes |
-| `ReceiveForm` |  | yes | yes | yes | yes | yes |  | yes | yes |
-| `SendForm` |  | yes | yes | yes | yes | yes |  | yes | yes |
-| `Sep24InteractiveFrame` |  | yes | yes | yes |  | yes |  | yes |  |
-| `Skeleton` |  | yes | yes | yes | yes | yes |  | yes | yes |
-| `SkeletonList` |  |  |  |  |  | yes |  | yes |  |
-| `SwapForm` |  |  | yes |  |  |  |  |  |  |
-| `ThemeToggle` |  | yes | yes | yes |  | yes |  | yes | yes |
-| `TransactionList` |  | yes | yes | yes | yes | yes |  | yes | yes |
-| `TransactionStatusBadge` |  | yes | yes | yes | yes | yes |  | yes | yes |
-| `WalletConnectButton` |  | yes | yes | yes | yes | yes | yes | yes | yes |
+| Component | contracts-template | default | defi | full | js-defi | js-full | js-minimal | js-template | minimal | pwa-template |
+| --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| `AccountSwitcher` |  | yes |  | yes |  | yes |  | yes | yes |  |
+| `BalanceDisplay` |  | yes | yes | yes | yes | yes |  | yes | yes |  |
+| `ContractCallForm` |  | yes |  | yes |  | yes |  | yes |  |  |
+| `ContractCallPreview` |  | yes |  | yes |  | yes |  | yes |  |  |
+| `CopyButton` |  | yes | yes | yes | yes | yes | yes | yes | yes |  |
+| `CounterDemo` |  |  | yes | yes | yes | yes |  |  |  |  |
+| `EmptyState` |  | yes | yes | yes | yes | yes | yes | yes | yes |  |
+| `ErrorBoundary` |  | yes | yes | yes | yes | yes | yes | yes | yes |  |
+| `LoadingBoundary` |  | yes |  | yes |  | yes |  | yes | yes |  |
+| `NetworkMismatchBanner` |  | yes |  | yes |  | yes |  | yes | yes |  |
+| `NetworkSwitcher` |  | yes | yes | yes | yes | yes |  | yes | yes |  |
+| `ReceiveForm` |  | yes | yes | yes | yes | yes |  | yes | yes |  |
+| `SendForm` |  | yes | yes | yes | yes | yes |  | yes | yes |  |
+| `Sep24InteractiveFrame` |  | yes | yes | yes |  | yes |  | yes |  |  |
+| `Skeleton` |  | yes | yes | yes | yes | yes |  | yes | yes |  |
+| `SkeletonList` |  |  |  |  |  | yes |  | yes |  |  |
+| `SwapForm` |  |  | yes |  |  |  |  |  |  |  |
+| `ThemeToggle` |  | yes | yes | yes |  | yes |  | yes | yes |  |
+| `TransactionList` |  | yes | yes | yes | yes | yes |  | yes | yes |  |
+| `TransactionStatusBadge` |  | yes | yes | yes | yes | yes |  | yes | yes |  |
+| `WalletConnectButton` |  | yes | yes | yes | yes | yes | yes | yes | yes |  |
 
 ## Hooks
 
-| Hook | contracts-template | default | defi | full | js-defi | js-full | js-minimal | js-template | minimal |
-| --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| `useClipboard` |  | yes | yes | yes | yes | yes | yes | yes | yes |
-| `useContractDeploy` |  | yes |  | yes |  | yes |  | yes |  |
-| `useContractEventHistory` |  | yes |  | yes |  | yes |  | yes |  |
-| `useContractUpgrade` |  | yes |  | yes |  | yes |  | yes |  |
-| `useFederationLookup` |  | yes |  | yes |  |  |  |  |  |
-| `useHorizonStreaming` |  | yes |  | yes |  | yes |  | yes |  |
-| `useMultisigTransaction` |  | yes |  | yes |  | yes |  | yes |  |
-| `useOfferBook` |  | yes | yes | yes | yes | yes |  | yes |  |
-| `usePathPayment` |  |  | yes |  |  |  |  |  |  |
-| `usePrefersReducedMotion` |  | yes | yes | yes |  | yes |  | yes | yes |
-| `useSep24Interactive` |  | yes |  | yes |  | yes |  | yes |  |
-| `useSep30Recovery` |  | yes | yes | yes |  | yes |  | yes |  |
-| `useSep38Quote` |  | yes | yes | yes |  | yes |  | yes |  |
-| `useSep6` |  | yes |  | yes |  |  |  |  |  |
-| `useSorobanContract` |  | yes | yes | yes | yes | yes |  | yes |  |
-| `useSorobanEvents` |  | yes | yes | yes | yes | yes |  | yes |  |
-| `useStellarBalances` |  | yes | yes | yes | yes | yes | yes | yes | yes |
-| `useStellarPayment` |  | yes | yes | yes | yes | yes |  | yes |  |
-| `useStellarWallet` |  | yes | yes | yes | yes | yes | yes | yes | yes |
-| `useTransactionHistory` |  | yes | yes | yes | yes | yes |  | yes | yes |
-| `useTrustlines` |  | yes | yes | yes | yes | yes |  | yes |  |
+| Hook | contracts-template | default | defi | full | js-defi | js-full | js-minimal | js-template | minimal | pwa-template |
+| --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| `useClipboard` |  | yes | yes | yes | yes | yes | yes | yes | yes |  |
+| `useContractDeploy` |  | yes |  | yes |  | yes |  | yes |  |  |
+| `useContractEventHistory` |  | yes |  | yes |  | yes |  | yes |  |  |
+| `useContractUpgrade` |  | yes |  | yes |  | yes |  | yes |  |  |
+| `useFederationLookup` |  | yes |  | yes |  |  |  |  |  |  |
+| `useHorizonStreaming` |  | yes |  | yes |  | yes |  | yes |  |  |
+| `useMultisigTransaction` |  | yes |  | yes |  | yes |  | yes |  |  |
+| `useOfferBook` |  | yes | yes | yes | yes | yes |  | yes |  |  |
+| `usePathPayment` |  |  | yes |  |  |  |  |  |  |  |
+| `usePrefersReducedMotion` |  | yes | yes | yes |  | yes |  | yes | yes |  |
+| `useSep24Interactive` |  | yes |  | yes |  | yes |  | yes |  |  |
+| `useSep30Recovery` |  | yes | yes | yes |  | yes |  | yes |  |  |
+| `useSep38Quote` |  | yes | yes | yes |  | yes |  | yes |  |  |
+| `useSep6` |  | yes |  | yes |  |  |  |  |  |  |
+| `useSorobanContract` |  | yes | yes | yes | yes | yes |  | yes |  |  |
+| `useSorobanEvents` |  | yes | yes | yes | yes | yes |  | yes |  |  |
+| `useStellarBalances` |  | yes | yes | yes | yes | yes | yes | yes | yes |  |
+| `useStellarPayment` |  | yes | yes | yes | yes | yes |  | yes |  |  |
+| `useStellarWallet` |  | yes | yes | yes | yes | yes | yes | yes | yes |  |
+| `useTransactionHistory` |  | yes | yes | yes | yes | yes |  | yes | yes |  |
+| `useTrustlines` |  | yes | yes | yes | yes | yes |  | yes |  |  |

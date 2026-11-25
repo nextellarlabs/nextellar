@@ -18,6 +18,7 @@ import {
   templateForcesContracts,
 } from "./templates.js";
 import { printError, printWarning } from "./feedback.js";
+import { applyPwaOverlay } from "./pwa.js";
 import {
   assertPackageManagerMatches,
   detectWorkspace,
@@ -37,6 +38,8 @@ export interface ScaffoldOptions {
   useTs: boolean;
   template?: string;
   withContracts?: boolean;
+  /** Add a PWA manifest, icons, offline shell and service worker (#1496). */
+  withPwa?: boolean;
   horizonUrl?: string;
   sorobanUrl?: string;
   wallets?: string[];
@@ -84,6 +87,7 @@ export async function scaffold(
     useTs,
     template,
     withContracts: withContractsOption,
+    withPwa,
     horizonUrl,
     sorobanUrl,
     wallets,
@@ -132,6 +136,7 @@ export async function scaffold(
   const overlayTemplateName = resolveTemplateOverlayDir(templateName, useTs);
   const withContracts =
     !!withContractsOption || templateForcesContracts(templateName);
+  const pwaOverlay = !!withPwa;
 
   // Validate custom URL overrides if provided
   if (horizonUrl) {
@@ -220,6 +225,7 @@ export async function scaffold(
     );
     console.log(`  ${pc.cyan("Target:")}     ${targetDir}`);
     console.log(`  ${pc.cyan("Contracts:")}  ${withContracts ? "Yes" : "No"}`);
+    console.log(`  ${pc.cyan("PWA:")}        ${pwaOverlay ? "Yes" : "No"}`);
     console.log(
       `  ${pc.cyan("Network:")}    ${horizonUrl && horizonUrl.includes("public") ? "PUBLIC" : "TESTNET"}`,
     );
@@ -282,6 +288,20 @@ export async function scaffold(
         for (const f of contractFiles) {
           console.log(`    ${pc.yellow("+")} ${f}`);
         }
+      }
+    }
+
+    if (pwaOverlay) {
+      const pwaDir = path.join(templateRoot, "pwa-template");
+      if (await fs.pathExists(pwaDir)) {
+        console.log(`    ${pc.magenta("+")} ${pc.dim("(pwa overlay)")}`);
+        const pwaFiles = await walkDir(pwaDir, "");
+        for (const f of pwaFiles) {
+          console.log(`    ${pc.magenta("+")} ${f}`);
+        }
+        console.log(
+          `    ${pc.magenta("+")} src/components/PwaRegistration.${useTs ? "tsx" : "jsx"}`,
+        );
       }
     }
 
@@ -403,6 +423,18 @@ export async function scaffold(
       await fs.appendFile(
         envExamplePath,
         `\n# Soroban Smart Contracts\nNEXT_PUBLIC_HELLO_WORLD_CONTRACT_ID=C_REPLACE_WITH_YOUR_CONTRACT_ID\n`,
+      );
+    }
+
+    if (pwaOverlay) {
+      const pwa = await applyPwaOverlay({
+        targetDir,
+        templatesRoot: templateRoot,
+        appName: packageName,
+        useTs,
+      });
+      console.log(
+        `✔️  Added the PWA overlay (${pwa.files.length} files: manifest, icons, service worker, offline shell).`,
       );
     }
 

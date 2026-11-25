@@ -26,6 +26,10 @@ Nextellar is a one-step CLI toolkit that bootstraps a production-ready Next.js +
   - Additional components (`BalanceDisplay`, `SendForm`, `TransactionList`, and more) are installable via `nextellar add <feature>` — see the [Roadmap](#roadmap) for planned components not yet available
 - **Smart contracts overlay** (`--with-contracts`)
   - Soroban Rust contracts scaffolded alongside the frontend
+- **PWA option** (`--with-pwa`)
+  - Manifest, 192/512/maskable icons, offline shell and a service worker
+  - The worker never caches signed transactions, API/auth responses or
+    cross-origin Horizon/Soroban traffic — see [docs/pwa-guide.md](docs/pwa-guide.md)
 - **Opinionated stack**
   - Next.js 16 (App Router) + TypeScript
   - Tailwind CSS v4 (inline shadcn/ui-inspired components)
@@ -81,6 +85,7 @@ Options:
   --skip-install                  skip dependency installation after scaffolding
   --package-manager <manager>    choose package manager (npm, yarn, pnpm, bun)
   -c, --with-contracts            scaffold Soroban smart contracts alongside the frontend
+  --with-pwa                      add a PWA manifest, icons, offline shell and service worker
   --force                         overwrite existing directory
   --workspace                     scaffold into the nearest npm/yarn/pnpm/bun workspace (monorepo) root
   --workspace-root <dir>          workspace root to scaffold into (implies --workspace)
@@ -124,6 +129,7 @@ npx nextellar my-app --template minimal       # minimal starter
 npx nextellar my-app --template minimal -j    # minimal starter, JavaScript
 npx nextellar my-app --template defi -j       # DeFi starter, JavaScript
 npx nextellar my-app --template full          # default + defi demo + contracts overlay
+npx nextellar my-app --with-pwa               # installable PWA (manifest, icons, service worker)
 ```
 
 An unrecognised name fails before anything is written, and the error lists
@@ -220,6 +226,9 @@ Authoring a custom wallet adapter (the `ModuleInterface`, a worked example, and 
 
 Soroban contracts overlay guide (`--with-contracts`):  
 🔗 [docs/soroban-contracts-overlay-guide.md](docs/soroban-contracts-overlay-guide.md)
+
+PWA option guide (`--with-pwa`: manifest, icons, offline shell, service worker):  
+🔗 [docs/pwa-guide.md](docs/pwa-guide.md)
 
 Adding an app to an existing monorepo (npm/yarn/pnpm workspaces, Turborepo):  
 🔗 [docs/monorepo-workspaces.md](docs/monorepo-workspaces.md)

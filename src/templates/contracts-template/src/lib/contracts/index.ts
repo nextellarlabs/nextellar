@@ -24,6 +24,7 @@ export function isValidContractId(contractId: string): boolean {
 export const CONTRACTS = {
   HELLO_WORLD: process.env.NEXT_PUBLIC_HELLO_WORLD_CONTRACT_ID || PLACEHOLDER_CONTRACT_ID,
   COUNTER: process.env.NEXT_PUBLIC_COUNTER_CONTRACT_ID || PLACEHOLDER_CONTRACT_ID,
+  TOKEN: process.env.NEXT_PUBLIC_TOKEN_CONTRACT_ID || PLACEHOLDER_CONTRACT_ID,
 };
 
 /**
@@ -37,6 +38,7 @@ export function validateContracts(): void {
   const entries: Array<[keyof typeof CONTRACTS, string]> = [
     ["HELLO_WORLD", "NEXT_PUBLIC_HELLO_WORLD_CONTRACT_ID"],
     ["COUNTER", "NEXT_PUBLIC_COUNTER_CONTRACT_ID"],
+    ["TOKEN", "NEXT_PUBLIC_TOKEN_CONTRACT_ID"],
   ];
 
   for (const [key, envVar] of entries) {
@@ -60,7 +62,7 @@ export function validateContracts(): void {
  * @example
  * ```tsx
  * import { useSorobanContract } from '@/hooks/useSorobanContract';
- * import { HelloWorldClient, CounterClient } from '@/lib/contracts';
+ * import { HelloWorldClient, CounterClient, TokenClient } from '@/lib/contracts';
  * import { CONTRACTS } from '@/lib/contracts';
  * 
  * function MyComponent() {
@@ -76,3 +78,4 @@ export function validateContracts(): void {
  */
 export { HelloWorldClient } from '../bindings/HelloWorld';
 export { CounterClient } from '../bindings/Counter';
+export { TokenClient, TokenErrors } from '../bindings/Token';

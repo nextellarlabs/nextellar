@@ -27,6 +27,10 @@ contracts-template/
 │   │   ├── src/lib.rs
 │   │   ├── Cargo.toml
 │   │   └── spec.json
+│   ├── token/
+│   │   ├── src/lib.rs       # SEP-41 token: admin mint, allowance, burn
+│   │   ├── Cargo.toml
+│   │   └── spec.json
 │   └── Cargo.toml (workspace)
 └── src/
     ├── lib/
@@ -34,7 +38,8 @@ contracts-template/
     │   │   └── index.ts
     │   └── bindings/
     │       ├── HelloWorld.ts
-    │       └── Counter.ts
+    │       ├── Counter.ts
+    │       └── Token.ts
     └── app/
 ```
 
@@ -67,6 +72,7 @@ cargo test
 
 # Test specific contract
 cargo test -p counter
+cargo test -p token
 
 # Run tests with output
 cargo test -- --nocapture
@@ -98,6 +104,7 @@ NEXT_PUBLIC_NETWORK=TESTNET
 # After deployment, add contract IDs
 NEXT_PUBLIC_COUNTER_CONTRACT_ID=C...
 NEXT_PUBLIC_HELLO_WORLD_CONTRACT_ID=C...
+NEXT_PUBLIC_TOKEN_CONTRACT_ID=C...
 ```
 
 ### 2. Deploy Contract using Stellar CLI
@@ -214,6 +221,7 @@ cargo clippy
 
 # Generate bindings (from app root)
 npm run generate:bindings contracts/counter/spec.json
+npm run generate:bindings contracts/token/spec.json --output src/lib/bindings/Token.ts --name Token
 
 # Deploy to testnet
 soroban contract deploy \
