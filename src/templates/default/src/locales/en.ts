@@ -28,4 +28,11 @@ export const en = {
     title: 'Welcome to Nextellar',
     subtitle: 'A scaffold for building on Stellar.',
   },
+  toast: {
+    notifications: 'Transaction notifications',
+    success: 'Transaction confirmed',
+    error: 'Transaction failed',
+    viewInExplorer: 'View in explorer',
+    dismiss: 'Dismiss',
+  },
 } as const;

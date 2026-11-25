@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { WalletProvider, ThemeProvider } from "@/contexts";
+import { I18nProvider, ThemeProvider, WalletProvider } from "@/contexts";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import { ToastProvider } from "@/components/ToastProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -44,9 +45,11 @@ export default function RootLayout({
       >
         <ErrorBoundary>
           <ThemeProvider>
-            <WalletProvider>
-              {children}
-            </WalletProvider>
+            <I18nProvider>
+              <ToastProvider>
+                <WalletProvider>{children}</WalletProvider>
+              </ToastProvider>
+            </I18nProvider>
           </ThemeProvider>
         </ErrorBoundary>
       </body>
