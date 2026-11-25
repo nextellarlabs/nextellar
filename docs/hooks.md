@@ -220,6 +220,47 @@ function History({ publicKey }) {
 }
 ```
 
+### `useHorizonStreaming(publicKey, onUpdate, options?)`
+
+Subscribes to account payments or operations through Horizon's event stream. If streaming fails, the hook polls as a fallback and attempts to reconnect with backoff.
+
+**Signature:**
+```typescript
+function useHorizonStreaming(
+  publicKey: string | null | undefined,
+  onUpdate: () => void,
+  options?: UseHorizonStreamingOptions
+): HorizonStreamingState
+```
+
+**Parameters:**
+- `publicKey` (string | null | undefined): Account to subscribe to. A missing key disables the stream.
+- `onUpdate` (function): Called when a streamed record arrives or on each polling tick.
+- `options.horizonUrl` (string, optional): Horizon URL. Uses the `WalletProvider` URL when configured, otherwise the public testnet endpoint.
+- `options.pollIntervalMs` (number, optional): Poll fallback interval in milliseconds; defaults to `15000` and is clamped to at least `5000`.
+- `options.streamType` (`'payments' | 'operations'`, optional): Record type to subscribe to. Defaults to `'payments'`.
+- `options.enabled` (boolean, optional): Whether to run the subscription. Defaults to `true`.
+
+**Returns:**
+- `streaming` (boolean): True while a Horizon event stream is active.
+- `polling` (boolean): True while polling fallback is active.
+- `stop()`: Stops streaming, reconnect attempts, and polling. The effect also cleans up on unmount or when its inputs change.
+
+**Example:**
+```tsx
+import { useCallback } from 'react';
+import { useHorizonStreaming } from '@/hooks/useHorizonStreaming';
+
+function LivePayments({ publicKey }: { publicKey: string }) {
+  const refreshPayments = useCallback(() => {
+    // Refresh the account's payment data.
+  }, []);
+  const { streaming, polling } = useHorizonStreaming(publicKey, refreshPayments);
+
+  return <p>{streaming ? 'Live updates' : polling ? 'Polling for updates' : 'Offline'}</p>;
+}
+```
+
 ---
 
 ## Trustline Hooks
@@ -347,6 +388,49 @@ function ContractEvents({ contractId }) {
 }
 ```
 
+### `useContractEventHistory(contractId, opts?)`
+
+Fetches historical events for a Soroban contract one page at a time. Unlike `useSorobanEvents`, it does not poll for live events; call `fetchNextPage()` to load the next page.
+
+**Signature:**
+```typescript
+function useContractEventHistory(
+  contractId: string,
+  opts?: ContractEventHistoryOptions
+): UseContractEventHistoryReturn
+```
+
+**Parameters:**
+- `contractId` (string): Soroban contract address.
+- `opts.sorobanRpc` (string, optional): Soroban RPC URL. Uses the `WalletProvider` URL when configured, otherwise the public testnet endpoint.
+- `opts.startLedger` (number, optional): Inclusive starting ledger for the first page. Defaults to `1`; ignored after a pagination cursor is established.
+- `opts.topics` (`string[][]`, optional): XDR-encoded ScVal topic filters, in the same format as `useSorobanEvents`.
+- `opts.limit` (number, optional): Maximum events per page. Defaults to `100`.
+
+**Returns:**
+- `events` (`SorobanEvent[]`): Events accumulated across all fetched pages.
+- `loading` (boolean), `error` (`Error | null`).
+- `isDone` (boolean): True when a page contains fewer events than the requested limit.
+- `fetchNextPage()`: Fetches and appends the next page, returning `{ events, cursor, isDone }`; returns `undefined` while loading or after completion. Errors are stored and rethrown.
+- `reset()`: Clears events and returns pagination to the starting ledger.
+
+**Example:**
+```tsx
+import { useContractEventHistory } from '@/hooks/useContractEventHistory';
+
+function EventHistory({ contractId }: { contractId: string }) {
+  const { events, loading, isDone, fetchNextPage } =
+    useContractEventHistory(contractId, { startLedger: 100000 });
+
+  return (
+    <>
+      {events.map((event) => <p key={event.id}>{event.type} @ ledger {event.ledger}</p>)}
+      {!isDone && <button disabled={loading} onClick={fetchNextPage}>Load more</button>}
+    </>
+  );
+}
+```
+
 ### `useSorobanContract(opts)`
 
 Simulates, builds and (dev-only) submits calls to a Soroban smart contract, encoding plain JavaScript arguments to XDR `ScVal`s and decoding return values back. No provider is required.
@@ -412,6 +496,81 @@ function Transfer({ from, to }: { from: string; to: string }) {
 }
 ```
 
+### `useContractDeploy(opts?)`
+
+Builds unsigned Soroban transactions to upload WASM and create a contract instance, with an optional constructor invocation. The hook does not sign or submit the transactions.
+
+**Signature:**
+```typescript
+function useContractDeploy(opts?: ContractDeployOptions): ContractDeployReturn
+```
+
+**Parameters:**
+- `opts.network` (`'TESTNET' | 'PUBLIC'`, optional): Network passphrase to use. Defaults to `'TESTNET'`.
+- `opts.sorobanRpc` (string, optional): Accepted as a configuration option; building these XDRs is client-side and does not make an RPC request.
+- `buildDeployXDR` accepts `{ wasm: Buffer, sourcePublicKey: string, salt?: Buffer, constructorArgs?: xdr.ScVal[], constructorInvoke?: { functionName: string; args: xdr.ScVal[] } }`. If omitted, `salt` is generated randomly.
+
+**Returns:**
+- `buildDeployXDR(params)`: Resolves with `{ wasmHash, contractId, uploadXdr, deployXdr, constructorXdr? }`. The XDR strings are unsigned; `constructorXdr` is present only when `constructorInvoke` is supplied.
+- `loading` (boolean), `error` (`Error | null`).
+
+**Example:**
+```tsx
+import { useContractDeploy } from '@/hooks/useContractDeploy';
+
+function Deploy({ wasm, sourcePublicKey }: { wasm: Buffer; sourcePublicKey: string }) {
+  const { buildDeployXDR, loading, error } = useContractDeploy();
+
+  async function deploy() {
+    const result = await buildDeployXDR({ wasm, sourcePublicKey });
+    // Sign and submit uploadXdr, then deployXdr with a wallet.
+    console.log(result.contractId, result.wasmHash);
+  }
+
+  return <button disabled={loading} onClick={deploy}>Build deployment</button>;
+}
+```
+
+### `useContractUpgrade(opts)`
+
+Builds unsigned Soroban transactions to invoke a contract's own upgrade entrypoint or extend the TTL of its instance and WASM ledger entries. Upgrading requires the deployed contract to implement an upgrade function; this hook does not directly replace contract WASM.
+
+**Signature:**
+```typescript
+function useContractUpgrade(opts: ContractUpgradeOptions): ContractUpgradeReturn
+```
+
+**Parameters:**
+- `opts.contractId` (string, required): Valid StrKey contract address.
+- `opts.sorobanRpc` (string, optional): Soroban RPC URL. Defaults to the public testnet endpoint.
+- `opts.network` (`'TESTNET' | 'PUBLIC'`, optional): Network passphrase. Defaults to `'TESTNET'`.
+- `buildUpgradeXDR(newWasmHash)`: Accepts the new WASM hash as a 32-byte `Buffer` or a 64-character hexadecimal string.
+- `buildExtendTtlXDR(extendTo)`: Accepts the positive ledger count to extend the contract's instance and WASM code entries.
+
+**Returns:**
+- `buildUpgradeXDR(newWasmHash)`: Resolves with unsigned transaction XDR invoking the contract's `upgrade` function with the hash.
+- `buildExtendTtlXDR(extendTo)`: Resolves with unsigned transaction XDR extending the TTL; fetches the deployed contract's current WASM hash from Soroban RPC.
+- `loading` (boolean), `error` (`Error | null | undefined`).
+
+**Example:**
+```tsx
+import { useContractUpgrade } from '@/hooks/useContractUpgrade';
+
+function Upgrade() {
+  const { buildUpgradeXDR, buildExtendTtlXDR, loading, error } =
+    useContractUpgrade({ contractId: 'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQAHHXK3AWCM' });
+
+  async function prepare() {
+    const upgradeXdr = await buildUpgradeXDR('a'.repeat(64));
+    const ttlXdr = await buildExtendTtlXDR(500000);
+    // Pass the unsigned XDR to a wallet for signing and submission.
+    console.log(upgradeXdr, ttlXdr);
+  }
+
+  return <button disabled={loading} onClick={prepare}>{error?.message ?? 'Prepare'}</button>;
+}
+```
+
 ---
 
 ## SEP Hooks
@@ -427,6 +586,11 @@ Does not fetch on mount, and never fetches automatically as parameters change â€
 function useSep38Quote(options?: UseSep38QuoteOptions): UseSep38QuoteReturn
 ```
 
+**Parameters:**
+- `options.fetchImpl` (`typeof fetch`, optional): Custom fetch implementation, useful for tests.
+- Both request methods accept `quoteServer` (string), `sellAsset` and `buyAsset` (SEP-38 asset identifiers), `context` (`'sep6' | 'sep31'`), and exactly one of `sellAmount` or `buyAmount`.
+- `getFirmQuote` additionally requires `authToken` (SEP-10 JWT) and accepts optional `expireAfter` (ISO 8601 timestamp).
+
 **Returns:**
 An object containing:
 - `getIndicativePrice(params)`: Requests `GET /price`. Returns a `Sep38IndicativePrice` (`kind: 'indicative'`) â€” informational only, never binding.
@@ -441,17 +605,27 @@ An object containing:
 import { useSep38Quote } from '@/hooks/useSep38Quote';
 import { discoverSep38QuoteServer } from '@/lib/sep38';
 
-async function getPrice() {
-  const quoteServer = await discoverSep38QuoteServer('anchor.example.com');
+function PriceLookup() {
   const { getIndicativePrice, quote, loading, error } = useSep38Quote();
 
-  await getIndicativePrice({
-    quoteServer,
-    sellAsset: 'iso4217:USD',
-    buyAsset: 'stellar:XLM:GISSUER...',
-    sellAmount: '100',
-    context: 'sep6',
-  });
+  async function getPrice() {
+    const quoteServer = await discoverSep38QuoteServer('anchor.example.com');
+    await getIndicativePrice({
+      quoteServer,
+      sellAsset: 'iso4217:USD',
+      buyAsset: 'stellar:XLM:GISSUER...',
+      sellAmount: '100',
+      context: 'sep6',
+    });
+  }
+
+  return (
+    <>
+      <button disabled={loading} onClick={getPrice}>Get price</button>
+      {quote?.kind === 'indicative' && <p>{quote.buyAmount} XLM</p>}
+      {error && <p role="alert">{error.message}</p>}
+    </>
+  );
 }
 ```
 
@@ -529,9 +703,18 @@ function useSep24Interactive(options?: {
   fetchImpl?: typeof fetch;
   pollIntervalMs?: number;         // default 5000, 0 disables polling
   closePopupOnComplete?: boolean;  // default true
+  openWindow?: (url: string, name: string, features: string) => Window | null;
   onUpdate?: (tx: Sep24Transaction) => void;
 }): UseSep24InteractiveReturn
 ```
+
+**Parameters:**
+- `options.fetchImpl` (`typeof fetch`, optional): Custom fetch implementation.
+- `options.pollIntervalMs` (number, optional): Poll interval while the flow is open; defaults to `5000`, and `0` disables polling.
+- `options.closePopupOnComplete` (boolean, optional): Close the popup after interactive completion; defaults to `true`.
+- `options.openWindow` (function, optional): Popup opener override, primarily for tests.
+- `options.onUpdate` (callback, optional): Called with each transaction update received by message or poll.
+- `start(opts)` requires `transferServer`, `kind` (`'deposit' | 'withdraw'`), `authToken` (SEP-10 JWT), and `assetCode`. Optional fields are `assetIssuer`, `account`, `amount`, `lang`, `extra` (string map), and `mode` (`'popup' | 'iframe'`, defaults to `'popup'`).
 
 **Returns:**
 - `start(opts)`: `opts` is `{ transferServer, kind: 'deposit' | 'withdraw', authToken, assetCode, assetIssuer?, account?, amount?, lang?, extra?, mode?: 'popup' | 'iframe' }`.
@@ -571,6 +754,55 @@ function Deposit({ jwt, account }: { jwt: string; account: string }) {
 ```
 
 `<Sep24InteractiveFrame url onClose? closeLabel? title? height?>` only renders https URLs (or http://localhost). It sandboxes the iframe to `allow-scripts allow-same-origin allow-forms allow-popups`. Passing `onClose` (as above) renders it as a modal dialog over a dimmed overlay, with focus trapped inside and Escape calling `onClose`; without `onClose` it stays a plain inline embed.
+
+### `useSep30Recovery(options?)`
+
+Discovers a SEP-30 recovery server from a domain's `stellar.toml`, registers recovery signers, and requests a signed recovery transaction.
+
+**Signature:**
+```typescript
+function useSep30Recovery(opts?: UseSep30RecoveryOptions): UseSep30RecoveryReturn
+```
+
+**Parameters:**
+- `opts.homeDomain` (string, optional): Domain used to discover `RECOVERY_SIGNER` from `stellar.toml` when no server URL is provided.
+- `opts.serverUrl` (string, optional): Default recovery server URL; per-call `serverUrl` values override it.
+- `discover(homeDomain)`: Resolves the domain's recovery server and optional advertised signing key.
+- `register({ accountId, authToken, signers, serverUrl? })`: Registers G-address recovery signers. `authToken` is the authorization token for the request.
+- `recover({ accountId, recoveryToken, serverUrl? })`: Requests a signed recovery transaction using recovery material from the recovery server.
+
+**Returns:**
+- `discover(homeDomain)`: Resolves `{ serverUrl, signingKey? }`.
+- `register(params)`: Resolves `void` on success.
+- `recover(params)`: Resolves `{ transaction: string }`.
+- `loading` (boolean), `error` (`Error | null`).
+
+**Example:**
+```tsx
+import { useSep30Recovery } from '@/hooks/useSep30Recovery';
+
+function Recovery({ homeDomain, accountId, authToken, signers }: {
+  homeDomain: string;
+  accountId: string;
+  authToken: string;
+  signers: string[];
+}) {
+  const { discover, register, recover, loading, error } =
+    useSep30Recovery({ homeDomain });
+
+  async function beginRecovery(recoveryToken: string) {
+    const server = await discover(homeDomain);
+    await register({ accountId, authToken, signers, serverUrl: server.serverUrl });
+    const result = await recover({ accountId, recoveryToken, serverUrl: server.serverUrl });
+    // Review and submit the returned signed recovery transaction.
+    console.log(result.transaction);
+  }
+
+  return <button disabled={loading} onClick={() => beginRecovery('recovery-token')}>
+    {error?.message ?? 'Recover account'}
+  </button>;
+}
+```
 
 ---
 
@@ -623,6 +855,34 @@ Operations with a different `source` also need that account's threshold.
 ---
 
 ## Utility Hooks
+
+### `usePrefersReducedMotion()`
+
+Reads the user's operating-system `prefers-reduced-motion` setting after mount. The initial value is `false` for server/client render consistency; call `refresh()` to re-check the setting later.
+
+**Signature:**
+```typescript
+function usePrefersReducedMotion(): {
+  prefersReducedMotion: boolean;
+  refresh: () => boolean;
+}
+```
+
+**Parameters:** None.
+
+**Returns:**
+- `prefersReducedMotion` (boolean): Whether the OS currently requests reduced motion. Returns `false` when `matchMedia` is unavailable.
+- `refresh()`: Reads the media query again, updates state, and returns the current value.
+
+**Example:**
+```tsx
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
+
+function AnimatedPanel() {
+  const { prefersReducedMotion } = usePrefersReducedMotion();
+  return <div className={prefersReducedMotion ? '' : 'transition-all'}>Panel</div>;
+}
+```
 
 ### `useClipboard(options)`
 
