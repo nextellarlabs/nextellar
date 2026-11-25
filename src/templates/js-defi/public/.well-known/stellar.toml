@@ -1,0 +1,22 @@
+# stellar.toml (SEP-1) — issuer metadata for this app.
+#
+# This file is served at /.well-known/stellar.toml so Stellar wallets and
+# anchors can discover who issues this app's assets. It ships as a template:
+# fill in the placeholder values below with your real values before you
+# issue an asset. `nextellar doctor` warns while any placeholder is still
+# in place (see docs/stellar-toml.md).
+#
+# SEP-1: https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0001.md
+
+# Stellar accounts that issue this app's assets. Add one entry per issuing
+# account (a G... public key).
+ACCOUNTS=[
+  "G_REPLACE_WITH_YOUR_ISSUER_ACCOUNT",
+]
+
+# Assets issued by the accounts above. Add one [[CURRENCIES]] block per
+# asset: code is the asset code (up to 12 characters), issuer is the
+# issuing account from ACCOUNTS.
+[[CURRENCIES]]
+code="REPLACE_WITH_ASSET_CODE"
+issuer="G_REPLACE_WITH_YOUR_ISSUER_ACCOUNT"

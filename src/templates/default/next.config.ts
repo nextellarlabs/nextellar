@@ -61,6 +61,18 @@ const nextConfig: NextConfig = {
         source: "/:path*",
         headers: SECURITY_HEADERS,
       },
+      {
+        // SEP-1 (#1462): stellar.toml must be fetchable cross-origin
+        // (wallets and anchors read it from any origin) and served as
+        // plain text. This rule adds to the /:path* rule above — Next.js
+        // merges matching rules in order, and neither of these keys
+        // appears in SECURITY_HEADERS, so nothing is overridden.
+        source: "/.well-known/stellar.toml",
+        headers: [
+          { key: "Access-Control-Allow-Origin", value: "*" },
+          { key: "Content-Type", value: "text/plain" },
+        ],
+      },
     ];
   },
   images: {

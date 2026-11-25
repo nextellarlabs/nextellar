@@ -470,6 +470,74 @@ async function checkDisk(): Promise<CheckResult> {
   };
 }
 
+/**
+ * Validates the SEP-1 stellar.toml for apps that issue assets (#1462).
+ * Every scaffolded app ships public/.well-known/stellar.toml as a
+ * template with REPLACE_WITH_... placeholders for the issuer to fill in.
+ * A missing file is fine — most apps never issue assets — so the check
+ * passes as not-applicable. A present file with placeholders still in
+ * place is an optional failure (a warning, never a failing exit code):
+ * the issuer needs to fill it in before the asset is discoverable.
+ */
+async function checkStellarToml(): Promise<CheckResult> {
+  const tomlPath = path.join(
+    process.cwd(),
+    "public",
+    ".well-known",
+    "stellar.toml",
+  );
+  if (!fs.existsSync(tomlPath)) {
+    return {
+      id: "stellar-toml",
+      name: "stellar.toml",
+      required: false,
+      ok: true,
+      detail: "Not present (only needed for apps that issue assets)",
+    };
+  }
+
+  let content: string;
+  try {
+    content = await fs.readFile(tomlPath, "utf8");
+  } catch {
+    return {
+      id: "stellar-toml",
+      name: "stellar.toml",
+      required: false,
+      ok: false,
+      detail: "Could not read public/.well-known/stellar.toml",
+      fix: "Check the file exists and is readable",
+    };
+  }
+
+  // Sentinel placeholders in the scaffolded template, e.g.
+  // G_REPLACE_WITH_YOUR_ISSUER_ACCOUNT and REPLACE_WITH_ASSET_CODE.
+  const unresolved = [
+    ...new Set(content.match(/[A-Z_]*REPLACE_WITH[A-Z_]*/g) ?? []),
+  ];
+  if (unresolved.length > 0) {
+    return {
+      id: "stellar-toml",
+      name: "stellar.toml",
+      required: false,
+      ok: false,
+      detail:
+        `Unresolved placeholders in public/.well-known/stellar.toml: ` +
+        unresolved.join(", "),
+      fix: "Fill in the placeholders in public/.well-known/stellar.toml (see docs/stellar-toml.md)",
+      link: "https://github.com/nextellarlabs/nextellar/blob/main/docs/stellar-toml.md",
+    };
+  }
+
+  return {
+    id: "stellar-toml",
+    name: "stellar.toml",
+    required: false,
+    ok: true,
+    detail: "No unresolved placeholders in public/.well-known/stellar.toml",
+  };
+}
+
 // v2 adds the resolved `horizonUrl` and `sorobanUrl` top-level fields (#668).
 export const DOCTOR_JSON_SCHEMA_VERSION = 2;
 
@@ -535,6 +603,7 @@ export async function runDoctor(opts?: DoctorOptions) {
     checkHorizon(horizonUrl),
     checkSoroban(sorobanUrl),
     checkDisk(),
+    checkStellarToml(),
   ]);
 
   // If --fix is enabled and not in JSON mode, offer to fix safe failures
@@ -585,6 +654,7 @@ export async function runDoctor(opts?: DoctorOptions) {
             checkHorizon(horizonUrl),
             checkSoroban(sorobanUrl),
             checkDisk(),
+            checkStellarToml(),
           ]);
         }
       }

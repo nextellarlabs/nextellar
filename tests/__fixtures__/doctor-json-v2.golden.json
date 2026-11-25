@@ -102,9 +102,16 @@
       "ok": true,
       "detail": "3815 MB RAM free",
       "fix": "Free up at least 1GB of RAM"
+    },
+    {
+      "id": "stellar-toml",
+      "name": "stellar.toml",
+      "required": false,
+      "ok": true,
+      "detail": "Not present (only needed for apps that issue assets)"
     }
   ],
-  "passed": 12,
+  "passed": 13,
   "failed": 0,
   "requiredFailures": 0
 }
