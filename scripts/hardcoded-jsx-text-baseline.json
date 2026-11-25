@@ -8,104 +8,104 @@
   ],
   "src/templates/default/src/components/BalanceDisplay.tsx": [
     {
-      "line": 141,
+      "line": 145,
       "text": "Connect wallet to view balances",
       "kind": "prop:title"
     },
     {
-      "line": 164,
+      "line": 168,
       "text": "Failed to load balances",
       "kind": "jsx-text"
     },
     {
-      "line": 173,
+      "line": 177,
       "text": "Retry",
       "kind": "jsx-text"
     },
     {
-      "line": 186,
+      "line": 190,
       "text": "No balances yet",
       "kind": "prop:title"
     },
     {
-      "line": 205,
+      "line": 209,
       "text": "Balances",
       "kind": "jsx-text"
     },
     {
-      "line": 209,
+      "line": 213,
       "text": "Refresh balances",
       "kind": "prop:aria-label"
     },
     {
-      "line": 216,
+      "line": 220,
       "text": "Refresh",
       "kind": "jsx-text"
     },
     {
-      "line": 222,
+      "line": 226,
       "text": "Native",
       "kind": "jsx-text"
     },
     {
-      "line": 225,
+      "line": 229,
       "text": "XLM",
       "kind": "jsx-text"
     }
   ],
   "src/templates/default/src/components/ContractCallForm.tsx": [
     {
-      "line": 400,
+      "line": 405,
       "text": "Call Contract Function",
       "kind": "jsx-text"
     },
     {
-      "line": 409,
+      "line": 414,
       "text": "Function name",
       "kind": "jsx-text"
     },
     {
-      "line": 420,
+      "line": 425,
       "text": "Select a function…",
       "kind": "jsx-text"
     },
     {
-      "line": 452,
+      "line": 457,
       "text": "Arguments",
       "kind": "jsx-text"
     },
     {
-      "line": 498,
+      "line": 503,
       "text": "Arguments",
       "kind": "jsx-text"
     },
     {
-      "line": 500,
+      "line": 505,
       "text": "(comma-separated, optional)",
       "kind": "jsx-text"
     },
     {
-      "line": 513,
+      "line": 518,
       "text": "e.g. GABC…, 1000, true",
       "kind": "prop:placeholder"
     },
     {
-      "line": 519,
+      "line": 524,
       "text": "Strings, integers, and booleans are auto-detected. For advanced types\n            (u128, bytes, etc.) use the",
       "kind": "jsx-text"
     },
     {
-      "line": 521,
+      "line": 526,
       "text": "useSorobanContract",
       "kind": "jsx-text"
     },
     {
-      "line": 521,
+      "line": 526,
       "text": "hook directly.",
       "kind": "jsx-text"
     },
     {
-      "line": 555,
+      "line": 560,
       "text": "Building transaction…",
       "kind": "jsx-text"
     }
@@ -247,22 +247,22 @@
   ],
   "src/templates/default/src/components/NetworkMismatchBanner.tsx": [
     {
-      "line": 42,
+      "line": 55,
       "text": "Wallet network mismatch",
       "kind": "jsx-text"
     },
     {
-      "line": 45,
+      "line": 58,
       "text": "Your wallet is on",
       "kind": "jsx-text"
     },
     {
-      "line": 45,
+      "line": 58,
       "text": ", but this app is\n            configured for",
       "kind": "jsx-text"
     },
     {
-      "line": 46,
+      "line": 59,
       "text": ". Signing a transaction now\n            will target your wallet&apos;s network, not the app&apos;s. Switch your\n            wallet&apos;s network, or switch the app&apos;s network, before signing.",
       "kind": "jsx-text"
     }
@@ -361,94 +361,79 @@
   ],
   "src/templates/default/src/components/ReceiveForm.tsx": [
     {
-      "line": 217,
-      "text": "Loading QR code",
-      "kind": "prop:aria-label"
-    },
-    {
-      "line": 226,
-      "text": "Download QR code as PNG",
-      "kind": "prop:aria-label"
-    },
-    {
-      "line": 231,
+      "line": 222,
       "text": "Download QR",
       "kind": "jsx-text"
     },
     {
-      "line": 237,
+      "line": 228,
       "text": "Requesting",
       "kind": "jsx-text"
     },
     {
-      "line": 272,
+      "line": 278,
       "text": "Only send Stellar (XLM) and supported assets to this address.",
       "kind": "jsx-text"
     }
   ],
   "src/templates/default/src/components/SendForm.tsx": [
     {
-      "line": 117,
+      "line": 183,
       "text": "Send Payment",
       "kind": "jsx-text"
     },
     {
-      "line": 142,
+      "line": 208,
       "text": "To",
       "kind": "jsx-text"
     },
     {
-      "line": 149,
-      "text": "GABC...1234",
-      "kind": "prop:placeholder"
-    },
-    {
-      "line": 168,
+      "line": 247,
       "text": "Asset",
       "kind": "jsx-text"
     },
     {
-      "line": 177,
+      "line": 256,
       "text": "XLM (Native)",
       "kind": "jsx-text"
     },
     {
-      "line": 191,
+      "line": 270,
       "text": "Amount (",
       "kind": "jsx-text"
     },
     {
-      "line": 217,
+      "line": 312,
       "text": "Memo (optional)",
       "kind": "jsx-text"
     },
     {
-      "line": 231,
+      "line": 343,
       "text": "Fee Sponsor (optional fee-bump)",
       "kind": "jsx-text"
     },
     {
-      "line": 238,
+      "line": 350,
       "text": "GSPONSOR...1234",
       "kind": "prop:placeholder"
     },
     {
-      "line": 255,
+      "line": 367,
       "text": "Connect a wallet to send a payment.",
       "kind": "jsx-text"
     },
     {
-      "line": 259,
+      "line": 371,
       "text": "The connected wallet adapter does not support sending payments.",
       "kind": "jsx-text"
     },
     {
-      "line": 277,
+      "line": 389,
       "text": "This transaction is signed and ready, but needs the fee sponsor&apos;s\n            signature before it can be submitted. This wallet has no way to sign\n            on the sponsor&apos;s behalf — copy the XDR below and have the sponsor\n            sign and submit it from their own wallet.",
       "kind": "jsx-text"
     },
     {
-      "line": 285,
+      "line": 397,
       "text": "Unsigned fee-bump transaction XDR",
       "kind": "prop:aria-label"
     }
@@ -509,12 +494,12 @@
   ],
   "src/templates/default/src/components/WalletConnectButton.tsx": [
     {
-      "line": 121,
+      "line": 181,
       "text": "Refresh balances",
       "kind": "prop:title"
     },
     {
-      "line": 139,
+      "line": 214,
       "text": "Retry",
       "kind": "jsx-text"
     }

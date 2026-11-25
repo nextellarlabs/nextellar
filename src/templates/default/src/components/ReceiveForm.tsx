@@ -1,5 +1,7 @@
 'use client';
 
+import { useMessageText } from '../contexts/I18nProvider';
+
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useWallet } from '../contexts';
 import { buildSep7PayUri } from '../lib/sep7';
@@ -93,6 +95,7 @@ export default function ReceiveForm({
   memo,
   message,
 }: ReceiveFormProps) {
+  const t = useMessageText();
   const { connected, publicKey } = useWallet();
 
   // Resolve the address to display: prop takes precedence, then connected wallet
@@ -211,7 +214,7 @@ export default function ReceiveForm({
         <button
           type="button"
           onClick={handleDownload}
-          aria-label="Download QR code as SVG"
+          aria-label={t('receive.downloadQr')}
           className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-gray-100 transition-colors"
           data-testid="receive-form-download"
         >

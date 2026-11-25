@@ -1,5 +1,7 @@
 'use client';
 
+import { useMessageText } from '../contexts/I18nProvider';
+
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { AlertCircle, Coins, RefreshCw, Wallet } from 'lucide-react';
@@ -112,6 +114,7 @@ export default function BalanceDisplay({
   fiatCurrency = 'USD',
   assetDomains = {},
 }: BalanceDisplayProps) {
+  const t = useMessageText();
   const { connected, publicKey: walletPublicKey } = useWallet();
   const address = publicKey ?? (connected ? walletPublicKey : null);
 
@@ -272,7 +275,7 @@ export default function BalanceDisplay({
                   </p>
                   {balance.limit && (
                     <p className="text-xs tabular-nums text-gray-600 dark:text-gray-400">
-                      Limit: {formatBalance(balance.limit)}
+                      {t('wallet.balanceLimit', { amount: formatBalance(balance.limit) })}
                     </p>
                   )}
                   {fiat && (

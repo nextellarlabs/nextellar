@@ -1,5 +1,7 @@
 'use client';
 
+import { useMessageText } from '../contexts/I18nProvider';
+
 import { useState } from 'react';
 import { AlertCircle, X } from 'lucide-react';
 import { useWallet, useWalletConfig } from '../contexts/WalletProvider';
@@ -22,6 +24,7 @@ import { NETWORKS } from '../config/networks';
  * the banner even though a prior mismatch was dismissed.
  */
 export function NetworkMismatchBanner() {
+  const t = useMessageText();
   const { networkMismatch, walletNetworkPassphrase } = useWallet();
   const config = useWalletConfig();
   const [dismissedKey, setDismissedKey] = useState<string | null>(null);
@@ -60,7 +63,7 @@ export function NetworkMismatchBanner() {
         </div>
         <button
           type="button"
-          aria-label="Dismiss"
+          aria-label={t('common.dismiss')}
           onClick={() => setDismissedKey(mismatchKey)}
           className="flex-shrink-0 rounded-md p-1 text-amber-600 hover:bg-amber-100 dark:text-amber-400 dark:hover:bg-amber-900/40"
         >
