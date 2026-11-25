@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 # Cancel superseded runs on the same ref (e.g. rapid pushes to a PR branch)
 # to save CI minutes.
@@ -287,3 +288,33 @@ jobs:
       # Regenerates docs/template-comparison.md from src/templates and fails
       # if the committed page drifted. No install: the script is plain Node.
       - run: node scripts/generate-template-matrix.mjs --check
+
+  ci-required-checks:
+    name: CI Required Checks
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      - lint
+      - coverage-gate
+      - package
+      - template-matrix
+    steps:
+      - name: Verify required CI checks passed
+        env:
+          LINT_RESULT: ${{ needs.lint.result }}
+          COVERAGE_GATE_RESULT: ${{ needs.coverage-gate.result }}
+          PACKAGE_RESULT: ${{ needs.package.result }}
+          TEMPLATE_MATRIX_RESULT: ${{ needs.template-matrix.result }}
+        run: |
+          if [ "$LINT_RESULT" != "success" ] || \
+             [ "$COVERAGE_GATE_RESULT" != "success" ] || \
+             [ "$PACKAGE_RESULT" != "success" ] || \
+             [ "$TEMPLATE_MATRIX_RESULT" != "success" ]; then
+            echo "One or more required CI checks failed:"
+            echo "  Lint and format: $LINT_RESULT"
+            echo "  Coverage threshold gate: $COVERAGE_GATE_RESULT"
+            echo "  Build and verify package: $PACKAGE_RESULT"
+            echo "  Template comparison drift: $TEMPLATE_MATRIX_RESULT"
+            exit 1
+          fi
+          echo "All required CI checks passed."

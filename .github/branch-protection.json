@@ -1,0 +1,19 @@
+{
+  "required_status_checks": {
+    "strict": true,
+    "contexts": [
+      "CI Required Checks",
+      "Lint and format",
+      "Coverage threshold gate",
+      "Build and verify package",
+      "Template comparison drift"
+    ]
+  },
+  "enforce_admins": false,
+  "required_pull_request_reviews": {
+    "dismiss_stale_reviews": true,
+    "require_code_owner_reviews": false,
+    "required_approving_review_count": 1
+  },
+  "restrictions": null
+}
