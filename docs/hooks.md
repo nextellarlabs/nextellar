@@ -657,3 +657,49 @@ function CopyTxHash({ hash }: { hash: string }) {
   );
 }
 ```
+
+### `useFeeEstimate(options)`
+
+A React hook for surge-aware fee estimation using Horizon's `fee_stats`. Automatically polls and calculates low, standard, and high fee presets with percentile configuration, falling back safely to `BASE_FEE` on network or Horizon errors.
+
+**Signature:**
+```typescript
+function useFeeEstimate(options?: UseFeeEstimateOptions): FeeEstimateState
+```
+
+**Parameters:**
+- `options.horizonUrl` (string, optional): Horizon endpoint. Defaults to wallet context configuration or testnet.
+- `options.refreshInterval` (number, optional): Milliseconds between polls (default: 30000; 0 to disable).
+- `options.lowPercentile` (string, optional): Percentile for low preset (default: 'p20').
+- `options.standardPercentile` (string, optional): Percentile for standard preset (default: 'p50').
+- `options.highPercentile` (string, optional): Percentile for high preset (default: 'p95').
+
+**Returns:**
+- `loading` (boolean): True while fetching fee stats.
+- `error` (Error | null): Network or parsing error, if any.
+- `baseFee` (string): Latest base fee in stroops.
+- `presets` (`{ low: string, standard: string, high: string }`): Estimated fees in stroops.
+- `rawStats` (object | null): Raw fee_stats response from Horizon.
+- `refresh` (`() => Promise<void>`): Manually re-fetch fee stats.
+- `getFeeForPreset` (`(preset: 'low' | 'standard' | 'high') => string`): Get fee in stroops.
+- `stroopsToXlm` (`(stroops: string | number) => string`): Convert stroops to XLM string.
+
+**Example:**
+```tsx
+import { useFeeEstimate } from '@/hooks/useFeeEstimate';
+
+function FeeDisplay() {
+  const { presets, loading, stroopsToXlm } = useFeeEstimate();
+
+  if (loading) return <div>Estimating fees...</div>;
+
+  return (
+    <div>
+      <p>Low: {stroopsToXlm(presets.low)} XLM</p>
+      <p>Standard: {stroopsToXlm(presets.standard)} XLM</p>
+      <p>High: {stroopsToXlm(presets.high)} XLM</p>
+    </div>
+  );
+}
+```
+
