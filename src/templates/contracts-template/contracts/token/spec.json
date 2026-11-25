@@ -1,0 +1,285 @@
+{
+  "type": "contract",
+  "functions": [
+    {
+      "name": "initialize",
+      "doc": "Initialize token metadata and the admin allowed to mint",
+      "inputs": [
+        {
+          "name": "admin",
+          "type": "address",
+          "doc": "Admin address allowed to mint"
+        },
+        {
+          "name": "decimal",
+          "type": "u32",
+          "doc": "Number of decimals used to represent amounts"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "doc": "Token name"
+        },
+        {
+          "name": "symbol",
+          "type": "string",
+          "doc": "Token symbol"
+        }
+      ],
+      "outputs": []
+    },
+    {
+      "name": "admin",
+      "doc": "Return the admin address allowed to mint",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "admin",
+          "type": "address"
+        }
+      ]
+    },
+    {
+      "name": "mint",
+      "doc": "Mint new tokens to an address. Requires the admin's authorization",
+      "inputs": [
+        {
+          "name": "to",
+          "type": "address",
+          "doc": "Address receiving the minted tokens"
+        },
+        {
+          "name": "amount",
+          "type": "i128",
+          "doc": "Amount of tokens to mint"
+        }
+      ],
+      "outputs": []
+    },
+    {
+      "name": "decimals",
+      "doc": "Return the number of decimals used to represent amounts",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "decimals",
+          "type": "u32"
+        }
+      ]
+    },
+    {
+      "name": "name",
+      "doc": "Return the token name",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "name",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "symbol",
+      "doc": "Return the token symbol",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "symbol",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "total_supply",
+      "doc": "Return the total number of tokens in existence",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "total_supply",
+          "type": "i128"
+        }
+      ]
+    },
+    {
+      "name": "balance",
+      "doc": "Return the token balance held by an address",
+      "inputs": [
+        {
+          "name": "id",
+          "type": "address",
+          "doc": "Address to query"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "balance",
+          "type": "i128"
+        }
+      ]
+    },
+    {
+      "name": "allowance",
+      "doc": "Return the amount a spender may still transfer on behalf of an owner. Expired allowances report 0",
+      "inputs": [
+        {
+          "name": "from",
+          "type": "address",
+          "doc": "Owner of the tokens"
+        },
+        {
+          "name": "spender",
+          "type": "address",
+          "doc": "Address allowed to spend"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "allowance",
+          "type": "i128"
+        }
+      ]
+    },
+    {
+      "name": "approve",
+      "doc": "Approve a spender to transfer up to an amount until an expiration ledger. Requires the owner's authorization",
+      "inputs": [
+        {
+          "name": "from",
+          "type": "address",
+          "doc": "Owner of the tokens"
+        },
+        {
+          "name": "spender",
+          "type": "address",
+          "doc": "Address allowed to spend"
+        },
+        {
+          "name": "amount",
+          "type": "i128",
+          "doc": "Maximum amount the spender may transfer"
+        },
+        {
+          "name": "expiration_ledger",
+          "type": "u32",
+          "doc": "Ledger at which the allowance expires"
+        }
+      ],
+      "outputs": []
+    },
+    {
+      "name": "transfer",
+      "doc": "Transfer tokens from one address to another. Requires the sender's authorization",
+      "inputs": [
+        {
+          "name": "from",
+          "type": "address",
+          "doc": "Address sending the tokens"
+        },
+        {
+          "name": "to",
+          "type": "address",
+          "doc": "Address receiving the tokens"
+        },
+        {
+          "name": "amount",
+          "type": "i128",
+          "doc": "Amount of tokens to transfer"
+        }
+      ],
+      "outputs": []
+    },
+    {
+      "name": "transfer_from",
+      "doc": "Transfer tokens using an allowance. Requires the spender's authorization",
+      "inputs": [
+        {
+          "name": "spender",
+          "type": "address",
+          "doc": "Address spending the allowance"
+        },
+        {
+          "name": "from",
+          "type": "address",
+          "doc": "Owner of the tokens"
+        },
+        {
+          "name": "to",
+          "type": "address",
+          "doc": "Address receiving the tokens"
+        },
+        {
+          "name": "amount",
+          "type": "i128",
+          "doc": "Amount of tokens to transfer"
+        }
+      ],
+      "outputs": []
+    },
+    {
+      "name": "burn",
+      "doc": "Burn tokens from an address. Requires the owner's authorization",
+      "inputs": [
+        {
+          "name": "from",
+          "type": "address",
+          "doc": "Address whose tokens are burned"
+        },
+        {
+          "name": "amount",
+          "type": "i128",
+          "doc": "Amount of tokens to burn"
+        }
+      ],
+      "outputs": []
+    },
+    {
+      "name": "burn_from",
+      "doc": "Burn tokens using an allowance. Requires the spender's authorization",
+      "inputs": [
+        {
+          "name": "spender",
+          "type": "address",
+          "doc": "Address spending the allowance"
+        },
+        {
+          "name": "from",
+          "type": "address",
+          "doc": "Address whose tokens are burned"
+        },
+        {
+          "name": "amount",
+          "type": "i128",
+          "doc": "Amount of tokens to burn"
+        }
+      ],
+      "outputs": []
+    }
+  ],
+  "errorCodes": [
+    {
+      "code": 1,
+      "name": "AlreadyInitialized",
+      "doc": "The contract has already been initialized"
+    },
+    {
+      "code": 2,
+      "name": "NotInitialized",
+      "doc": "The contract has not been initialized yet"
+    },
+    {
+      "code": 3,
+      "name": "NegativeAmount",
+      "doc": "Amounts must be zero or positive"
+    },
+    {
+      "code": 4,
+      "name": "InsufficientBalance",
+      "doc": "The address does not hold enough tokens"
+    },
+    {
+      "code": 5,
+      "name": "InsufficientAllowance",
+      "doc": "The allowance is too small for this transfer"
+    }
+  ]
+}

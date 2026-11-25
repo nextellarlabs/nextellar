@@ -20,10 +20,11 @@ If you didn't scaffold with `--with-contracts`, you're missing the files
 `src/templates/contracts-template/`, into your project:
 
 ```
-contracts/                       # Cargo workspace: hello_world + counter example contracts
+contracts/                       # Cargo workspace: hello_world, counter, token example contracts
 src/lib/bindings/Counter.ts
 src/lib/bindings/HelloWorld.ts
-src/lib/contracts/index.ts       # exports CONTRACTS, CounterClient, HelloWorldClient, validateContracts
+src/lib/bindings/Token.ts
+src/lib/contracts/index.ts       # exports CONTRACTS, CounterClient, HelloWorldClient, TokenClient, validateContracts
 ```
 
 Add the two contract-id environment variables these expect

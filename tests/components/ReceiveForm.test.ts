@@ -142,8 +142,7 @@ describe("ReceiveForm Component Template", () => {
       expect(cancelled).toBe(true);
     });
 
-    it('renders the QR with the dependency-free lib/qr.ts, not the qrcode package (#662)', () => {
-    it("uses dynamic import for qrcode to avoid bundling it in the server chunk", () => {
+    it("renders the QR with the dependency-free lib/qr.ts, not the qrcode package (#662)", () => {
       const componentPath = join(
         __dirname,
         "../../src/templates/default/src/components/ReceiveForm.tsx",
@@ -205,14 +204,14 @@ describe("ReceiveForm Component Template", () => {
 
       const feature = getFeature("receive-form");
       expect(feature).toBeDefined();
-      expect(feature?.kind).toBe('component');
-      expect(feature?.files).toEqual(['lib/sep7.ts', 'lib/qr.ts', 'components/ReceiveForm.tsx']);
-      expect(feature?.dependsOn).toContain('wallet');
-      expect(feature?.npmDependencies).not.toContain('qrcode');
       expect(feature?.kind).toBe("component");
-      expect(feature?.files).toEqual(["components/ReceiveForm.tsx"]);
+      expect(feature?.files).toEqual([
+        "lib/sep7.ts",
+        "lib/qr.ts",
+        "components/ReceiveForm.tsx",
+      ]);
       expect(feature?.dependsOn).toContain("wallet");
-      expect(feature?.npmDependencies).toContain("qrcode");
+      expect(feature?.npmDependencies).not.toContain("qrcode");
     });
 
     it("includes receive-form in the components umbrella", async () => {

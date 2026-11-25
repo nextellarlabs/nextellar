@@ -11,6 +11,12 @@ Pull requests that change files under `src/templates/` must add an entry under
 
 ### Added
 
+- `contracts/token` in the contracts template: a SEP-41 fungible token with
+  admin-only `mint`, expiring allowances, and `burn`/`burn_from`, plus Rust
+  unit tests covering transfer, approve, burn and auth failures. The generated
+  `TokenClient` bindings are wired into `CONTRACTS.TOKEN`, and the bindings
+  generator no longer emits invalid argument interfaces for zero-argument
+  functions. (#1498)
 - SEP-7 helpers in the default template now throw a typed `Sep7Error` with a
   stable `code` (`INVALID_INPUT`, `INVALID_URI`, `UNSUPPORTED_OPERATION`,
   `MISSING_DESTINATION`, `INVALID_ASSET`, `INVALID_MEMO_TYPE`, `MSG_TOO_LONG`)

@@ -188,8 +188,12 @@ export enum ${contractName}Errors {\n`;
     code += `}\n\n`;
   }
 
-  // Generate function argument interfaces
+  // Generate function argument interfaces (only for functions that take args)
   for (const fn of spec.functions) {
+    if (fn.inputs.length === 0) {
+      continue;
+    }
+
     const interfaceName = `${capitalizeFirst(fn.name)}Args`;
     code += `/**
  * Arguments for ${capitalizeFirst(fn.name)} function\n`;
