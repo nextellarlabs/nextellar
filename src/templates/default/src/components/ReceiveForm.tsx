@@ -1,8 +1,6 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { useState, useEffect, useMemo } from 'react';
-import Image from 'next/image';
 import { useWallet } from '../contexts';
 import { buildSep7PayUri } from '../lib/sep7';
 import { encodeQr, qrToSvgPath, qrToSvgString } from '../lib/qr';
@@ -194,20 +192,7 @@ export default function ReceiveForm({
         {qr.path ? (
           <svg
             role="img"
-            aria-label={
-              sep7Uri
-                ? `QR code for a SEP-7 payment request to ${address}`
-                : `QR code for Stellar address ${address}`
-            }
-        {qrDataUrl ? (
-          // A generated data: URL, so Next's image optimizer has nothing to fetch.
-          <Image
-            unoptimized
-            src={qrDataUrl}
-            // Describes the image's purpose only. The address itself is
-            // already read from the text below, so repeating it here would make
-            // screen readers announce the 56-character key twice (#1145).
-            alt={sep7Uri ? QR_ALT_PAYMENT_REQUEST : QR_ALT_ADDRESS}
+            aria-label={sep7Uri ? 'SEP-7 payment request QR code' : 'Stellar address QR code'}
             width={qrSize}
             height={qrSize}
             viewBox={`0 0 ${qr.dim} ${qr.dim}`}
@@ -219,13 +204,6 @@ export default function ReceiveForm({
           </svg>
         ) : (
           <p className="text-xs text-red-500 text-center">{qr.error}</p>
-          /* Skeleton placeholder while generating */
-          <div
-            className="animate-pulse rounded bg-gray-200 dark:bg-gray-700"
-            style={{ width: qrSize, height: qrSize }}
-            role="status"
-            aria-label="Loading QR code"
-          />
         )}
       </div>
 
