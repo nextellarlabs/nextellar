@@ -11,6 +11,12 @@ Pull requests that change files under `src/templates/` must add an entry under
 
 ### Added
 
+- Default template: a same-origin `/api/horizon/[...path]` proxy forwards an
+  allowlisted set of read-only Horizon paths with the provider API key injected
+  server-side, short-lived GET caching, and rate-limit header passthrough.
+  Client hooks opt in with `NEXT_PUBLIC_HORIZON_PROXY=true`, keeping hosted
+  Horizon keys out of `NEXT_PUBLIC_*` variables. See `docs/horizon-proxy.md`.
+  (#1461)
 - SEP-7 helpers in the default template now throw a typed `Sep7Error` with a
   stable `code` (`INVALID_INPUT`, `INVALID_URI`, `UNSUPPORTED_OPERATION`,
   `MISSING_DESTINATION`, `INVALID_ASSET`, `INVALID_MEMO_TYPE`, `MSG_TOO_LONG`)
