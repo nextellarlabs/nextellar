@@ -657,3 +657,65 @@ function CopyTxHash({ hash }: { hash: string }) {
   );
 }
 ```
+
+### `usePathPayment(options)`
+
+A React hook for DEX swaps and path payments (strict-send and strict-receive) using Horizon's path-finding endpoints.
+
+**Signature:**
+```typescript
+function usePathPayment(options?: { horizonUrl?: string; network?: 'TESTNET' | 'PUBLIC' }): {
+  findPaths: (params: FindPathsParams) => Promise<PathQuote[]>;
+  findBestPath: (params: FindPathsParams) => Promise<PathQuote | null>;
+  buildPathPaymentXDR: (params: PathPaymentParams) => Promise<string>;
+  submitSignedXDR: (signedXdrBase64: string) => Promise<PathPaymentResult>;
+  signAndSubmitWithSecret: (params: PathPaymentParams & { secret: string }) => Promise<PathPaymentResult>;
+}
+```
+
+**Parameters:**
+- `options.horizonUrl` (string, optional): Horizon endpoint.
+- `options.network` ('TESTNET' | 'PUBLIC', optional): Stellar network.
+
+**Example:**
+```tsx
+import { usePathPayment } from '@/hooks/usePathPayment';
+
+function SwapComponent() {
+  const { findBestPath, buildPathPaymentXDR } = usePathPayment();
+  // Fetch best path quote and build unsigned XDR for wallet signing
+}
+```
+
+### `useLiquidityPool(options)`
+
+A React hook for depositing and withdrawing from Stellar AMM liquidity pools with min/max price bounds and automatic pool-share trustline establishment.
+
+**Signature:**
+```typescript
+function useLiquidityPool(options?: UseLiquidityPoolOptions): {
+  loading: boolean;
+  error: Error | null;
+  checkPoolShareTrustline: (account: string, poolId: string) => Promise<boolean>;
+  buildDepositXDR: (params: LiquidityPoolDepositParams) => Promise<string>;
+  buildWithdrawXDR: (params: LiquidityPoolWithdrawParams) => Promise<string>;
+  submitSignedXDR: (signedXdr: string) => Promise<LiquidityPoolResult>;
+  depositWithSecret: (params: LiquidityPoolDepositParams & { secret: string }) => Promise<LiquidityPoolResult>;
+  withdrawWithSecret: (params: LiquidityPoolWithdrawParams & { secret: string }) => Promise<LiquidityPoolResult>;
+}
+```
+
+**Parameters:**
+- `options.horizonUrl` (string, optional): Horizon endpoint.
+- `options.network` ('TESTNET' | 'PUBLIC', optional): Stellar network.
+
+**Example:**
+```tsx
+import { useLiquidityPool } from '@/hooks/useLiquidityPool';
+
+function LiquidityDeposit() {
+  const { buildDepositXDR, loading } = useLiquidityPool();
+  // Build deposit XDR with price protection
+}
+```
+
