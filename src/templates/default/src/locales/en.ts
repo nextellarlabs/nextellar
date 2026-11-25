@@ -24,6 +24,18 @@ export const en = {
     network: 'Network: {network}',
     balance: 'Balance: {amount} {asset}',
   },
+  orderBook: {
+    title: 'Order book',
+    bids: 'Bids',
+    asks: 'Asks',
+    price: 'Price',
+    amount: 'Amount',
+    depth: 'Cumulative depth',
+    spread: 'Spread: {value}',
+    unavailableSpread: 'Spread unavailable',
+    empty: 'No offers',
+    error: 'Could not load the order book',
+  },
   home: {
     title: 'Welcome to Nextellar',
     subtitle: 'A scaffold for building on Stellar.',
