@@ -1,23 +1,78 @@
-# Web Authentication & Payment Request URIs (SEP-7 / SEP-45)
+# Web Authentication & Payment Request URIs (SEP-7 / SEP-10 / SEP-45)
 
-This guide covers two client-side helpers shipped in the default template
-under `src/lib`:
+This guide covers the web authentication and payment URI building blocks shipped
+in the default template:
 
-- **SEP-45** (`src/lib/sep45.ts`) — Stellar Web Authentication for **contract
-  accounts** (`C...`), the Soroban analog of SEP-10.
+- **SEP-10** (`src/app/api/sep10/route.ts`) — reference **server-side** Next.js
+  App Router endpoint for classic Stellar Web Authentication (issuing and
+  verifying challenge transactions, disabled by default until configured via
+  environment variables).
+- **SEP-45** (`src/lib/sep45.ts`) — client-side Stellar Web Authentication for
+  **contract accounts** (`C...`), the Soroban analog of SEP-10.
 - **SEP-7** (`src/lib/sep7.ts`) — the `web+stellar:` URI scheme for
   requesting a payment or transaction signature, e.g. via QR code or deep
   link.
 
-Neither helper implements a server, an on-chain contract, or network
-submission — both are pure client-side building blocks: SEP-45 drives a
-challenge/sign/submit flow against a server you point it at, and SEP-7 only
-builds/parses URI strings.
+## SEP-10: Server-Side Web Authentication (`app/api/sep10/route.ts`)
 
-There is currently no separate SEP-10 (classic account) helper or guide in
-this toolkit; SEP-45 is documented here as the Soroban/contract-account
-counterpart of that flow, following the same client responsibilities SEP-10
-defines (receive a challenge, verify it, sign it, submit it for a token).
+https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0010.md
+
+The default template includes a reference SEP-10 server route at
+`src/app/api/sep10/route.ts` implementing both halves of the protocol:
+
+- **`GET /api/sep10?account=<G...|M...>[&memo=<uint64>][&home_domain=<domain>]`** —
+  validates the requested account, builds a SEP-10 challenge transaction with
+  `Utils.buildChallengeTx`, signs it with the server's signing key, and returns
+  `{ transaction, network_passphrase }`.
+- **`POST /api/sep10`** — accepts `application/json` (`{ "transaction": "..." }`)
+  or `application/x-www-form-urlencoded` (`transaction=...`), validates the
+  challenge structure and server signature with `Utils.readChallengeTx`, verifies
+  client signatures against on-chain Horizon signers/thresholds (or the master
+  key when the account is not yet funded on-chain), and returns `{ token }`
+  (an HS256-signed JWT containing `iss`, `sub`, `iat`, `exp`, and `jti`).
+
+### Setup
+
+The route is **disabled by default** and responds with `503 Service Unavailable`
+until all required server-side environment variables are set:
+
+| Variable | Required | Default | Description |
+| --- | --- | --- | --- |
+| `SEP10_SIGNING_SEED` | Yes | — | Stellar secret seed (`S...`) matching `SIGNING_KEY` in your `stellar.toml`. |
+| `SEP10_HOME_DOMAIN` | Yes | — | Primary home domain (e.g. `example.com`). |
+| `SEP10_JWT_SECRET` | Yes | — | High-entropy secret (at least 32 characters) used to sign HS256 JWTs. |
+| `SEP10_WEB_AUTH_DOMAIN` | No | `SEP10_HOME_DOMAIN` | Domain hosting the `/api/sep10` endpoint (e.g. `auth.example.com`). |
+| `SEP10_NETWORK_PASSPHRASE` | No | Derived from `NEXT_PUBLIC_NETWORK` | Stellar network passphrase (`Networks.TESTNET` or `Networks.PUBLIC`). |
+| `SEP10_HORIZON_URL` | No | `NEXT_PUBLIC_HORIZON_URL` or public Horizon | Horizon server used to fetch on-chain account signers and thresholds. |
+| `SEP10_CHALLENGE_TTL_SECONDS` | No | `300` | Challenge transaction validity window in seconds. |
+| `SEP10_JWT_TTL_SECONDS` | No | `86400` | Issued JWT lifetime in seconds. |
+
+To expose the endpoint to SEP-10 clients, publish the corresponding public key
+and endpoint URL in `https://<home-domain>/.well-known/stellar.toml`:
+
+```toml
+SIGNING_KEY="G..."
+WEB_AUTH_ENDPOINT="https://auth.example.com/api/sep10"
+```
+
+### Security caveats
+
+- **Server-only secrets:** Never prefix `SEP10_SIGNING_SEED` or
+  `SEP10_JWT_SECRET` with `NEXT_PUBLIC_`, never commit `.env.local`, and never
+  pass secrets via query parameters or request bodies. All secrets are read
+  strictly from `process.env`.
+- **Dedicated unfunded signing key:** Use a dedicated Stellar keypair solely for
+  SEP-10 signing. Do not reuse an operational/distribution account key and do
+  not hold funds on the signing account.
+- **HTTPS required in production:** Always terminate TLS in front of `/api/sep10`
+  so signed challenges and bearer JWTs cannot be intercepted in transit.
+- **Replay protection & rate limiting:** Each issued JWT includes `jti` set to
+  the challenge transaction hash. Because this reference route is stateless,
+  production deployments should add rate limiting and record consumed `jti`
+  values (e.g. in Redis) for the challenge TTL to prevent challenge replay.
+- **Key management & rotation:** For production anchors, consider backing the
+  signing key with a KMS/HSM and rotating `SEP10_JWT_SECRET` and
+  `SEP10_SIGNING_SEED` periodically (see `docs/secret-rotation.md`).
 
 ## SEP-45: Web Authentication for Contract Accounts
 
