@@ -149,6 +149,26 @@ describe("feature registry", () => {
     });
   });
 
+  describe("sep10-auth feature (#1448)", () => {
+    it("is registered", () => {
+      expect(getFeatureIds()).toContain("sep10-auth");
+    });
+
+    it("includes the hook and the libs it imports", () => {
+      expect(getFeature("sep10-auth")?.files).toEqual(
+        expect.arrayContaining([
+          "hooks/useSep10Auth.ts",
+          "lib/sep10.ts",
+          "lib/storage.ts",
+        ]),
+      );
+    });
+
+    it("depends on the wallet feature, which signs the challenge", () => {
+      expect(getFeature("sep10-auth")?.dependsOn).toContain("wallet");
+    });
+  });
+
   describe("multisig feature (#1282)", () => {
     it("is registered", () => {
       expect(getFeatureIds()).toContain("multisig");

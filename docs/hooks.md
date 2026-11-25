@@ -416,6 +416,71 @@ function Transfer({ from, to }: { from: string; to: string }) {
 
 ## SEP Hooks
 
+### `useSep10Auth(options)`
+
+Signs the user in to an anchor with [SEP-10](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0010.md) web authentication and returns the JWT that `useSep6`, `useSep24Interactive` and `useSep38Quote` take as `authToken`:
+
+1. Reads `WEB_AUTH_ENDPOINT` and `SIGNING_KEY` from the home domain's `stellar.toml`, unless you pass `authEndpoint` and `serverSigningKey`.
+2. Fetches the challenge transaction for the account.
+3. Verifies it before anything signs it: the anchor's signature, sequence number 0, current time bounds, the home domain, the `web_auth_domain` (the endpoint's host), the network, and that the challenge is for the requested account. The checks use the SDK's `WebAuth.readChallengeTx`.
+4. Has the connected wallet sign it. Pass `signTransaction` to use another signer.
+5. Posts it back and returns the JWT.
+
+The JWT is cached until its `exp` (minus 30 seconds), in memory and in `localStorage` unless `persist: false`. Calling `authenticate` again for the same account and home domain returns it without asking the wallet to sign again. Nothing runs on mount, because signing needs the user.
+
+**Signature:**
+```typescript
+function useSep10Auth(options: {
+  homeDomain: string;
+  authEndpoint?: string;       // WEB_AUTH_ENDPOINT; read from stellar.toml when omitted
+  serverSigningKey?: string;   // SIGNING_KEY; read from stellar.toml when omitted
+  networkPassphrase?: string;  // default: WalletProvider's network, then testnet
+  signTransaction?: (xdr: string, opts: { address: string; networkPassphrase: string }) => Promise<string>;
+  clientDomain?: string;
+  allowHttp?: boolean;         // plain-HTTP stellar.toml, local development only
+  persist?: boolean;           // default true
+  fetchImpl?: typeof fetch;
+}): UseSep10AuthReturn
+```
+
+**Returns:**
+- `authenticate(account, { memo? })`: resolves to the JWT, or rejects (and sets `error`) if a check fails, the wallet declines, or the anchor refuses.
+- `logout()`: forgets the JWT in memory and storage.
+- `token`, `account`, `expiresAt` (ms), `isAuthenticated`
+- `loading`, `error`
+
+The protocol steps are also exported on their own from `@/lib/sep10`: `discoverSep10Endpoint`, `fetchSep10Challenge`, `verifySep10Challenge`, `submitSep10Challenge` and `sep10TokenExpiry`.
+
+**Example:**
+```tsx
+import { useWallet } from '@/contexts';
+import { useSep10Auth } from '@/hooks/useSep10Auth';
+import { useSep24Interactive } from '@/hooks/useSep24Interactive';
+import { discoverSep24TransferServer } from '@/lib/sep24';
+
+function Deposit() {
+  const { publicKey } = useWallet();
+  const auth = useSep10Auth({ homeDomain: 'testanchor.stellar.org' });
+  const sep24 = useSep24Interactive();
+
+  async function onDeposit() {
+    const jwt = await auth.authenticate(publicKey!);
+    const transferServer = await discoverSep24TransferServer('testanchor.stellar.org');
+    await sep24.start({ transferServer, kind: 'deposit', authToken: jwt, assetCode: 'USDC', account: publicKey });
+  }
+
+  return (
+    <>
+      <button onClick={onDeposit} disabled={!publicKey || auth.loading}>Deposit USDC</button>
+      {auth.isAuthenticated && <button onClick={auth.logout}>Sign out of anchor</button>}
+      {auth.error && <p role="alert">{auth.error.message}</p>}
+    </>
+  );
+}
+```
+
+Only classic `G...` accounts are covered. Contract accounts (`C...`) authenticate with SEP-45 (`@/lib/sep45`).
+
 ### `useSep38Quote(options?)`
 
 Requests indicative (non-binding) prices and firm (binding) quotes from a [SEP-38](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0038.md) anchor quote server. Discover the quote server first with `discoverSep38QuoteServer(homeDomain)` (`@/lib/sep38`), which resolves `ANCHOR_QUOTE_SERVER` from the domain's `stellar.toml`.
@@ -521,7 +586,7 @@ Runs the [SEP-24](https://github.com/stellar/stellar-protocol/blob/master/ecosys
 3. Listens for the anchor's `postMessage` updates. Only messages from the anchor's origin about this transaction are accepted.
 4. Polls `GET /transaction` as a fallback, which covers anchors that redirect instead of posting messages.
 
-Discover the server with `discoverSep24TransferServer(homeDomain)` (`@/lib/sep24`). Get the `authToken` from SEP-10.
+Discover the server with `discoverSep24TransferServer(homeDomain)` (`@/lib/sep24`). Get the `authToken` from [`useSep10Auth`](#usesep10authoptions).
 
 **Signature:**
 ```typescript
