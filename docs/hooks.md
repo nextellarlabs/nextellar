@@ -512,6 +512,55 @@ function Deposit({ transferServer, jwt, account }: { transferServer: string; jwt
 }
 ```
 
+### `useSep12Kyc(options)`
+
+Reads customer KYC status and submits SEP-9 fields/files to an anchor's [SEP-12](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0012.md) `KYC_SERVER`. No request is made on mount. Both calls require a SEP-10 JWT; SEP-12 is an anchor HTTP API and does not build Stellar transactions or require a network passphrase.
+
+**Signature:**
+```typescript
+function useSep12Kyc(options: UseSep12KycOptions): UseSep12KycReturn
+```
+
+**Options:**
+- `kycServer` (string, required): The anchor's SEP-12 base URL.
+- `authToken` (string, required): SEP-10 JWT sent as `Authorization: Bearer`.
+- `fetchImpl` (`typeof fetch`, optional): Custom fetch implementation, e.g. for tests.
+
+**Returns:**
+- `getCustomer(params)`: `GET /customer` with optional `account` or customer `id` (the anchor can infer customer identity from the SEP-10 JWT), and optional `type`, `transactionId`, `memo`, `memoType` and `lang`.
+- `submitCustomerInfo(params)`: `PUT /customer` with `fields` and/or `files` as SEP-12 multipart form data. File values use `{ name, contentType, data }`, where `data` is base64 without a data-URL prefix; it is sent as a binary part under the corresponding field name.
+- `customer`: The most recently returned SEP-12 customer record.
+- `status`: The customer's `NEEDS_INFO`, `PROCESSING`, `ACCEPTED` or `REJECTED` status, populated by `getCustomer`. SEP-12 PUT responses may contain only a customer ID, so call `getCustomer` to read status after submission.
+- `fields`: The fields the anchor currently requests.
+- `loading` (boolean), `error` (`Error | null`), and `reset()`.
+
+**Example:**
+```tsx
+import { useSep12Kyc } from '@/hooks/useSep12Kyc';
+
+function VerifyCustomer({ kycServer, jwt, account }: { kycServer: string; jwt: string; account: string }) {
+  const { getCustomer, submitCustomerInfo, status, fields, loading, error } = useSep12Kyc({
+    kycServer,
+    authToken: jwt,
+  });
+
+  return (
+    <div>
+      <button disabled={loading} onClick={() => getCustomer({ account })}>Check KYC</button>
+      {status === 'NEEDS_INFO' && (
+        <button disabled={loading} onClick={() => submitCustomerInfo({
+          account,
+          fields: { first_name: 'Ada', last_name: 'Lovelace' },
+        })}>Submit requested details</button>
+      )}
+      {Object.keys(fields).map((field) => <p key={field}>{field}: {fields[field].description}</p>)}
+      {status && <p>KYC status: {status}</p>}
+      {error && <p>{error.message}</p>}
+    </div>
+  );
+}
+```
+
 ### `useSep24Interactive(options?)`
 
 Runs the [SEP-24](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0024.md) hosted deposit/withdraw flow:
