@@ -222,7 +222,7 @@ async function checkRustc(): Promise<CheckResult> {
   };
 }
 
-async function checkStellarCli(): Promise<CheckResult> {
+export async function checkStellarCli(): Promise<CheckResult> {
   const res = await runCommand("stellar --version", 3000);
   const ok = res.ok && res.out.length > 0;
   return {

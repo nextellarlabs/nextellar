@@ -413,6 +413,98 @@ program
     }
   });
 
+const contractsCmd = program
+  .command("contracts")
+  .description("Manage and interact with Soroban contracts using Stellar CLI");
+
+contractsCmd
+  .command("build")
+  .description("Build Soroban smart contracts")
+  .option("--cwd <dir>", "Project directory")
+  .action(async (opts: { cwd?: string }) => {
+    try {
+      const { runContractsBuild } = await import(
+        "../src/lib/contracts-cli.js"
+      );
+      await runContractsBuild(opts);
+    } catch (err: any) {
+      console.error(`\n❌ Error: ${err?.message || err}`);
+      logVerboseError(err);
+      await exitWithTelemetry(1);
+    } finally {
+      await flushTelemetry();
+    }
+  });
+
+contractsCmd
+  .command("deploy")
+  .description("Deploy a Soroban smart contract and record ID to .env.local")
+  .option("--wasm <path>", "Path to contract WASM file")
+  .option("--network <network>", "Network to deploy to")
+  .option("--source <identity>", "Identity or key to sign deployment")
+  .option("--env-var <name>", "Environment variable name to save ID to")
+  .option("--cwd <dir>", "Project directory")
+  .action(
+    async (opts: {
+      wasm?: string;
+      network?: string;
+      source?: string;
+      envVar?: string;
+      cwd?: string;
+    }) => {
+      try {
+        const { runContractsDeploy } = await import(
+          "../src/lib/contracts-cli.js"
+        );
+        await runContractsDeploy(opts);
+      } catch (err: any) {
+        console.error(`\n❌ Error: ${err?.message || err}`);
+        logVerboseError(err);
+        await exitWithTelemetry(1);
+      } finally {
+        await flushTelemetry();
+      }
+    },
+  );
+
+contractsCmd
+  .command("invoke")
+  .description("Invoke a deployed Soroban contract function")
+  .requiredOption("--id <contract-id>", "Contract ID")
+  .requiredOption("--fn <function-name>", "Function to invoke")
+  .option("--network <network>", "Network")
+  .option("--source <identity>", "Identity or key to sign invocation")
+  .option("--cwd <dir>", "Project directory")
+  .argument("[args...]", "Function arguments")
+  .action(
+    async (
+      args: string[],
+      opts: {
+        id: string;
+        fn: string;
+        network?: string;
+        source?: string;
+        cwd?: string;
+      },
+    ) => {
+      try {
+        const { runContractsInvoke } = await import(
+          "../src/lib/contracts-cli.js"
+        );
+        await runContractsInvoke({
+          ...opts,
+          args,
+        });
+      } catch (err: any) {
+        console.error(`\n❌ Error: ${err?.message || err}`);
+        logVerboseError(err);
+        await exitWithTelemetry(1);
+      } finally {
+        await flushTelemetry();
+      }
+    },
+  );
+
 program
   .name("nextellar")
   .description("CLI to scaffold a Next.js + Stellar starter")

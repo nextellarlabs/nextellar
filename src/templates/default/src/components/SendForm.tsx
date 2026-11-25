@@ -7,6 +7,7 @@ import { useStellarBalances } from '../hooks/useStellarBalances';
 import { useFederationLookup } from '../hooks/useFederationLookup';
 import { MEMO_TYPES, validateMemo, type MemoType, type PaymentMemo } from '../lib/memo';
 import TransactionStatusBadge from './TransactionStatusBadge';
+import MemoInput from './MemoInput';
 
 type FormState = 'idle' | 'submitting' | 'success' | 'error' | 'awaiting_sponsor';
 
@@ -288,52 +289,21 @@ export default function SendForm() {
         </p>
       </div>
 
-      <div>
-        <label htmlFor="send-form-memo-type" className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
-          Memo type
-        </label>
-        <select
-          id="send-form-memo-type"
-          value={effectiveMemoType}
-          onChange={(e) => setMemoType(e.target.value as MemoType)}
-          disabled={!connected || state === 'submitting' || !!lockedMemo}
-          className="mb-2 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-        >
-          {MEMO_TYPES.map((type) => (
-            <option key={type} value={type}>
-              {MEMO_TYPE_LABELS[type]}
-            </option>
-          ))}
-        </select>
-        <label htmlFor="send-form-memo" className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
-          Memo (optional)
-        </label>
-        <input
-          id="send-form-memo"
-          type="text"
-          value={effectiveMemo}
-          onChange={(e) => setMemo(e.target.value)}
-          placeholder={MEMO_PLACEHOLDERS[effectiveMemoType]}
-          readOnly={!!lockedMemo}
-          disabled={!connected || state === 'submitting' || effectiveMemoType === 'none'}
-          aria-invalid={!!memoError}
-          aria-describedby="send-form-memo-error send-form-memo-locked"
-          className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 read-only:bg-gray-100 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:read-only:bg-gray-700"
-        />
-        <p id="send-form-memo-locked" className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-          {lockedMemo && federation.record
+      <MemoInput
+        id="send-form"
+        memoType={effectiveMemoType}
+        memoValue={effectiveMemo}
+        onMemoTypeChange={(type) => setMemoType(type)}
+        onMemoValueChange={(val) => setMemo(val)}
+        disabled={!connected || state === 'submitting'}
+        readOnly={!!lockedMemo}
+        lockedReason={
+          lockedMemo && federation.record
             ? `Memo required by ${federation.record.stellarAddress} (locked).`
-            : ''}
-        </p>
-        <p
-          id="send-form-memo-error"
-          aria-live="assertive"
-          aria-atomic="true"
-          className="mt-1 min-h-[1rem] text-xs text-red-600 dark:text-red-400"
-        >
-          {memoError ?? ''}
-        </p>
-      </div>
+            : undefined
+        }
+        error={memoError}
+      />
 
       <div>
         <label htmlFor="send-form-sponsor" className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
