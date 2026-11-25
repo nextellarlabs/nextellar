@@ -11,6 +11,16 @@ Pull requests that change files under `src/templates/` must add an entry under
 
 ### Added
 
+- `full` template now ships the wallet and account components
+  (`WalletConnectButton`, `AccountSwitcher`, `NetworkSwitcher`,
+  `NetworkMismatchBanner`), the UI utilities (`CopyButton`, `EmptyState`,
+  `ErrorBoundary`, `LoadingBoundary`, `Skeleton`/`SkeletonList`,
+  `ThemeToggle`) and the Soroban hooks (`useSorobanEvents`,
+  `useContractDeploy`, `useContractUpgrade`, `useContractEventHistory`), with
+  a parity test that keeps them identical to `default`. (#1199, #1201, #1204)
+- Scaffold matrix job that scaffolds into a directory path longer than 260
+  characters on `windows-latest` and checks placeholder replacement and
+  `.gitignore` handling with `scripts/verify-scaffold-output.mjs`. (#1492)
 - SEP-7 helpers in the default template now throw a typed `Sep7Error` with a
   stable `code` (`INVALID_INPUT`, `INVALID_URI`, `UNSUPPORTED_OPERATION`,
   `MISSING_DESTINATION`, `INVALID_ASSET`, `INVALID_MEMO_TYPE`, `MSG_TOO_LONG`)
@@ -18,3 +28,11 @@ Pull requests that change files under `src/templates/` must add an entry under
   unchanged, so existing `catch` blocks keep working. (#1512)
 - CI check that fails pull requests changing `src/templates/**` without a
   changelog entry, with a `skip-changelog` opt-out label. (#1519)
+
+### Fixed
+
+- `default` template `package.json` had a missing comma and a duplicate
+  `lucide-react` entry, so scaffolded apps could not install and Jest could not
+  resolve any file under the template.
+- `src/mocks/wallet-contexts-mock.ts` declared `isUnsignedFeeBumpResult` twice,
+  which stopped every test importing the mock from parsing.
