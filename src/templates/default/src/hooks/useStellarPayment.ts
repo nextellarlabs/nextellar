@@ -13,7 +13,7 @@ import {
   Transaction
 } from '@stellar/stellar-sdk';
 import { useWalletConfig } from '../contexts';
-import { decodeResultCodes } from '../lib/stellarResultCodes';
+import { classifyHorizonError } from '../lib/horizon-errors';
 
 /**
  * Payment parameters for building transactions
@@ -248,19 +248,21 @@ export function useStellarPayment(
       // Return unsigned XDR
       return transaction.toXDR();
     } catch (err: unknown) {
-      const errorObj = err as { response?: { status?: number }; message?: string };
-      // Handle specific Horizon errors
-      if (errorObj?.response?.status === 404) {
+      const classified = classifyHorizonError(err);
+      if (classified.kind === 'not_found') {
         throw new Error(`Account ${params.from} not found. Account may need funding.`);
       }
-      if (errorObj?.response?.status && errorObj.response.status >= 500) {
-        throw new Error(`Horizon server error: ${errorObj.message || 'Network unavailable'}`);
+      if (classified.kind === 'server_error') {
+        throw new Error(`Horizon server error: ${classified.message || 'Network unavailable'}`);
       }
-      if (errorObj?.response?.status && errorObj.response.status >= 400) {
-        throw new Error(`Invalid request: ${errorObj.message || 'Bad request to Horizon'}`);
+      if (
+        classified.kind === 'bad_request' ||
+        classified.kind === 'client_error' ||
+        classified.kind === 'rate_limited'
+      ) {
+        throw new Error(`Invalid request: ${classified.message || 'Bad request to Horizon'}`);
       }
-      
-      // Re-throw validation and other errors
+
       throw err instanceof Error ? err : new Error('Failed to build payment transaction');
     }
   }, [serverRef, validatePaymentParams, getNetworkPassphrase]);
@@ -299,28 +301,28 @@ export function useStellarPayment(
         raw: result
       };
     } catch (err: unknown) {
-      const errorObj = err as { response?: { status?: number; data?: { extras?: { result_codes?: { transaction?: string; operations?: string[] } } } }; message?: string };
+      const classified = classifyHorizonError(err);
       console.error('Transaction submission failed:', err);
-      
-      // Handle specific submission errors
+
       let errorMessage = 'Transaction failed';
       let resultCodes: PaymentResult['resultCodes'];
-      if (errorObj?.response?.data?.extras?.result_codes) {
-        const codes = errorObj.response.data.extras.result_codes;
-        resultCodes = codes;
-        errorMessage = decodeResultCodes(codes).reason;
-      } else if (errorObj?.response?.status === 400) {
+      if (classified.kind === 'result_code_error' && classified.decodedResultCodes) {
+        resultCodes = classified.resultCodes;
+        errorMessage = classified.decodedResultCodes.reason;
+      } else if (classified.kind === 'bad_request') {
         errorMessage = 'Invalid transaction format or content';
-      } else if (errorObj?.response?.status && errorObj.response.status >= 500) {
+      } else if (classified.kind === 'server_error') {
         errorMessage = 'Horizon server error during submission';
-      } else if (errorObj?.message) {
-        errorMessage = errorObj.message;
+      } else if (classified.kind === 'rate_limited') {
+        errorMessage = classified.userMessage;
+      } else if (classified.message) {
+        errorMessage = classified.message;
       }
 
       return {
         success: false,
         error: errorMessage,
-        raw: errorObj?.response?.data,
+        raw: classified.raw,
         resultCodes
       };
     }
