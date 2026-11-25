@@ -37,7 +37,7 @@ Object.assign(globalThis, {
 	fetch: undici.fetch,
 });
 
-const { server } = await import('./src/mocks/server.js');
+const { server } = await import('./src/mocks/server.ts');
 beforeAll(() => server.listen({ onUnhandledRequest: 'warn' }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());

@@ -5,7 +5,7 @@ import {
   createMockAccount,
   createMockOperationRecord,
   createPaginatedResponse,
-} from "./horizon-handlers.js";
+} from "./horizon-handlers.ts";
 
 const defaultRetval = xdr.ScVal.scvString("ok").toXDR("base64");
 

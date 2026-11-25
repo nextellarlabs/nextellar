@@ -40,11 +40,50 @@ export default {
       "<rootDir>/src/mocks/wallet-contexts-mock.ts",
     "^@clack/prompts$": "<rootDir>/tests/mocks/clack-prompts.js",
     "^next/image$": "<rootDir>/tests/mocks/next-image.tsx",
+    "^@/hooks/default/useTrustlines$":
+      "<rootDir>/src/templates/default/src/hooks/useTrustlines.ts",
+    "^@/hooks/default/useStellarBalances$":
+      "<rootDir>/src/templates/default/src/hooks/useStellarBalances.ts",
+    "^@/hooks/default/useStellarPayment$":
+      "<rootDir>/src/templates/default/src/hooks/useStellarPayment.ts",
+    "^@/hooks/default/useTransactionHistory$":
+      "<rootDir>/src/templates/default/src/hooks/useTransactionHistory.ts",
+    "^@/hooks/default/useOfferBook$":
+      "<rootDir>/src/templates/default/src/hooks/useOfferBook.ts",
+    "^@/hooks/default/useSorobanContract$":
+      "<rootDir>/src/templates/default/src/hooks/useSorobanContract.ts",
+    "^@/hooks/default/useSorobanEvents$":
+      "<rootDir>/src/templates/default/src/hooks/useSorobanEvents.ts",
+    "^@/hooks/default/useSep6$":
+      "<rootDir>/src/templates/default/src/hooks/useSep6.ts",
+    "^@/hooks/default/useSep38Quote$":
+      "<rootDir>/src/templates/default/src/hooks/useSep38Quote.ts",
+    "^@/hooks/default/useSep24Interactive$":
+      "<rootDir>/src/templates/default/src/hooks/useSep24Interactive.ts",
+    "^@/hooks/default/useSep30Recovery$":
+      "<rootDir>/src/templates/default/src/hooks/useSep30Recovery.ts",
+    "^@/hooks/default/useMultisigTransaction$":
+      "<rootDir>/src/templates/default/src/hooks/useMultisigTransaction.ts",
+    "^@/hooks/default/useHorizonStreaming$":
+      "<rootDir>/src/templates/default/src/hooks/useHorizonStreaming.ts",
+    "^@/hooks/default/useFederationLookup$":
+      "<rootDir>/src/templates/default/src/hooks/useFederationLookup.ts",
+    "^@/hooks/default/useContractUpgrade$":
+      "<rootDir>/src/templates/default/src/hooks/useContractUpgrade.ts",
+    "^@/hooks/default/useContractEventHistory$":
+      "<rootDir>/src/templates/default/src/hooks/useContractEventHistory.ts",
+    "^@/hooks/default/useContractDeploy$":
+      "<rootDir>/src/templates/default/src/hooks/useContractDeploy.ts",
+    "^@/hooks/default/useClipboard$":
+      "<rootDir>/src/templates/default/src/hooks/useClipboard.ts",
+    "^@/hooks/default/usePrefersReducedMotion$":
+      "<rootDir>/src/templates/default/src/hooks/usePrefersReducedMotion.ts",
+    "^@/hooks/default/useAccountData$":
+      "<rootDir>/src/templates/default/src/hooks/useAccountData.ts",
     "^@/hooks/(.*)$": "<rootDir>/src/templates/defi/src/hooks/$1",
     "^@/lib/contracts$":
       "<rootDir>/src/templates/contracts-template/src/lib/contracts/index.ts",
     "^@/lib/(.*)$": "<rootDir>/src/templates/contracts-template/src/lib/$1",
-    "^(\\.{1,2}/.*)\\.js$": "$1",
   },
   moduleFileExtensions: ["ts", "tsx", "js", "jsx"],
   testMatch: [
