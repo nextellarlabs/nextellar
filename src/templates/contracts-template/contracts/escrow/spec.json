@@ -1,0 +1,34 @@
+{
+  "type": "contract",
+  "functions": [
+    {
+      "name": "initialize",
+      "doc": "Configure the escrow (once)",
+      "inputs": [
+        { "name": "depositor", "type": "address" },
+        { "name": "beneficiary", "type": "address" },
+        { "name": "arbiter", "type": "address" },
+        { "name": "token", "type": "address" },
+        { "name": "amount", "type": "i128" },
+        { "name": "deadline", "type": "u64" }
+      ],
+      "outputs": []
+    },
+    { "name": "deposit", "doc": "Depositor funds the escrow", "inputs": [], "outputs": [] },
+    {
+      "name": "release",
+      "doc": "Depositor or arbiter pays the beneficiary",
+      "inputs": [{ "name": "approver", "type": "address" }],
+      "outputs": []
+    },
+    {
+      "name": "refund",
+      "doc": "Beneficiary or arbiter returns funds to the depositor",
+      "inputs": [{ "name": "caller", "type": "address" }],
+      "outputs": []
+    },
+    { "name": "timeout", "doc": "Depositor reclaims funds after the deadline", "inputs": [], "outputs": [] },
+    { "name": "status", "doc": "Current lifecycle status", "inputs": [], "outputs": [{ "name": "status", "type": "enum" }] },
+    { "name": "config", "doc": "Escrow configuration", "inputs": [], "outputs": [{ "name": "config", "type": "map" }] }
+  ]
+}
