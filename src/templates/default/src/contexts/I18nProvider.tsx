@@ -18,10 +18,10 @@ const STORAGE_KEY = 'nextellar_locale';
 const DEFAULT_LOCALE: Locale = 'en';
 
 /** Dot-separated paths into `Messages`, e.g. "wallet.connected". */
-type MessagePath = keyof FlattenPaths<Messages>;
+type MessagePath = FlattenPaths<Messages>;
 type FlattenPaths<T, Prefix extends string = ''> = {
   [K in keyof T & string]: T[K] extends string
-    ? { [P in `${Prefix}${K}`]: T[K] }
+    ? `${Prefix}${K}`
     : FlattenPaths<T[K], `${Prefix}${K}.`>;
 }[keyof T & string];
 
@@ -62,8 +62,8 @@ interface I18nProviderProps {
 }
 
 /**
- * Optional i18n wiring — not enabled by default. To opt in, wrap your app
- * layout:
+ * Provides translations and remembers the selected locale. The default
+ * template wraps its app layout with this provider:
  *
  * @example
  * ```tsx
