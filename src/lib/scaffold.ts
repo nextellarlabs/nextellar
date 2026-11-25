@@ -26,6 +26,7 @@ import {
   isCoveredByWorkspace,
   removeNestedLockfiles,
   resolveWorkspaceTarget,
+  wireWorkspaceContracts,
   type WorkspaceInfo,
 } from "./workspace.js";
 
@@ -396,6 +397,10 @@ export async function scaffold(
         pkgJson.scripts["contracts:build"] =
           "cd contracts && stellar contract build";
         pkgJson.scripts["contracts:test"] = "cd contracts && cargo test";
+        pkgJson.scripts["contracts:bindings"] =
+          "cd contracts && stellar contract bindings typescript --wasm target/wasm32-unknown-unknown/release/*.wasm --output-dir ../src/lib/bindings --overwrite";
+        pkgJson.scripts["generate:bindings"] =
+          "cd contracts && stellar contract bindings typescript --wasm target/wasm32-unknown-unknown/release/*.wasm --output-dir ../src/lib/bindings --overwrite";
         await fs.writeJson(pkgJsonPath, pkgJson, { spaces: 2 });
       }
 
@@ -492,6 +497,12 @@ export async function scaffold(
       if (registered) {
         console.log(
           `✔️  Added "${workspaceTarget.relativeDir}" to ${workspaceInfo.configSource} workspaces.`,
+        );
+      }
+      if (withContracts) {
+        await wireWorkspaceContracts(workspaceInfo);
+        console.log(
+          `✔️  Wired contracts:build and generate:bindings across workspace packages.`,
         );
       }
     }

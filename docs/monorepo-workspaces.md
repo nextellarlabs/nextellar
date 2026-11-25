@@ -111,3 +111,12 @@ nextellar web --workspace
 npx turbo run dev --filter=web
 ```
 
+### Soroban Contracts Crate in Workspaces
+
+When scaffolding an app with `--with-contracts` inside a monorepo workspace, Nextellar automatically configures root workspace scripts in the monorepo root `package.json` so that contracts can be built and typed TypeScript bindings generated across all packages:
+
+- **npm**: `npm run contracts:build` / `npm run contracts:bindings` runs across workspace packages using `--workspaces --if-present`
+- **pnpm**: `pnpm run contracts:build` / `pnpm run contracts:bindings` runs across packages using `pnpm -r --if-present run`
+- **yarn**: `yarn contracts:build` / `yarn contracts:bindings` runs across packages using `yarn workspaces run`
+
+
