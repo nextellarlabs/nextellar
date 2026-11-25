@@ -48,6 +48,8 @@ const [
   { default: TransactionList },
   { default: TransactionStatusBadge },
   { default: WalletConnectButton },
+  { default: AddressInput },
+  { default: SignerManager },
   { useWallet },
 ] = [
   // Imported one at a time: linking these concurrently (Promise.all) races in
@@ -64,6 +66,8 @@ const [
   await import("../src/templates/default/src/components/TransactionList"),
   await import("../src/templates/default/src/components/TransactionStatusBadge"),
   await import("../src/templates/default/src/components/WalletConnectButton"),
+  await import("../src/templates/default/src/components/AddressInput"),
+  await import("../src/templates/default/src/components/SignerManager"),
   await import("../src/mocks/wallet-contexts-mock"),
 ];
 
@@ -198,6 +202,18 @@ describe("default template components smoke tests (#891)", () => {
     expect(container).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Connect Wallet" }),
+    ).toBeInTheDocument();
+  });
+
+  it("renders AddressInput and SignerManager cleanly", () => {
+    const { container: addressContainer } = render(<AddressInput />);
+    expect(addressContainer).toBeInTheDocument();
+    expect(screen.getByLabelText("Stellar address")).toBeInTheDocument();
+
+    const { container: signerContainer } = render(<SignerManager />);
+    expect(signerContainer).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Account Signers & Thresholds" }),
     ).toBeInTheDocument();
   });
 });

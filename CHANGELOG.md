@@ -11,6 +11,8 @@ Pull requests that change files under `src/templates/` must add an entry under
 
 ### Added
 
+- `AddressInput` component (`src/templates/default/src/components/AddressInput.tsx`) in the `default` template with `@stellar/stellar-sdk` `StrKey` checksum validation for `G...` classic accounts, `M...` muxed accounts, and `C...` Soroban contracts, copy/paste/clear controls, `I18nProvider` localization, Storybook stories, and unit/accessibility tests. (#1467)
+- `SignerManager` component (`src/templates/default/src/components/SignerManager.tsx`) and `useStellarAccount` hook (`src/templates/default/src/hooks/useStellarAccount.ts`) in the `default` template for inspecting signers/thresholds, detecting account lockout risks before building `Operation.setOptions` transactions, `I18nProvider` localization, Storybook stories, and unit/accessibility tests. (#1465)
 - SEP-7 helpers in the default template now throw a typed `Sep7Error` with a
   stable `code` (`INVALID_INPUT`, `INVALID_URI`, `UNSUPPORTED_OPERATION`,
   `MISSING_DESTINATION`, `INVALID_ASSET`, `INVALID_MEMO_TYPE`, `MSG_TOO_LONG`)
