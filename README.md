@@ -239,8 +239,17 @@ Testing guide for generated apps (Storybook interaction tests, and adding Jest/V
 Horizon rate limiter configuration and tuning:  
 🔗 [docs/horizon-rate-limiter-guide.md](docs/horizon-rate-limiter-guide.md)
 
+Cookbook: worked recipes for payments, claimable balances, liquidity pools and Soroban contracts:  
+🔗 [docs/cookbook/README.md](docs/cookbook/README.md)
+
+Cookbook: creating and claiming claimable balances with predicates:  
+🔗 [docs/cookbook/claimable-balances.md](docs/cookbook/claimable-balances.md)
+
 Cookbook: deploying and upgrading a Soroban contract end-to-end:  
 🔗 [docs/cookbook/contract-deploy-and-upgrade.md](docs/cookbook/contract-deploy-and-upgrade.md)
+
+Cookbook: depositing into and withdrawing from liquidity pools:  
+🔗 [docs/cookbook/liquidity-pools.md](docs/cookbook/liquidity-pools.md)
 
 ---
 
