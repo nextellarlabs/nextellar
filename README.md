@@ -227,7 +227,7 @@ Adding an app to an existing monorepo (npm/yarn/pnpm workspaces, Turborepo):
 Anchor discovery & KYC fields (SEP-1 / SEP-6 / SEP-9 / SEP-38):  
 🔗 [docs/anchor-discovery-and-kyc.md](docs/anchor-discovery-and-kyc.md)
 
-Web authentication & payment request URIs (SEP-7 / SEP-45):  
+Web authentication & payment request URIs (SEP-7 / SEP-10 server route / SEP-45):  
 🔗 [docs/web-auth-and-payments.md](docs/web-auth-and-payments.md)
 
 Doctor diagnostic & troubleshooting guide:  
