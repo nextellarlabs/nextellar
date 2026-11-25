@@ -204,6 +204,17 @@ const FEATURES: Record<string, FeatureDef> = {
     npmDependencies: ["@stellar/stellar-sdk"],
     kind: "component",
   },
+  "sep10-auth": {
+    id: "sep10-auth",
+    description:
+      "SEP-10 web authentication: useSep10Auth hook (challenge, verification, wallet signing, cached JWT)",
+    // The hook imports lib/sep10.ts (protocol steps) and lib/storage.ts (JWT
+    // cache). The wallet feature doesn't list storage.ts, so it ships here too.
+    files: ["hooks/useSep10Auth.ts", "lib/sep10.ts", "lib/storage.ts"],
+    dependsOn: ["wallet"],
+    npmDependencies: ["@stellar/stellar-sdk"],
+    kind: "hook",
+  },
   "contract-call": {
     id: "contract-call",
     description:
