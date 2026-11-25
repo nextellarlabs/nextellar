@@ -412,6 +412,71 @@ function Transfer({ from, to }: { from: string; to: string }) {
 }
 ```
 
+For standard Soroban token calls, see the [SEP-41 token cookbook](./cookbook/useSep41Token.md).
+
+### `useSep41Token(opts)`
+
+Provides typed reads and unsigned transaction builders for contracts implementing the [SEP-41 token interface](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0041.md). It delegates Soroban RPC, XDR encoding, and network passphrase handling to `useSorobanContract`.
+
+**Signature:**
+```typescript
+function useSep41Token(opts: SorobanContractOptions): Sep41TokenReturn
+```
+
+**Methods:**
+- `getDecimals()`: Reads and validates the token's decimals. This hook supports 0–38 decimals so integer conversions remain practical.
+- `getBalance(account)`: Reads `balance(account)` and returns `{ raw, formatted, decimals }`. `raw` is a `bigint` in smallest units; `formatted` is an exact decimal string.
+- `getAllowance(from, spender)`: Reads and formats the SEP-41 allowance in the same shape.
+- `buildTransferXDR({ from, to, amount })`: Builds an unsigned XDR for `transfer`; `amount` is a human-readable decimal string.
+- `buildApproveXDR({ from, spender, amount, liveUntilLedger })`: Builds an unsigned XDR for `approve`. The amount is decimal and the ledger is a `u32`.
+- `buildTransferFromXDR({ spender, from, to, amount })`: Builds an unsigned XDR for `transfer_from`.
+- `loading` / `error`: Track in-flight calls and the latest error. Methods rethrow failures after updating `error`.
+
+Write methods only build unsigned XDR. A wallet adapter must prepare/authorize, sign, and submit it; the `from` account signs `transfer` and `approve`, while the `spender` signs `transfer_from`. Do not use secret-key signing in production.
+
+```tsx
+import { useSep41Token } from '@/hooks/useSep41Token';
+
+function TokenActions({
+  contractId,
+  ownerAddress,
+  recipientAddress,
+}: {
+  contractId: string;
+  ownerAddress: string;
+  recipientAddress: string;
+}) {
+  const { getBalance, buildTransferXDR, loading, error } = useSep41Token({
+    contractId,
+    network: 'TESTNET',
+  });
+
+  const readBalance = async () => {
+    const balance = await getBalance(ownerAddress);
+    console.log(balance.formatted, balance.raw, balance.decimals);
+  };
+
+  const prepareTransfer = async () => {
+    const unsignedXdr = await buildTransferXDR({
+      from: ownerAddress,
+      to: recipientAddress,
+      amount: '1.25',
+    });
+    // Pass unsignedXdr to the app's Soroban wallet flow.
+  };
+
+  return (
+    <div>
+      <button onClick={readBalance} disabled={loading}>Read balance</button>
+      <button onClick={prepareTransfer} disabled={loading}>Prepare transfer</button>
+      {error && <p>{error.message}</p>}
+    </div>
+  );
+}
+```
+
+`parseSep41Amount` and `formatSep41Amount` are also exported for exact `bigint` conversion outside the hook.
+
 ---
 
 ## SEP Hooks
