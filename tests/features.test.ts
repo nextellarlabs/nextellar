@@ -15,6 +15,10 @@ describe("feature registry", () => {
     expect(ids).toEqual(
       expect.arrayContaining(["wallet", "balances", "payments", "history"]),
     );
+    expect(getFeature("soroban-auth-entries")?.files).toEqual([
+      "hooks/useSorobanAuthEntries.ts",
+    ]);
+    expect(getFeature("soroban-auth-entries")?.dependsOn).toContain("wallet");
     expect(ids).toEqual(
       expect.arrayContaining([
         "components",

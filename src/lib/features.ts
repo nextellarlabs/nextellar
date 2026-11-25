@@ -79,6 +79,13 @@ const FEATURES: Record<string, FeatureDef> = {
     dependsOn: ["wallet"],
     npmDependencies: ["@stellar/stellar-sdk"],
   },
+  "soroban-auth-entries": {
+    id: "soroban-auth-entries",
+    description: "Soroban authorization entry signing: useSorobanAuthEntries",
+    files: ["hooks/useSorobanAuthEntries.ts"],
+    dependsOn: ["wallet"],
+    npmDependencies: ["@stellar/stellar-sdk"],
+  },
   "contract-event-history": {
     id: "contract-event-history",
     description:

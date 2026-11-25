@@ -309,6 +309,54 @@ function OrderBook({ selling, buying }) {
 
 ## Soroban Hooks
 
+### `useSorobanAuthEntries(opts)`
+
+Signs Soroban authorization entries for the connected wallet. It checks that
+each entry is addressed to the connected account, gets the latest ledger from
+Soroban RPC, and signs with an expiration of 100 ledgers after that sequence.
+Entries are signed sequentially so wallet confirmation prompts do not overlap.
+
+**Options:**
+- `sorobanRpc` (string, optional): Soroban RPC endpoint. Defaults to the wallet
+  provider's configured endpoint, or the testnet endpoint when used standalone.
+- `network` (`'TESTNET' | 'PUBLIC'`, optional): Network passphrase selection.
+  When omitted, the hook uses the wallet provider's active passphrase or
+  defaults to testnet.
+
+**Returns:**
+- `signAuthEntries(entries)`: Resolves with the signed
+  `xdr.SorobanAuthorizationEntry[]`. Throws and sets `error` if the wallet is
+  disconnected, an entry belongs to another account, or RPC/wallet signing
+  fails.
+- `loading` (boolean): True while ledger lookup or wallet signing is in flight.
+- `error` (`Error | null`): The most recent signing failure, cleared when a new
+  signing request starts.
+
+```tsx
+import { useSorobanAuthEntries } from '@/hooks/useSorobanAuthEntries';
+import { xdr } from '@stellar/stellar-sdk';
+
+function SignAuthorization({ entries }: {
+  entries: xdr.SorobanAuthorizationEntry[];
+}) {
+  const { signAuthEntries, loading, error } = useSorobanAuthEntries();
+
+  const sign = async () => {
+    const signedEntries = await signAuthEntries(entries);
+    // Pass signedEntries to the transaction or service that needs them.
+  };
+
+  return (
+    <>
+      <button onClick={sign} disabled={loading}>
+        {loading ? 'Signing…' : 'Sign authorization'}
+      </button>
+      {error && <p role="alert">{error.message}</p>}
+    </>
+  );
+}
+```
+
 ### `useSorobanEvents(contractId)`
 
 Listens for or fetches events emitted by a specific Soroban smart contract.
