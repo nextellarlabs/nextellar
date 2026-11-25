@@ -28,4 +28,13 @@ export const en = {
     title: 'Welcome to Nextellar',
     subtitle: 'A scaffold for building on Stellar.',
   },
+  transactionConfirm: {
+    title: 'Review transaction',
+    description: 'Review the decoded operations and fee before signing.',
+    operations: 'Operations',
+    operationNumber: 'Operation {number}',
+    fee: 'Transaction fee',
+    confirm: 'Confirm and sign',
+    cancel: 'Cancel',
+  },
 } as const;
