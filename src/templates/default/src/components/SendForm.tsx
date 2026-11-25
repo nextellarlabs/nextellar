@@ -147,10 +147,6 @@ export default function SendForm() {
         amount,
         asset: assetParam,
         memo: memoParam,
-        to,
-        amount,
-        asset: assetParam,
-        memo: memo || undefined,
         sponsor: sponsor || undefined,
       });
 

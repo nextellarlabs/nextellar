@@ -28,4 +28,42 @@ export const en = {
     title: 'Welcome to Nextellar',
     subtitle: 'A scaffold for building on Stellar.',
   },
+  pathPayment: {
+    title: 'Swap {source} to {destination}',
+    mode: {
+      legend: 'Mode',
+      strictSend: 'Strict send',
+      strictReceive: 'Strict receive',
+    },
+    amount: {
+      send: 'Amount to send ({asset})',
+      receive: 'Amount to receive ({asset})',
+      help: 'Up to 7 decimal places',
+    },
+    slippage: {
+      label: 'Slippage {percent}%',
+    },
+    actions: {
+      preview: 'Preview',
+      submit: 'Submit swap',
+    },
+    preview: {
+      rate: 'Rate',
+      rateValue: '1 {source} = {rate} {destination}',
+      route: 'Route',
+      hops: 'Hops',
+      worstCase: 'Worst case',
+      minReceive: 'At least {amount} {asset}',
+      maxSend: 'At most {amount} {asset}',
+    },
+    status: {
+      awaitingSignature: 'Awaiting signature',
+      submitted: 'Submitted',
+    },
+    errors: {
+      invalidAmount: 'Enter a valid amount',
+      noRoute: 'No route found',
+      generic: 'Something went wrong',
+    },
+  },
 } as const;
