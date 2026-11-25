@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { WalletProvider, ThemeProvider } from "@/contexts";
+import { WalletProvider, ThemeProvider, I18nProvider } from "@/contexts";
 import ErrorBoundary from "@/components/ErrorBoundary";
 
 const geistSans = Geist({
@@ -43,11 +43,13 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ErrorBoundary>
-          <ThemeProvider>
-            <WalletProvider>
-              {children}
-            </WalletProvider>
-          </ThemeProvider>
+          <I18nProvider>
+            <ThemeProvider>
+              <WalletProvider>
+                {children}
+              </WalletProvider>
+            </ThemeProvider>
+          </I18nProvider>
         </ErrorBoundary>
       </body>
     </html>
