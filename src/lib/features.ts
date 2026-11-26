@@ -44,6 +44,13 @@ const FEATURES: Record<string, FeatureDef> = {
     dependsOn: ["wallet"],
     npmDependencies: ["@stellar/stellar-sdk"],
   },
+  "account-details": {
+    id: "account-details",
+    description: "Account details: useStellarAccount hook",
+    files: ["hooks/useStellarAccount.ts"],
+    dependsOn: ["wallet"],
+    npmDependencies: ["@stellar/stellar-sdk"],
+  },
   payments: {
     id: "payments",
     description: "Send payments: useStellarPayment hook",

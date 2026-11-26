@@ -19,8 +19,8 @@ Nextellar is a one-step CLI toolkit that bootstraps a production-ready Next.js +
 - **Built-in Stellar support**
   - Horizon & Soroban endpoints configured
   - Wallet-adapter plugin system (Freighter, Albedo, Lobstr, XBull, and more)
-- **React Hooks** (8 shipped)
-  - `useStellarWallet()`, `useStellarBalances()`, `useStellarPayment()`, `useTransactionHistory()`, `useTrustlines()`, `useOfferBook()`, `useSorobanContract()`, `useSorobanEvents()`
+- **React Hooks** (9 shipped)
+  - `useStellarWallet()`, `useStellarBalances()`, `useStellarAccount()`, `useStellarPayment()`, `useTransactionHistory()`, `useTrustlines()`, `useOfferBook()`, `useSorobanContract()`, `useSorobanEvents()`
 - **UI Components** (2 shipped)
   - `<WalletConnectButton>`, `<NetworkSwitcher>`
   - Additional components (`BalanceDisplay`, `SendForm`, `TransactionList`, and more) are installable via `nextellar add <feature>` — see the [Roadmap](#roadmap) for planned components not yet available
