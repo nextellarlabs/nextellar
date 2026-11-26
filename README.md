@@ -243,6 +243,9 @@ Horizon rate limiter configuration and tuning:
 Cookbook: deploying and upgrading a Soroban contract end-to-end:  
 🔗 [docs/cookbook/contract-deploy-and-upgrade.md](docs/cookbook/contract-deploy-and-upgrade.md)
 
+Cookbook index & path payments (`usePathPayment` strict-send/receive + slippage):  
+🔗 [docs/cookbook/README.md](docs/cookbook/README.md) · [docs/cookbook/usePathPayment.md](docs/cookbook/usePathPayment.md)
+
 ---
 
 ## 🚀 Backend & Stellar Wave Routes
