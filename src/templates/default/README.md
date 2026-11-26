@@ -13,6 +13,7 @@ This template includes pre-built Stellar blockchain integration:
 - **🎨 UI Components**: Ready-to-use `WalletConnectButton`, `NetworkSwitcher`, and `TransactionList` components
 - **🌐 Network Switching**: Built-in testnet/mainnet network switching via `NetworkSwitcher`
 - **📡 Payment Operations**: `useStellarPayment` for sending payments
+- **🛡️ Sponsored Reserves**: `useSponsoredReserves` for sponsoring base reserves with dual-signature flow
 - **📊 Transaction History**: `TransactionList` component powered by `useTransactionHistory` for fetching account transactions
 - **🤝 Trustlines**: `useTrustlines` for managing asset trustlines
 - **📈 Offer Book**: `useOfferBook` for querying DEX order books

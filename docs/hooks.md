@@ -622,6 +622,62 @@ Operations with a different `source` also need that account's threshold.
 
 ---
 
+### `useSponsoredReserves(options?)`
+
+Custom hook for sponsoring base reserves for other accounts via Stellar's `beginSponsoringFutureReserves` and `endSponsoringFutureReserves` operations. Automatically wraps arbitrary inner operations (such as creating trustlines, creating accounts, or setting options) and handles the dual-signature flow required between the sponsor and the sponsored account.
+
+**Signature:**
+```typescript
+function useSponsoredReserves(options?: UseSponsoredReservesOptions): SponsoredReservesState
+```
+
+**Parameters:**
+- `options.horizonUrl` (string, optional): Horizon server URL. Defaults to testnet or provider config.
+- `options.network` ('TESTNET' | 'PUBLIC', optional): Network preset. Defaults to `'TESTNET'`.
+- `options.networkPassphrase` (string, optional): Explicit network passphrase.
+
+**Returns:**
+- `loading` (boolean): True while building or submitting.
+- `error` (Error | null): The last error encountered, if any.
+- `buildSponsoredTransaction(params)`: Builds the transaction with inner operations wrapped in begin/end sponsorship and returns the unsigned transaction XDR.
+- `signAsSponsor(unsignedXdr, secretOrKeypair)`: Signs the transaction with the sponsor's key.
+- `signAsSponsored(unsignedXdr, secretOrKeypair)`: Signs the transaction with the sponsored account's key, fulfilling the dual-signature requirement.
+- `submitSponsoredTransaction(signedXdr)`: Submits the dual-signed transaction to Horizon.
+- `submitWithSecrets(params, sponsorSecret, sponsoredSecret)`: Dev-only helper to build, dual-sign, and submit in one call.
+- `clearError()`: Clears active error state.
+
+**Example:**
+```tsx
+import { Operation, Asset } from '@stellar/stellar-sdk';
+import { useSponsoredReserves } from '@/hooks/useSponsoredReserves';
+
+function SponsorTrustline() {
+  const { buildSponsoredTransaction, signAsSponsor, submitSponsoredTransaction, loading, error } = useSponsoredReserves();
+
+  const handleSponsor = async () => {
+    // 1. Build transaction wrapping inner changeTrust operation
+    const unsignedXdr = await buildSponsoredTransaction({
+      sponsor: 'GSPONSOR...',
+      sponsored: 'GSPONSORED...',
+      operations: [
+        Operation.changeTrust({
+          asset: new Asset('USDC', 'GISSUER...'),
+          source: 'GSPONSORED...',
+        }),
+      ],
+    });
+
+    // 2. Dual-signature flow: sponsor signs first
+    const sponsorSignedXdr = signAsSponsor(unsignedXdr, sponsorKeypair);
+
+    // 3. Sponsored account co-signs, then submit
+    // (e.g. via wallet kit or signAsSponsored)
+  };
+}
+```
+
+---
+
 ## Utility Hooks
 
 ### `useClipboard(options)`
