@@ -22,11 +22,13 @@ Story files (`*.stories.*`) are not components and are omitted.
 | `ContractCallPreview` |  | yes |  | yes |  | yes |  | yes |  |
 | `CopyButton` |  | yes | yes | yes | yes | yes | yes | yes | yes |
 | `CounterDemo` |  |  | yes | yes | yes | yes |  |  |  |
+| `DisconnectConfirmDialog` |  | yes |  | yes |  |  |  |  |  |
 | `EmptyState` |  | yes | yes | yes | yes | yes | yes | yes | yes |
 | `ErrorBoundary` |  | yes | yes | yes | yes | yes | yes | yes | yes |
 | `LoadingBoundary` |  | yes |  | yes |  | yes |  | yes | yes |
 | `NetworkMismatchBanner` |  | yes |  | yes |  | yes |  | yes | yes |
 | `NetworkSwitcher` |  | yes | yes | yes | yes | yes |  | yes | yes |
+| `OrderBookTable` |  | yes |  | yes |  |  |  |  |  |
 | `ReceiveForm` |  | yes | yes | yes | yes | yes |  | yes | yes |
 | `SendForm` |  | yes | yes | yes | yes | yes |  | yes | yes |
 | `Sep24InteractiveFrame` |  | yes | yes | yes |  | yes |  | yes |  |
@@ -37,6 +39,7 @@ Story files (`*.stories.*`) are not components and are omitted.
 | `TransactionList` |  | yes | yes | yes | yes | yes |  | yes | yes |
 | `TransactionStatusBadge` |  | yes | yes | yes | yes | yes |  | yes | yes |
 | `WalletConnectButton` |  | yes | yes | yes | yes | yes | yes | yes | yes |
+| `WalletSelectModal` |  | yes |  | yes |  |  |  |  |  |
 
 ## Hooks
 

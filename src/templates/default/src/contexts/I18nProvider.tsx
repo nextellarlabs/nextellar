@@ -144,4 +144,12 @@ export function useTranslation(): I18nContextState {
   return context;
 }
 
+const englishText: I18nContextState['t'] = (path, params) =>
+  interpolate(resolvePath(en, path), params);
+
+/** Translate component text with English as the fallback for standalone templates. */
+export function useMessageText(): I18nContextState['t'] {
+  return useContext(I18nContext)?.t ?? englishText;
+}
+
 export { I18nContext };

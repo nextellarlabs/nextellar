@@ -1,5 +1,7 @@
 'use client';
 
+import { useMessageText } from '../contexts/I18nProvider';
+
 import { useState } from 'react';
 import { StrKey } from '@stellar/stellar-sdk';
 import { useWallet, isUnsignedFeeBumpResult } from '../contexts';
@@ -51,6 +53,7 @@ function shortKey(key: string): string {
  * sponsor to sign and submit themselves (e.g. paste into their own wallet).
  */
 export default function SendForm() {
+  const t = useMessageText();
   const { connected, publicKey, sendPayment } = useWallet();
   const { balances } = useStellarBalances(publicKey || undefined);
   const [to, setTo] = useState('');
@@ -209,7 +212,7 @@ export default function SendForm() {
           type="text"
           value={to}
           onChange={(e) => setTo(e.target.value)}
-          placeholder="GABC...1234 or name*domain.com"
+          placeholder={t('send.destinationPlaceholder')}
           disabled={!connected || state === 'submitting'}
           aria-invalid={!!addressError}
           aria-describedby="send-form-to-error send-form-to-federation"
@@ -224,7 +227,7 @@ export default function SendForm() {
           {isFederation && federation.status === 'resolving' ? 'Resolving federation address…' : ''}
           {isFederation && federation.status === 'resolved' && federation.record ? (
             <span title={federation.record.accountId} className="font-mono">
-              Resolves to {shortKey(federation.record.accountId)}
+              {t('send.resolvesTo', { address: shortKey(federation.record.accountId) })}
             </span>
           ) : null}
         </p>
@@ -290,7 +293,7 @@ export default function SendForm() {
 
       <div>
         <label htmlFor="send-form-memo-type" className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
-          Memo type
+          {t('send.memoType')}
         </label>
         <select
           id="send-form-memo-type"

@@ -12,6 +12,7 @@ export const en = {
     confirm: 'Confirm',
     copy: 'Copy',
     copied: 'Copied',
+    dismiss: 'Dismiss',
   },
   nav: {
     home: 'Home',
@@ -23,6 +24,27 @@ export const en = {
     connected: 'Connected as {address}',
     network: 'Network: {network}',
     balance: 'Balance: {amount} {asset}',
+    balanceLimit: 'Limit: {amount}',
+  },
+  receive: {
+    downloadQr: 'Download QR code as SVG',
+  },
+  send: {
+    destinationPlaceholder: 'GABC...1234 or name*domain.com',
+    resolvesTo: 'Resolves to {address}',
+    memoType: 'Memo type',
+  },
+  orderBook: {
+    title: 'Order book',
+    bids: 'Bids',
+    asks: 'Asks',
+    price: 'Price',
+    amount: 'Amount',
+    depth: 'Cumulative depth',
+    spread: 'Spread: {value}',
+    unavailableSpread: 'Spread unavailable',
+    empty: 'No offers',
+    error: 'Could not load the order book',
   },
   home: {
     title: 'Welcome to Nextellar',
