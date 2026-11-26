@@ -622,6 +622,91 @@ Operations with a different `source` also need that account's threshold.
 
 ---
 
+## Asset Issuer Hooks
+
+### `useAssetIssuerTools(issuerPublicKey, options)`
+
+Provides transaction builders and submission helpers for Stellar asset issuer operations: updating account authorization flags (`setOptions`), clawing back issued asset balances (`clawback`), and updating holder trustline flags (`setTrustLineFlags`).
+
+Uses the same `loading`, `error`, and network-passphrase conventions as `useTrustlines` and `useStellarPayment`. Refuses irreversible flag changes (such as `AUTH_IMMUTABLE`) unless `confirmIrreversible: true` is explicitly passed.
+
+**Signature:**
+```typescript
+function useAssetIssuerTools(
+  issuerPublicKey?: string | null,
+  options?: { horizonUrl?: string; network?: 'TESTNET' | 'PUBLIC' }
+): AssetIssuerToolsState
+```
+
+**Parameters:**
+- `issuerPublicKey` (string | null, optional): Public key of the asset issuer account.
+- `options.horizonUrl` (string, optional): Horizon server URL. Falls back to `WalletProvider` config, then `'https://horizon-testnet.stellar.org'`.
+- `options.network` (`'TESTNET' | 'PUBLIC'`, optional): Network used for the transaction passphrase. Defaults to `'TESTNET'`.
+
+**Returns:**
+An object containing:
+- `loading` (boolean): True while building or submitting a transaction.
+- `error` (Error | null): Last error encountered during validation, building, or submission.
+- `clearError` (`() => void`): Clears the current `error` state.
+- `buildSetFlagsXDR` (`(params: SetFlagsParams) => Promise<string>`): Builds an unsigned `setOptions` XDR to set/clear `AUTH_REQUIRED`, `AUTH_REVOCABLE`, `AUTH_IMMUTABLE`, or `AUTH_CLAWBACK_ENABLED`. Throws if `AUTH_IMMUTABLE` is requested without `confirmIrreversible: true`.
+- `buildClawbackXDR` (`(params: ClawbackParams) => Promise<string>`): Builds an unsigned `clawback` XDR to reclaim an issued asset balance from a holder account.
+- `buildSetTrustLineFlagsXDR` (`(params: SetTrustLineFlagsParams) => Promise<string>`): Builds an unsigned `setTrustLineFlags` XDR to set or clear `authorized`, `authorizedToMaintainLiabilities`, or `clawbackEnabled` on a trustor's trustline.
+- `submitSignedXDR` (`(signedXdrBase64: string) => Promise<IssuerOperationResult>`): Submits a wallet-signed XDR to Horizon and decodes Stellar result codes on failure.
+- `submitWithSecret` (`(xdr: string, secret: string) => Promise<IssuerOperationResult>`): Development-only helper to sign and submit an unsigned XDR with a local secret key.
+
+**Example:**
+```tsx
+import { useAssetIssuerTools } from '@/hooks/useAssetIssuerTools';
+
+function IssuerControls({ issuerPublicKey, holderPublicKey }: { issuerPublicKey: string; holderPublicKey: string }) {
+  const {
+    loading,
+    error,
+    buildSetFlagsXDR,
+    buildSetTrustLineFlagsXDR,
+    buildClawbackXDR,
+    submitSignedXDR,
+  } = useAssetIssuerTools(issuerPublicKey, { network: 'TESTNET' });
+
+  const enableClawback = async () => {
+    const xdr = await buildSetFlagsXDR({
+      setFlags: ['AUTH_REVOCABLE', 'AUTH_CLAWBACK_ENABLED'],
+    });
+    // Sign `xdr` with the issuer's wallet, then submit:
+    // await submitSignedXDR(signedXdr);
+  };
+
+  const authorizeHolder = async () => {
+    const xdr = await buildSetTrustLineFlagsXDR({
+      trustor: holderPublicKey,
+      assetCode: 'USDC',
+      flags: { authorized: true },
+    });
+    return xdr;
+  };
+
+  const clawbackTokens = async () => {
+    const xdr = await buildClawbackXDR({
+      assetCode: 'USDC',
+      from: holderPublicKey,
+      amount: '10',
+    });
+    return xdr;
+  };
+
+  return (
+    <div>
+      {error && <p role="alert">{error.message}</p>}
+      <button disabled={loading} onClick={enableClawback}>Enable Clawback</button>
+      <button disabled={loading} onClick={authorizeHolder}>Authorize Holder</button>
+      <button disabled={loading} onClick={clawbackTokens}>Clawback 10 USDC</button>
+    </div>
+  );
+}
+```
+
+---
+
 ## Utility Hooks
 
 ### `useClipboard(options)`
