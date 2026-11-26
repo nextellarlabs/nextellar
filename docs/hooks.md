@@ -622,6 +622,68 @@ Operations with a different `source` also need that account's threshold.
 
 ---
 
+### `useAccountOperations(publicKey?, options?)`
+
+Fetches, paginates with cursors, and filters operations for a Stellar account. Decodes raw Horizon records into strongly-typed objects with extracted amounts, assets, and counterparties.
+
+**Signature:**
+```typescript
+function useAccountOperations(
+  publicKey?: string | null,
+  options?: UseAccountOperationsOptions
+): AccountOperationsState
+```
+
+**Parameters:**
+- `publicKey` (string, optional): Account address to fetch operations for (`G...` public key or `M...` muxed account).
+- `options.horizonUrl` (string, optional): Horizon server URL.
+- `options.pageSize` (number, optional): Records per page. Defaults to `10`.
+- `options.order` ('asc' | 'desc', optional): Sort order. Defaults to `'desc'`.
+- `options.typeFilter` (string | string[], optional): Filter records by operation type(s) (e.g., `'payment'`, `['payment', 'change_trust']`).
+
+**Returns:**
+- `operations` (DecodedOperation[]): Parsed records with strongly-typed `amount`, `asset`, `counterparty`, and `type`.
+- `loading` (boolean): True while query is in flight.
+- `error` (Error | null): Network or client error, if any.
+- `hasMore` (boolean): True if subsequent pages are available.
+- `nextCursor` (string | null): Paging token for the next page.
+- `prevCursor` (string | null): Paging token for the previous page.
+- `fetchNextPage()`: Loads the next page using cursor navigation.
+- `fetchPreviousPage()`: Returns to the previous page.
+- `refresh()`: Reloads the latest page.
+- `setFilter(typeFilter)`: Updates operation type filter dynamically.
+
+**Example:**
+```tsx
+import { useAccountOperations } from '@/hooks/useAccountOperations';
+
+function OperationsList({ accountId }: { accountId: string }) {
+  const { operations, loading, error, hasMore, fetchNextPage, setFilter } = useAccountOperations(accountId, {
+    pageSize: 15,
+    typeFilter: 'payment',
+  });
+
+  if (loading && operations.length === 0) return <p>Loading operations...</p>;
+  if (error) return <p role="alert">{error.message}</p>;
+
+  return (
+    <div>
+      <button onClick={() => setFilter(['payment', 'create_account'])}>Show Payments & Account Creation</button>
+      <ul>
+        {operations.map((op) => (
+          <li key={op.id}>
+            {op.type}: {op.amount ?? 'N/A'} {op.asset?.code ?? ''} (Tx: {op.transaction_hash.slice(0, 8)}...)
+          </li>
+        ))}
+      </ul>
+      {hasMore && <button onClick={fetchNextPage}>Load More</button>}
+    </div>
+  );
+}
+```
+
+---
+
 ## Utility Hooks
 
 ### `useClipboard(options)`
