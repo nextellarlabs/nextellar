@@ -120,4 +120,58 @@ describe('SendForm Component (#879)', () => {
     expect(screen.getByText(/does not support sending payments/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /send/i })).toBeDisabled();
   });
+
+  describe('Muxed Account Support (#1457)', () => {
+    const VALID_MUXED = 'MDQG65JVIKL4TDRNDXVUD5GJHNDY22VAQNC5ZZ5EUJ2EFHGUCRDRAAAAAAAAAABQHFUZQ';
+    const BAD_CHECKSUM_MUXED = 'MDQG65JVIKL4TDRNDXVUD5GJHNDY22VAQNC5ZZ5EUJ2EFHGUCRDRAAAAAAAAAABQHFUZX';
+    const MALFORMED_MUXED = 'M12345';
+
+    it('accepts, validates, and decodes a valid M... muxed address into base account + id', async () => {
+      mockSendPayment.mockResolvedValue({});
+      renderWithWallet(<SendForm />);
+
+      fireEvent.change(screen.getByLabelText('To'), { target: { value: VALID_MUXED } });
+      fireEvent.change(screen.getByLabelText('Amount (XLM)'), { target: { value: '15' } });
+
+      const decodedBadge = await screen.findByTestId('send-form-muxed-decoded');
+      expect(decodedBadge).toBeInTheDocument();
+      expect(decodedBadge.textContent).toContain('Muxed: Base');
+      expect(decodedBadge.textContent).toContain('ID 12345');
+
+      expect(screen.getByRole('button', { name: /send/i })).not.toBeDisabled();
+
+      fireEvent.click(screen.getByRole('button', { name: /send/i }));
+
+      await waitFor(() => {
+        expect(mockSendPayment).toHaveBeenCalledWith(
+          expect.objectContaining({
+            to: VALID_MUXED,
+            amount: '15',
+          })
+        );
+      });
+    });
+
+    it('rejects malformed M... muxed address and keeps submit disabled', () => {
+      renderWithWallet(<SendForm />);
+
+      fireEvent.change(screen.getByLabelText('To'), { target: { value: MALFORMED_MUXED } });
+      fireEvent.change(screen.getByLabelText('Amount (XLM)'), { target: { value: '10' } });
+
+      expect(screen.getByText(/valid stellar public key/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /send/i })).toBeDisabled();
+      expect(screen.queryByTestId('send-form-muxed-decoded')).not.toBeInTheDocument();
+    });
+
+    it('rejects checksum-invalid M... muxed address and keeps submit disabled', () => {
+      renderWithWallet(<SendForm />);
+
+      fireEvent.change(screen.getByLabelText('To'), { target: { value: BAD_CHECKSUM_MUXED } });
+      fireEvent.change(screen.getByLabelText('Amount (XLM)'), { target: { value: '10' } });
+
+      expect(screen.getByText(/valid stellar public key/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /send/i })).toBeDisabled();
+      expect(screen.queryByTestId('send-form-muxed-decoded')).not.toBeInTheDocument();
+    });
+  });
 });

@@ -10,7 +10,9 @@ import {
   Asset,
   Memo,
   BASE_FEE,
-  Transaction
+  Transaction,
+  StrKey,
+  MuxedAccount
 } from '@stellar/stellar-sdk';
 import { useWalletConfig } from '../contexts';
 import { decodeResultCodes } from '../lib/stellarResultCodes';
@@ -141,10 +143,21 @@ export function useStellarPayment(
   }, [network]);
 
   /**
-   * Validate Stellar address format
+   * Validate Stellar address format (supports G... ed25519 public keys and M... SEP-23 muxed accounts)
    */
   const isValidAddress = useCallback((address: string): boolean => {
-    return address.length === 56 && address.startsWith('G');
+    if (!address || typeof address !== 'string') return false;
+    if (address.length === 56 && address.startsWith('G')) {
+      return typeof StrKey?.isValidEd25519PublicKey === 'function'
+        ? StrKey.isValidEd25519PublicKey(address)
+        : true;
+    }
+    if (address.length === 69 && address.startsWith('M')) {
+      return typeof StrKey?.isValidMed25519PublicKey === 'function'
+        ? StrKey.isValidMed25519PublicKey(address)
+        : false;
+    }
+    return false;
   }, []);
 
   /**
@@ -183,7 +196,18 @@ export function useStellarPayment(
     if (!isValidAmount(params.amount)) {
       throw new Error('Invalid amount: must be positive number within Stellar limits');
     }
-    if (params.from === params.to) {
+    const recipientBase =
+      params.to.startsWith('M') && typeof MuxedAccount?.fromAddress === 'function'
+        ? (() => {
+            try {
+              return MuxedAccount.fromAddress(params.to, '0').baseAccount().accountId();
+            } catch {
+              return params.to;
+            }
+          })()
+        : params.to;
+
+    if (params.from === params.to || params.from === recipientBase) {
       throw new Error('Sender and recipient cannot be the same address');
     }
     if (params.asset && params.asset !== 'XLM') {

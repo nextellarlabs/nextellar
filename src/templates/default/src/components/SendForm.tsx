@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { StrKey } from '@stellar/stellar-sdk';
 import { useWallet, isUnsignedFeeBumpResult } from '../contexts';
 import { useStellarBalances } from '../hooks/useStellarBalances';
 import { useFederationLookup } from '../hooks/useFederationLookup';
 import { MEMO_TYPES, validateMemo, type MemoType, type PaymentMemo } from '../lib/memo';
+import { isValidDestinationAddress, isMuxedAddress, decodeDestinationAddress } from '../lib/muxedAccount';
 import TransactionStatusBadge from './TransactionStatusBadge';
 
 type FormState = 'idle' | 'submitting' | 'success' | 'error' | 'awaiting_sponsor';
@@ -65,6 +66,16 @@ export default function SendForm() {
 
   const federation = useFederationLookup(to);
   const isFederation = to.includes('*');
+  const isMuxed = isMuxedAddress(to);
+  const decodedMuxed = useMemo(() => {
+    if (!isMuxed) return null;
+    try {
+      return decodeDestinationAddress(to);
+    } catch {
+      return null;
+    }
+  }, [to, isMuxed]);
+
   const destination = isFederation
     ? federation.status === 'resolved'
       ? federation.record?.accountId ?? null
@@ -75,8 +86,8 @@ export default function SendForm() {
     ? federation.status === 'error'
       ? federation.error
       : null
-    : to.length > 0 && !StrKey.isValidEd25519PublicKey(to)
-      ? 'Enter a valid Stellar public key (starts with G) or a federation address (name*domain.com).'
+    : to.length > 0 && !isValidDestinationAddress(to)
+      ? 'Enter a valid Stellar public key (starts with G), muxed account (starts with M), or federation address (name*domain.com).'
       : null;
 
   // A memo required by the federation server overrides (and locks) the field.
@@ -147,10 +158,6 @@ export default function SendForm() {
         amount,
         asset: assetParam,
         memo: memoParam,
-        to,
-        amount,
-        asset: assetParam,
-        memo: memo || undefined,
         sponsor: sponsor || undefined,
       });
 
@@ -225,6 +232,15 @@ export default function SendForm() {
           {isFederation && federation.status === 'resolved' && federation.record ? (
             <span title={federation.record.accountId} className="font-mono">
               Resolves to {shortKey(federation.record.accountId)}
+            </span>
+          ) : null}
+          {isMuxed && decodedMuxed ? (
+            <span
+              title={`Base: ${decodedMuxed.baseAddress}, ID: ${decodedMuxed.muxedId}`}
+              data-testid="send-form-muxed-decoded"
+              className="font-mono text-xs text-blue-600 dark:text-blue-400"
+            >
+              Muxed: Base {shortKey(decodedMuxed.baseAddress)} • ID {decodedMuxed.muxedId}
             </span>
           ) : null}
         </p>
