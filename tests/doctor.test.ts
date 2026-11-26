@@ -207,6 +207,7 @@ describe("doctor", () => {
           "rustc",
           "soroban",
           "stellar-cli",
+          "stellar-toml",
           "wallet-adapter-sdks",
           "wasm32",
           "yarn",

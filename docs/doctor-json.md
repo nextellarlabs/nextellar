@@ -48,6 +48,15 @@ before any network checks run.
 | `fix` | `string` | optional | Short remediation hint. |
 | `link` | `string` | optional | URL to installation docs or further reading. |
 
+## Project checks
+
+Most checks probe the toolchain or the network. The `stellar-toml` check
+reads the project in the current directory instead: when
+`public/.well-known/stellar.toml` exists it fails (optional — never a
+required failure) while any `REPLACE_WITH_...` placeholder from the
+scaffolded template is still unfilled, and passes as not-applicable when
+the file is absent. See [stellar.toml](./stellar-toml.md).
+
 ## Example output
 
 ```json
