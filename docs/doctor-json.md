@@ -48,6 +48,16 @@ before any network checks run.
 | `fix` | `string` | optional | Short remediation hint. |
 | `link` | `string` | optional | URL to installation docs or further reading. |
 
+## `soroban-compat` check
+
+When a `contracts/` directory exists, the `soroban-compat` check compares the
+installed `stellar` CLI version with the project's `soroban-sdk` version
+(resolved from `contracts/Cargo.lock`, falling back to `Cargo.toml`) and fails
+if their major versions differ. The failing entry carries the remediation in
+`fix`. It is optional (`required: false`) and reports `ok: true` with an
+explanatory `detail` when there is nothing to compare (no `contracts/`
+directory, no `soroban-sdk` dependency, CLI missing, or an unparseable version).
+
 ## Example output
 
 ```json
