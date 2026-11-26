@@ -36,6 +36,12 @@ const mockMemoText = jest.fn();
 const TESTNET = "Test SDF Network ; September 2015";
 const PUBLIC = "Public Global Stellar Network ; September 2015";
 
+const VALID_MUXED =
+  "MDQG65JVIKL4TDRNDXVUD5GJHNDY22VAQNC5ZZ5EUJ2EFHGUCRDRAAAAAAAAAABQHFUZQ";
+const BAD_CHECKSUM_MUXED =
+  "MDQG65JVIKL4TDRNDXVUD5GJHNDY22VAQNC5ZZ5EUJ2EFHGUCRDRAAAAAAAAAABQHFUZX";
+const MALFORMED_MUXED = "M12345";
+
 await jest.unstable_mockModule("@stellar/stellar-sdk", () => ({
   Horizon: { Server: MockServer },
   Keypair: { fromSecret: mockFromSecret },
@@ -46,6 +52,30 @@ await jest.unstable_mockModule("@stellar/stellar-sdk", () => ({
   Memo: { text: mockMemoText },
   BASE_FEE: "100",
   Transaction: MockTransaction,
+  StrKey: {
+    isValidEd25519PublicKey: (k: string) =>
+      typeof k === "string" && k.startsWith("G") && k.length === 56,
+    isValidMed25519PublicKey: (k: string) =>
+      typeof k === "string" &&
+      k.startsWith("M") &&
+      k.length === 69 &&
+      k !== BAD_CHECKSUM_MUXED,
+  },
+  MuxedAccount: {
+    fromAddress: (addr: string) => {
+      if (addr === BAD_CHECKSUM_MUXED || addr === MALFORMED_MUXED) {
+        throw new Error("invalid encoded string");
+      }
+      return {
+        baseAccount: () => ({
+          accountId: () =>
+            "GDQG65JVIKL4TDRNDXVUD5GJHNDY22VAQNC5ZZ5EUJ2EFHGUCRDRAESJ",
+        }),
+        id: () => "12345",
+        accountId: () => addr,
+      };
+    },
+  },
 }));
 
 const { useStellarPayment } =
@@ -231,6 +261,26 @@ describe("useStellarPayment (default template)", () => {
       });
     });
 
+    it("builds a payment transaction with a valid SEP-23 M... muxed destination", async () => {
+      const { result } = renderHook(() => useStellarPayment());
+
+      await result.current.buildPaymentXDR({
+        from: FROM,
+        to: VALID_MUXED,
+        amount: "15",
+      });
+
+      expect(mockPayment).toHaveBeenCalledWith({
+        destination: VALID_MUXED,
+        asset: { code: "XLM" },
+        amount: "15",
+      });
+      expect(MockTransactionBuilder).toHaveBeenCalledWith(SOURCE_ACCOUNT, {
+        fee: "100",
+        networkPassphrase: TESTNET,
+      });
+    });
+
     it("uses a caller-supplied Horizon URL", () => {
       renderHook(() =>
         useStellarPayment({ horizonUrl: "https://horizon.example.org" }),
@@ -242,6 +292,8 @@ describe("useStellarPayment (default template)", () => {
     it.each([
       [{ from: "not-a-key" }, "Invalid sender address format"],
       [{ to: "GSHORT" }, "Invalid recipient address format"],
+      [{ to: MALFORMED_MUXED }, "Invalid recipient address format"],
+      [{ to: BAD_CHECKSUM_MUXED }, "Invalid recipient address format"],
       [{ amount: "0" }, "Invalid amount"],
       [{ amount: "abc" }, "Invalid amount"],
       [{ to: FROM }, "Sender and recipient cannot be the same address"],

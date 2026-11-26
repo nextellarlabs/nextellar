@@ -27,8 +27,10 @@ export default function SendForm() {
   const [error, setError] = useState<string | null>(null);
 
   const addressError =
-    to.length > 0 && !StrKey.isValidEd25519PublicKey(to)
-      ? 'Enter a valid Stellar public key (starts with G).'
+    to.length > 0 &&
+    !StrKey.isValidEd25519PublicKey(to) &&
+    !(to.startsWith('M') && StrKey.isValidMed25519PublicKey(to))
+      ? 'Enter a valid Stellar public key (starts with G) or muxed account (starts with M).'
       : null;
   const amountError =
     amount.length > 0 && (!Number.isFinite(Number(amount)) || Number(amount) <= 0)
