@@ -93,16 +93,17 @@ Options:
 
 ### Subcommands
 
-| Command                                         | Description                                                                                                                                                                                              |
-| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `nextellar add [feature]`                       | Add a Stellar feature to an existing project (`--list` to see all, `--force` to overwrite, `--skip-install`, `--package-manager`)                                                                        |
-| `nextellar templates [name]`                    | Preview each template's file tree and description without scaffolding (name to preview just one, `--json` for machine-readable output)                                                                   |
-| `nextellar doctor`                              | Run environment diagnostics (`--json` for CI, `--fix` to auto-remediate safe issues)                                                                                                                     |
-| `nextellar status`                              | Show a scaffolded project's health score: outdated deps, missing env vars, telemetry status, git init (`--json` for CI)                                                                                  |
-| `nextellar upgrade`                             | Upgrade an existing project to the latest template (`--dry-run` to preview, `--check` for a changelog preview, `--diff` for a full file-by-file diff without applying anything, `--yes` to skip prompts) |
-| `nextellar deploy`                              | Validate and prepare a deployment bundle for Nextellar Cloud (`--dry-run` to preview)                                                                                                                    |
-| `nextellar clean`                               | Remove `.nextellar/` build artifacts                                                                                                                                                                     |
-| `nextellar telemetry <status\|enable\|disable>` | Manage anonymous telemetry settings                                                                                                                                                                      |
+| Command | Description |
+| --- | --- |
+| `nextellar add [feature]` | Add a Stellar feature to an existing project (`--list` to see all, `--force` to overwrite, `--skip-install`, `--package-manager`) |
+| `nextellar templates [name]` | Preview each template's file tree and description without scaffolding (name to preview just one, `--json` for machine-readable output) |
+| `nextellar doctor` | Run environment diagnostics (`--json` for CI, `--fix` to auto-remediate safe issues) |
+| `nextellar status` | Show a scaffolded project's health score: outdated deps, missing env vars, telemetry status, git init (`--json` for CI) |
+| `nextellar upgrade` | Upgrade an existing project to the latest template (`--dry-run` to preview, `--check` for a changelog preview, `--diff` for a full file-by-file diff without applying anything, `--yes` to skip prompts) |
+| `nextellar deploy` | Validate and prepare a deployment bundle for Nextellar Cloud (`--dry-run` to preview) |
+| `nextellar clean` | Remove `.nextellar/` build artifacts |
+| `nextellar config get\|set\|list` | Read or edit `.nextellar/config.json` by dotted key; `--json` for scripting |
+| `nextellar telemetry <status\|enable\|disable>` | Manage anonymous telemetry settings |
 
 ---
 
@@ -111,11 +112,11 @@ Options:
 `--template <name>` selects which starter to scaffold. It defaults to
 `default` when omitted. Every template supports both TypeScript and JavaScript.
 
-| Template  | Description                                                                                                    | TypeScript | JavaScript |
-| --------- | -------------------------------------------------------------------------------------------------------------- | :--------: | :--------: |
-| `default` | Full starter: wallet provider, network switcher, balances, transaction history                                 |     ✅     |     ✅     |
-| `minimal` | Bare starter: wallet connection only, no extra UI                                                              |     ✅     |     ✅     |
-| `defi`    | DeFi starter: swap, liquidity pool and price-feed components                                                   |     ✅     |     ✅     |
+| Template  | Description                                                                    | TypeScript | JavaScript |
+| --------- | ------------------------------------------------------------------------------ | :--------: | :--------: |
+| `default` | Full starter: wallet provider, network switcher, balances, transaction history  |     ✅     |     ✅     |
+| `minimal` | Bare starter: wallet connection only, no extra UI                               |     ✅     |     ✅     |
+| `defi`    | DeFi starter: swap, liquidity pool and price-feed components                    |     ✅     |     ✅     |
 | `full`    | Everything: the `default` component set plus defi's Soroban `CounterDemo`, with `--with-contracts` pre-enabled |     ✅     |     ✅     |
 
 ```bash
@@ -254,7 +255,6 @@ The Nextellar backend API and Stellar Wave contributor routes have been moved to
 🔗 **[nextellarlabs/nextellar-backend](https://github.com/nextellarlabs/nextellar-backend)**
 
 This repo contains:
-
 - Express API server with authentication, payments, orders, and middleware
 - ~150 route files from the Stellar Wave contributor program
 - Full test suites and documentation

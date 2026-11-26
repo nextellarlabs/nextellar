@@ -10,6 +10,7 @@ import { scaffold } from "../src/lib/scaffold.js";
 import { upgrade } from "../src/lib/upgrade.js";
 import { runDeploy, type BundleProgress } from "../src/lib/deploy.js";
 import { runClean } from "../src/lib/clean.js";
+import { runConfig, type ConfigAction } from "../src/lib/config-cmd.js";
 import {
   displaySuccess,
   NEXTELLAR_LOGO,
@@ -412,6 +413,49 @@ program
       await flushTelemetry();
     }
   });
+
+program
+  .command("config <action> [key] [value]")
+  .description(
+    "Read or edit .nextellar/config.json (get <key>, set <key> <value>, list)",
+  )
+  .option("--json", "print machine-readable JSON", false)
+  .action(
+    async (
+      action: string,
+      key: string | undefined,
+      value: string | undefined,
+      opts: { json?: boolean },
+    ) => {
+      try {
+        if (!["get", "set", "list"].includes(action)) {
+          throw new Error(
+            `Unknown config action "${action}". Use get, set or list.`,
+          );
+        }
+        if (action !== "list" && !key) {
+          throw new Error(`A key is required: nextellar config ${action} <key>`);
+        }
+        await runConfig({
+          cwd: process.cwd(),
+          action: action as ConfigAction,
+          key,
+          value,
+          json: opts.json,
+        });
+      } catch (err: any) {
+        if (opts.json) {
+          console.log(JSON.stringify({ error: err?.message || String(err) }));
+        } else {
+          console.error(`\n❌ Error: ${err?.message || err}`);
+        }
+        logVerboseError(err);
+        await exitWithTelemetry(1);
+      } finally {
+        await flushTelemetry();
+      }
+    },
+  );
 
 program
   .name("nextellar")

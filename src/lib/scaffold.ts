@@ -48,6 +48,8 @@ export interface ScaffoldOptions {
   cliVersion?: string;
   force?: boolean;
   dryRun?: boolean;
+  /** Include the generated project's GitHub Actions validation workflow. */
+  withCi?: boolean;
   git?: boolean;
   /**
    * Scaffold into an existing npm/yarn/pnpm/bun workspace (#1117). `true`
@@ -93,6 +95,7 @@ export async function scaffold(
     force,
     defaults,
     dryRun,
+    withCi,
     git,
     workspace,
   } = options;
@@ -224,6 +227,7 @@ export async function scaffold(
       `  ${pc.cyan("Wallets:")}    ${(wallets && wallets.length > 0 ? wallets : ["freighter", "albedo", "lobstr"]).join(", ")}`,
     );
     console.log(`  ${pc.cyan("Pkg manager:")} ${finalPackageManager}`);
+    console.log(`  ${pc.cyan("CI workflow:")}  ${withCi ? "GitHub Actions (lint, typecheck, test, build)" : "No"}`);
     if (workspaceInfo && workspaceTarget) {
       console.log(`  ${pc.cyan("Workspace:")}  ${workspaceInfo.root}`);
       console.log(

@@ -24,13 +24,65 @@ import WalletConnectButton from '@/components/WalletConnectButton';
 disconnects the active Stellar wallet and, once connected, renders the
 `AccountSwitcher` so the user can hop between multiple accounts.
 
-| Prop   | Type                 | Default  | Description                              |
-| ------ | -------------------- | -------- | ---------------------------------------- |
-| theme  | `'light' \| 'dark'`  | `'light'`| Colour scheme of the button.             |
+| Prop              | Type                    | Default   | Description                                                                 |
+| ----------------- | ----------------------- | --------- | --------------------------------------------------------------------------- |
+| theme             | `'light' \| 'dark'`     | `'light'` | Colour scheme of the button.                                                |
+| walletSelector    | `'kit' \| 'builtin'`    | `'kit'`   | `'builtin'` opens `WalletSelectModal` (icons, names, keyboard) instead of the wallet kit's own modal. |
+| confirmDisconnect | `boolean`               | `false`   | Ask for confirmation (`DisconnectConfirmDialog`) before disconnecting.      |
 
 ```tsx
 <WalletConnectButton theme="dark" />
+// What the default template's landing page uses:
+<WalletConnectButton theme={theme} walletSelector="builtin" confirmDisconnect />
 ```
+
+While a session saved by a previous visit is being restored on load, the
+button shows a disabled **Reconnecting...** state (from `useWallet().reconnecting`)
+instead of flashing "Connect Wallet".
+
+### Persisted sessions
+
+- Connecting stores the wallet id, address and name in `localStorage`
+  (`stellar_wallet_*` keys). On the next load `WalletProvider` reconnects
+  silently to that wallet **only if it still reports the same address**.
+- If the wallet now reports a different account, is locked, or errors, the
+  saved session is cleared and the user connects again explicitly; it is not
+  retried on every reload.
+- An explicit disconnect clears the saved session, so a reload after
+  disconnecting never reconnects.
+- Switching network disconnects (accounts and balances are per network).
+
+---
+
+## WalletSelectModal
+
+`'use client'`. Wallet picker used by `WalletConnectButton walletSelector="builtin"`.
+Lists every wallet the kit was configured with (`useWallet().getWallets()`),
+each with its icon and name. Installed wallets connect via
+`useWallet().connect(walletId)`; wallets that aren't installed link to their
+install page.
+
+Keyboard: focus starts on the first installed wallet, **ArrowUp/ArrowDown**
+(and **Home/End**) move between wallets, **Enter/Space** selects, **Escape**
+closes, **Tab** stays inside the dialog, and focus returns to the trigger on close.
+
+| Prop     | Type                            | Description                                   |
+| -------- | ------------------------------- | --------------------------------------------- |
+| open     | `boolean`                       | Show or hide the dialog.                      |
+| wallets  | `WalletOption[] \| null`        | Wallets to list; `null` shows a loading state.|
+| error    | `string \| null`                | Shown instead of the list.                    |
+| onSelect | `(walletId: string) => void`    | Called with the chosen wallet id.             |
+| onClose  | `() => void`                    | Escape, close button or backdrop click.       |
+| labels   | `Partial<WalletSelectModalLabels>` | Override any UI string (i18n).             |
+
+---
+
+## DisconnectConfirmDialog
+
+`'use client'`. `alertdialog` shown by `WalletConnectButton confirmDisconnect`.
+Names the wallet, explains that the session will not be restored on reload,
+focuses **Cancel** first, and cancels on **Escape**. Props: `open`,
+`walletName`, `onConfirm`, `onCancel`, `theme`, `labels`.
 
 ---
 
