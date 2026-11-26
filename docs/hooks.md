@@ -138,6 +138,61 @@ function BalanceDisplay({ publicKey }) {
 
 ---
 
+## Account Hooks
+
+### `useStellarAccount(publicKey, options?)`
+
+Fetches typed account authority and metadata from Horizon, including signers,
+thresholds, authorization flags, home domain, and sponsorship counts/details.
+An unfunded account (Horizon 404) resolves with `account: null` and no error.
+
+**Signature:**
+```typescript
+function useStellarAccount(
+  publicKey?: string | null,
+  options?: { horizonUrl?: string; network?: 'TESTNET' | 'PUBLIC' }
+): {
+  account: StellarAccount | null;
+  loading: boolean;
+  error: Error | null;
+  networkPassphrase: string;
+  refresh: () => Promise<void>;
+}
+```
+
+The Horizon URL defaults to the wallet provider's configured URL, then
+`https://horizon-testnet.stellar.org`. The network defaults to `TESTNET`;
+`networkPassphrase` is the corresponding Stellar network passphrase.
+`refresh()` re-fetches account details on demand.
+
+**Example:**
+```tsx
+import { useStellarAccount } from '@/hooks/useStellarAccount';
+
+function AccountSecurity({ publicKey }: { publicKey: string }) {
+  const { account, loading, error, refresh } = useStellarAccount(publicKey);
+
+  if (loading) return <p>Loading account...</p>;
+  if (error) return <p>Error: {error.message}</p>;
+  if (!account) return <p>This account is not funded yet.</p>;
+
+  return (
+    <section>
+      <p>Home domain: {account.home_domain || 'Not set'}</p>
+      <p>Medium threshold: {account.thresholds.med_threshold}</p>
+      <ul>
+        {account.signers.map((signer) => (
+          <li key={signer.key}>{signer.key} (weight {signer.weight})</li>
+        ))}
+      </ul>
+      <button onClick={refresh}>Refresh</button>
+    </section>
+  );
+}
+```
+
+---
+
 ## Payment Hooks
 
 ### `useStellarPayment()`
