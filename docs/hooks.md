@@ -412,6 +412,62 @@ function Transfer({ from, to }: { from: string; to: string }) {
 }
 ```
 
+### `useContractRead<T>(options)`
+
+Cached, read-only Soroban contract calls with stale-while-revalidate (SWR) behaviour. Calls are executed strictly via `rpc.Server.simulateTransaction` (no signing or submission) and cached in memory by `(network, sorobanRpc, contractId, method, args)`.
+
+**Signature:**
+```typescript
+function useContractRead<T = unknown>(options: UseContractReadOptions): UseContractReadReturn<T>
+```
+
+**Options:**
+- `contractId` (string, required): StrKey contract address (`C…`, 56 characters).
+- `method` (string, required): Contract function name to simulate.
+- `args` (`TypedArg[]`, optional): Arguments passed to the method (same encoding rules as `useSorobanContract`). Defaults to `[]`.
+- `sorobanRpc` (string, optional): Soroban RPC URL. Falls back to `WalletProvider`'s `sorobanUrl`, then `'https://soroban-testnet.stellar.org'`.
+- `network` (`'TESTNET' | 'PUBLIC'`, optional): Selects the network passphrase. Defaults to `'TESTNET'`.
+- `staleTime` (number, optional): Milliseconds a cached entry stays fresh before background revalidation is triggered. Defaults to `30000`.
+- `cacheTime` (number, optional): Milliseconds an entry is kept in cache before eviction. Defaults to `300000`.
+- `refetchInterval` (number, optional): Interval in milliseconds for automatic background refetching. Disabled when omitted or `<= 0`.
+- `enabled` (boolean, optional): Set to `false` to defer simulation until ready. Defaults to `true`.
+
+**Returns:**
+- `data` (`T | undefined`): Decoded return value from the most recent successful simulation.
+- `loading` (boolean): True during an initial fetch when no cached data is available.
+- `isValidating` (boolean): True whenever any simulation (initial or background revalidation) is in flight.
+- `error` (`Error | null`): Error from the most recent failed simulation; cleared on success.
+- `isStale` (boolean): True when `data` is older than `staleTime`.
+- `refetch` (`() => Promise<T | undefined>`): Triggers an immediate re-simulation and updates the cache.
+- `invalidate` (`() => Promise<T | undefined>`): Evicts this call's cache entry and immediately re-simulates (when `enabled`).
+
+The module also exports `invalidateContractReadCache(keyOrContractId?)` to invalidate matching entries across mounted hooks (e.g. after a write transaction) and `clearContractReadCache()`.
+
+**Example:**
+```tsx
+import { useContractRead } from '@/hooks/useContractRead';
+
+function TokenBalance({ contractId, account }: { contractId: string; account: string }) {
+  const { data, loading, error, isValidating, invalidate } = useContractRead<bigint>({
+    contractId,
+    method: 'balance',
+    args: [{ value: account, type: 'address' }],
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+  });
+
+  if (loading) return <p>Loading balance...</p>;
+  if (error) return <p>Error: {error.message}</p>;
+
+  return (
+    <div>
+      <p>Balance: {data?.toString()}{isValidating ? ' (updating...)' : ''}</p>
+      <button onClick={() => invalidate()}>Refresh</button>
+    </div>
+  );
+}
+```
+
 ---
 
 ## SEP Hooks
