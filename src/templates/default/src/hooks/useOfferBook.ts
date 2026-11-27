@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useWalletConfig } from '../contexts'
+import { classifyHorizonError } from '../lib/horizon-errors'
 
 export type Offer = {
     price: string
@@ -66,7 +67,9 @@ export function useOfferBook(
             })
 
             const res = await fetch(`${horizonUrl}/order_book?${search.toString()}`)
-            if (!res.ok) throw new Error(`Horizon error ${res.status}`)
+            if (!res.ok) {
+                throw Object.assign(new Error(`Horizon error ${res.status}`), { status: res.status })
+            }
             const data = await res.json()
 
             const mapOffer = (o: { price: string; amount: string; seller?: string }): Offer => ({
@@ -81,7 +84,7 @@ export function useOfferBook(
             setAsks((data.asks || []).map(mapOffer))
             setError(null)
         } catch (err) {
-            setError(err as Error)
+            setError(classifyHorizonError(err, { context: 'read', fallbackMessage: 'Failed to fetch order book' }))
         } finally {
             setLoading(false)
         }
