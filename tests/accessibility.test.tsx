@@ -28,6 +28,8 @@ import ErrorBoundary from "../src/templates/default/src/components/ErrorBoundary
 import ErrorBoundaryJs from "../src/templates/js-template/src/components/ErrorBoundary.jsx";
 import WalletConnectButton from "../src/templates/default/src/components/WalletConnectButton";
 import AccountSwitcher from "../src/templates/default/src/components/AccountSwitcher";
+import AddressInput from "../src/templates/default/src/components/AddressInput";
+import SignerManager from "../src/templates/default/src/components/SignerManager";
 import {
   ACCOUNT_MAIN,
   ACCOUNT_SECOND,
@@ -177,6 +179,20 @@ describe("accessibility (#946)", () => {
 
       fireEvent.keyDown(document, { key: "Escape" });
       expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("AddressInput and SignerManager (#1465, #1467)", () => {
+    it("AddressInput has no axe violations", async () => {
+      const { container } = render(React.createElement(AddressInput));
+      expect(await axe(container)).toHaveNoViolations();
+    });
+
+    it("SignerManager disconnected state has no axe violations", async () => {
+      const { container } = render(React.createElement(SignerManager), {
+        wallet: disconnectedWallet(),
+      });
+      expect(await axe(container)).toHaveNoViolations();
     });
   });
 });

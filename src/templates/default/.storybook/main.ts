@@ -40,6 +40,12 @@ const config: StorybookConfig = {
             dirname,
             "./mocks/useSorobanContract.ts"
           ),
+          // Storybook-only mock so SignerManager stories render account
+          // signers and thresholds without performing a live Horizon call.
+          "../hooks/useStellarAccount": path.resolve(
+            dirname,
+            "./mocks/useStellarAccount.ts"
+          ),
         },
       },
     });

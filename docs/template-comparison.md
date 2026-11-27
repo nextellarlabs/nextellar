@@ -17,11 +17,13 @@ Story files (`*.stories.*`) are not components and are omitted.
 | Component | contracts-template | default | defi | full | js-defi | js-full | js-minimal | js-template | minimal |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | `AccountSwitcher` |  | yes |  | yes |  | yes |  | yes | yes |
+| `AddressInput` |  | yes |  | yes |  |  |  |  |  |
 | `BalanceDisplay` |  | yes | yes | yes | yes | yes |  | yes | yes |
 | `ContractCallForm` |  | yes |  | yes |  | yes |  | yes |  |
 | `ContractCallPreview` |  | yes |  | yes |  | yes |  | yes |  |
 | `CopyButton` |  | yes | yes | yes | yes | yes | yes | yes | yes |
 | `CounterDemo` |  |  | yes | yes | yes | yes |  |  |  |
+| `DisconnectConfirmDialog` |  | yes |  | yes |  |  |  |  |  |
 | `EmptyState` |  | yes | yes | yes | yes | yes | yes | yes | yes |
 | `ErrorBoundary` |  | yes | yes | yes | yes | yes | yes | yes | yes |
 | `LoadingBoundary` |  | yes |  | yes |  | yes |  | yes | yes |
@@ -30,6 +32,7 @@ Story files (`*.stories.*`) are not components and are omitted.
 | `ReceiveForm` |  | yes | yes | yes | yes | yes |  | yes | yes |
 | `SendForm` |  | yes | yes | yes | yes | yes |  | yes | yes |
 | `Sep24InteractiveFrame` |  | yes | yes | yes |  | yes |  | yes |  |
+| `SignerManager` |  | yes |  | yes |  |  |  |  |  |
 | `Skeleton` |  | yes | yes | yes | yes | yes |  | yes | yes |
 | `SkeletonList` |  |  |  |  |  | yes |  | yes |  |
 | `SwapForm` |  |  | yes |  |  |  |  |  |  |
@@ -37,6 +40,7 @@ Story files (`*.stories.*`) are not components and are omitted.
 | `TransactionList` |  | yes | yes | yes | yes | yes |  | yes | yes |
 | `TransactionStatusBadge` |  | yes | yes | yes | yes | yes |  | yes | yes |
 | `WalletConnectButton` |  | yes | yes | yes | yes | yes | yes | yes | yes |
+| `WalletSelectModal` |  | yes |  | yes |  |  |  |  |  |
 
 ## Hooks
 
@@ -58,6 +62,7 @@ Story files (`*.stories.*`) are not components and are omitted.
 | `useSep6` |  | yes |  | yes |  |  |  |  |  |
 | `useSorobanContract` |  | yes | yes | yes | yes | yes |  | yes |  |
 | `useSorobanEvents` |  | yes | yes | yes | yes | yes |  | yes |  |
+| `useStellarAccount` |  | yes |  | yes |  |  |  |  |  |
 | `useStellarBalances` |  | yes | yes | yes | yes | yes | yes | yes | yes |
 | `useStellarPayment` |  | yes | yes | yes | yes | yes |  | yes |  |
 | `useStellarWallet` |  | yes | yes | yes | yes | yes | yes | yes | yes |
