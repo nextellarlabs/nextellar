@@ -16,3 +16,11 @@ export type { Theme } from './ThemeProvider';
  */
 export { I18nProvider, useTranslation, locales } from './I18nProvider';
 export type { Locale, Messages } from './I18nProvider';
+
+/**
+ * Re-export network health context (Horizon + Soroban RPC reachability).
+ */
+export { NetworkStatusProvider } from './NetworkStatusProvider';
+export type { NetworkStatusProviderProps } from './NetworkStatusProvider';
+export { useNetworkStatus, useNetworkPaused } from './NetworkStatusContext';
+export type { NetworkStatus, ServiceStatus, NetworkStatusState } from './NetworkStatusContext';
