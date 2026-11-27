@@ -25,6 +25,7 @@ const ZERO = BigInt(0);
 const BPS_DENOMINATOR = BigInt(10000);
 const BPS_ROUNDING = BigInt(9999);
 export const DEFAULT_SLIPPAGE_BPS = 100; // 1%
+export const SLIPPAGE_PRESETS_BPS = [50, 100, 300] as const;
 export const MAX_SLIPPAGE_BPS = 5000; // 50%
 
 const AMOUNT_PATTERN = /^\d+(\.\d{1,7})?$/;
