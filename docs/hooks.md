@@ -264,6 +264,122 @@ function AddTrustline() {
 
 ---
 
+## Account Data Hooks
+
+### `useAccountData(publicKey, options)`
+
+Fetches and manages data entries (key-value pairs) stored on a Stellar account via the `manageData` operation. Provides decoded values, XDR building for set/remove operations, and dev-only signing/submission.
+
+**Signature:**
+```typescript
+function useAccountData(
+  publicKey?: string,
+  options?: { horizonUrl?: string; network?: 'TESTNET' | 'PUBLIC' }
+): {
+  entries: AccountDataEntry[];
+  loading: boolean;
+  error: Error | null;
+  refresh: () => Promise<void>;
+  buildSetDataXDR: (key: string, value: string | Uint8Array) => Promise<string>;
+  buildRemoveDataXDR: (key: string) => Promise<string>;
+  submitSignedXDR: (signedXdrBase64: string) => Promise<{ success: boolean; hash?: string; raw?: unknown; error?: string }>;
+  submitSetDataWithSecret: (key: string, value: string | Uint8Array, secret: string) => Promise<{ success: boolean; hash?: string; raw?: unknown; error?: string }>;
+  submitRemoveDataWithSecret: (key: string, secret: string) => Promise<{ success: boolean; hash?: string; raw?: unknown; error?: string }>;
+}
+```
+
+**Parameters:**
+- `publicKey` (string, optional): Stellar public key to fetch data entries for. When `undefined` or `null`, the hook stays idle.
+- `options.horizonUrl` (string, optional): Horizon server URL. Defaults to `'https://horizon-testnet.stellar.org'`.
+- `options.network` (`'TESTNET' | 'PUBLIC'`, optional): Network passphrase for transaction building. Defaults to `'TESTNET'`.
+
+**Returns:**
+An object containing:
+- `entries` (AccountDataEntry[]): Array of data entries with `key`, `value` (base64), and `valueDecoded` (UTF-8 string if valid).
+- `loading` (boolean): True while fetching entries.
+- `error` (Error | null): Any error encountered during fetching.
+- `refresh` (function): Manually re-fetch data entries.
+- `buildSetDataXDR(key, value)` (function): Builds unsigned XDR for setting a data entry. Enforces 64-byte key/value limits.
+- `buildRemoveDataXDR(key)` (function): Builds unsigned XDR for removing a data entry. Enforces 64-byte key limit.
+- `submitSignedXDR(signedXdr)` (function): Submits a wallet-signed XDR to the network.
+- `submitSetDataWithSecret(key, value, secret)` (function): **Dev-only.** Signs and submits a set-data transaction with a secret key.
+- `submitRemoveDataWithSecret(key, secret)` (function): **Dev-only.** Signs and submits a remove-data transaction with a secret key.
+
+**Example:**
+```tsx
+import { useAccountData } from 'nextellar/hooks';
+
+function DataManager({ publicKey }: { publicKey?: string }) {
+  const { 
+    entries, 
+    loading, 
+    error, 
+    refresh, 
+    buildSetDataXDR,
+    buildRemoveDataXDR,
+    submitSignedXDR,
+    submitSetDataWithSecret,
+    submitRemoveDataWithSecret 
+  } = useAccountData(publicKey, {
+    horizonUrl: 'https://horizon.stellar.org',
+    network: 'PUBLIC'
+  });
+  
+  if (loading) return <div>Loading data entries...</div>;
+  if (error) return <div>Error: {error.message} <button onClick={refresh}>Retry</button></div>;
+  
+  const handleSetData = async () => {
+    try {
+      // Build unsigned XDR for external wallet signing
+      const xdr = await buildSetDataXDR('config', '{"theme": "dark"}');
+      // Pass XDR to wallet for signing...
+    } catch (err) {
+      console.error('Failed to build XDR:', err);
+    }
+  };
+  
+  const handleRemoveData = async (key: string) => {
+    try {
+      const xdr = await buildRemoveDataXDR(key);
+      // Pass XDR to wallet for signing...
+    } catch (err) {
+      console.error('Failed to build XDR:', err);
+    }
+  };
+  
+  // DEV-ONLY: Direct signing and submission
+  const handleDevSetData = async () => {
+    try {
+      const result = await submitSetDataWithSecret('config', '{"theme": "dark"}', 'SABC123...'); // Never use in production
+    } catch (err) {
+      console.error('Failed to set data:', err);
+    }
+  };
+  
+  return (
+    <div>
+      <h3>Account Data Entries</h3>
+      {entries.length === 0 ? (
+        <p>No data entries found.</p>
+      ) : (
+        entries.map((entry, index) => (
+          <div key={index}>
+            <strong>{entry.key}</strong>
+            <span> Value: {entry.valueDecoded ?? entry.value}</span>
+            <button onClick={() => handleRemoveData(entry.key)}>Remove</button>
+          </div>
+        ))
+      )}
+      <button onClick={refresh}>Refresh</button>
+      <button onClick={handleSetData}>Set Data (External Wallet)</button>
+      <button onClick={handleDevSetData}>Set Data (Dev Only)</button>
+    </div>
+  );
+}
+```
+
+---
+
 ## Offer Book Hooks
 
 ### `useOfferBook(selling, buying)`

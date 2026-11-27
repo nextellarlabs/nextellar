@@ -52,8 +52,7 @@ await jest.unstable_mockModule("@stellar/stellar-sdk", () => ({
   Transaction: MockTransaction,
 }));
 
-const { useTrustlines } =
-  await import("../../src/templates/default/src/hooks/useTrustlines.js");
+const { useTrustlines } = await import("@/hooks/default/useTrustlines");
 
 // Shape-valid (56 chars, "S" prefix) but not a real key — Keypair is mocked.
 const SECRET = "SENTINELTESTSECRET".padEnd(56, "X");

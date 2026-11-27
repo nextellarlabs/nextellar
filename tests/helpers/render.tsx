@@ -1,4 +1,9 @@
-import { createElement, type ReactElement, type ReactNode } from "react";
+import {
+  createContext,
+  createElement,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import {
   render as rtlRender,
   renderHook as rtlRenderHook,
@@ -7,7 +12,6 @@ import {
   type RenderOptions,
   type RenderResult,
 } from "@testing-library/react";
-import { ThemeContext } from "../../src/templates/default/src/contexts/ThemeProvider";
 import {
   WalletConfigContext,
   WalletContext,
@@ -19,6 +23,16 @@ import {
   createWalletState,
   type ThemeState,
 } from "./fixtures";
+
+// Mock ThemeContext for testing - avoids module resolution issues with the real ThemeProvider
+const ThemeContext = createContext<
+  | {
+      theme: "light" | "dark" | "system";
+      resolvedTheme: "light" | "dark";
+      setTheme: (theme: "light" | "dark" | "system") => void;
+    }
+  | undefined
+>(undefined);
 
 type WrapperComponent = (props: { children: ReactNode }) => ReactElement | null;
 
