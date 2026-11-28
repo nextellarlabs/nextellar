@@ -264,6 +264,70 @@ function AddTrustline() {
 
 ---
 
+## Claimable Balance Hooks
+
+### `useCreateClaimableBalance(options?)`
+
+Builds and submits Stellar `createClaimableBalance` transactions with one or more claimants and composable time predicates (`unconditional`, `absBefore`, `relBefore`, `not`, `and`, `or`). Validates asset, 7-decimal amount, and claimant addresses before loading the source account from Horizon.
+
+**Signature:**
+```typescript
+function useCreateClaimableBalance(options?: UseCreateClaimableBalanceOptions): UseCreateClaimableBalanceReturn
+```
+
+**Options:**
+- `horizonUrl` (string, optional): Horizon server URL. Falls back to `WalletProvider` config or `'https://horizon-testnet.stellar.org'`.
+- `network` (`'TESTNET' | 'PUBLIC'`, optional): Selects the network passphrase. Defaults to `'TESTNET'`.
+
+**Returns:**
+- `buildCreateClaimableBalanceXDR(params)`: Validates inputs, loads `params.source` from Horizon, and resolves with the unsigned transaction XDR.
+- `submitSignedXDR(signedXdrBase64)`: Submits a signed transaction XDR to Horizon and resolves with `{ success, txHash?, raw?, error?, resultCodes? }`.
+- `signAndSubmitWithSecret(params)`: **Development only.** Builds, signs with `params.secret`, and submits the transaction.
+- `loading` (boolean): True while building or submitting.
+- `error` (Error | null): Error from the most recent operation.
+- `reset()`: Clears `error`.
+
+**Example:**
+```tsx
+import { useCreateClaimableBalance } from '@/hooks/useCreateClaimableBalance';
+
+function CreateEscrow({ source, recipient }: { source: string; recipient: string }) {
+  const { buildCreateClaimableBalanceXDR, loading, error } = useCreateClaimableBalance({
+    network: 'TESTNET',
+  });
+
+  const handleCreate = async () => {
+    const xdr = await buildCreateClaimableBalanceXDR({
+      source,
+      asset: 'XLM',
+      amount: '50.0000000',
+      claimants: [
+        {
+          destination: recipient,
+          predicate: {
+            type: 'and',
+            left: { type: 'not', predicate: { type: 'relBefore', seconds: 3600 } },
+            right: { type: 'absBefore', timestamp: 1900000000 },
+          },
+        },
+      ],
+    });
+    // Hand `xdr` to your wallet adapter for signing, then pass to submitSignedXDR(signedXdr)
+  };
+
+  return (
+    <div>
+      <button onClick={handleCreate} disabled={loading}>
+        Create Claimable Balance
+      </button>
+      {error && <p>{error.message}</p>}
+    </div>
+  );
+}
+```
+
+---
+
 ## Offer Book Hooks
 
 ### `useOfferBook(selling, buying)`
