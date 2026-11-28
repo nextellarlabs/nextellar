@@ -27,6 +27,19 @@ These variables are consumed by Next.js client-side code and must be prefixed wi
 | `NEXT_PUBLIC_WALLETCONNECT_APP_URL` | current page origin (or `http://localhost:3000` during server-side rendering) | Optional `https://` URL of your dApp, shown to the user inside their wallet app during a WalletConnect pairing request. Ignored if `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` is unset. |
 | `NEXT_PUBLIC_WALLETCONNECT_ICON` | none (no icon shown) | Optional `https://` URL of a square icon, shown alongside the app name during pairing. Ignored if `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` is unset. |
 | `NEXT_PUBLIC_APP_NAME` | `Nextellar dApp` | Display name shown to the user inside their wallet app during a WalletConnect pairing request. |
+| `NEXT_PUBLIC_HORIZON_PROXY` | unset (disabled) | Set to `1`, `true`, `yes` or `on` to route client Horizon reads through the template's `/api/horizon` proxy. See `docs/horizon-proxy.md`. |
+
+## Server-Only Horizon Proxy Variables (Default Template)
+
+These variables are read only by the `/api/horizon/[...path]` route handler. They must **not** be prefixed with `NEXT_PUBLIC_`, so the provider key never reaches the browser.
+
+| Variable Name | Default Value | Description |
+|---|---|---|
+| `HORIZON_PROXY_URL` | `NEXT_PUBLIC_HORIZON_URL`, then `https://horizon-testnet.stellar.org` | Upstream Horizon base URL used by the proxy. |
+| `HORIZON_PROXY_API_KEY` | none | Provider API key injected server-side. |
+| `HORIZON_PROXY_API_KEY_HEADER` | `Authorization` | Header that carries the key (`Authorization` is sent as `Bearer <key>`). |
+| `HORIZON_PROXY_CACHE_TTL_MS` | `3000` | In-memory cache TTL for successful proxied GETs; `0` disables caching. |
+| `HORIZON_PROXY_TIMEOUT_MS` | `10000` | Upstream request timeout; `0` disables the timeout. |
 
 ## CLI & Development Environment Variables
 

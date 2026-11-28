@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useWalletConfig } from '../contexts'
+import { resolveHorizonUrl } from '../lib/horizonProxy'
 
 export type Offer = {
     price: string
@@ -42,6 +43,10 @@ export function useOfferBook(
         pollIntervalMs = null,
     } = opts
 
+    // Opt-in (#1461): route the order-book read through the same-origin proxy
+    // so a hosted provider's API key stays server-side. No-op when disabled.
+    const effectiveHorizonUrl = resolveHorizonUrl(horizonUrl)
+
     const [bids, setBids] = useState<Offer[]>([])
     const [asks, setAsks] = useState<Offer[]>([])
     const [loading, setLoading] = useState(false)
@@ -65,7 +70,7 @@ export function useOfferBook(
                 limit: String(limit),
             })
 
-            const res = await fetch(`${horizonUrl}/order_book?${search.toString()}`)
+            const res = await fetch(`${effectiveHorizonUrl}/order_book?${search.toString()}`)
             if (!res.ok) throw new Error(`Horizon error ${res.status}`)
             const data = await res.json()
 
@@ -85,7 +90,7 @@ export function useOfferBook(
         } finally {
             setLoading(false)
         }
-    }, [buying, selling, horizonUrl, limit])
+    }, [buying, selling, effectiveHorizonUrl, limit])
 
     const refresh = useCallback(async () => { await fetchOrderbook() }, [fetchOrderbook])
     const stopPolling = useCallback(() => {

@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Horizon } from '@stellar/stellar-sdk';
 import { useWalletConfig } from '../contexts';
+import { resolveHorizonUrl } from '../lib/horizonProxy';
 import { useHorizonStreaming } from './useHorizonStreaming';
 
 /**
@@ -106,6 +107,10 @@ export function useTransactionHistory(
     type = DEFAULT_TYPE,
     enableStreaming = false,
   } = options;
+
+  // Opt-in (#1461): read through the proxy when NEXT_PUBLIC_HORIZON_PROXY is
+  // enabled; a no-op otherwise. This hook only performs reads.
+  const effectiveHorizonUrl = resolveHorizonUrl(horizonUrl);
   
   // State management
   const [items, setItems] = useState<OperationItem[]>([]);
@@ -122,16 +127,16 @@ export function useTransactionHistory(
   
   // Initialize Horizon server instance when URL changes
   useEffect(() => {
-    if (lastHorizonUrlRef.current !== horizonUrl) {
+    if (lastHorizonUrlRef.current !== effectiveHorizonUrl) {
       try {
-        serverRef.current = new Horizon.Server(horizonUrl);
-        lastHorizonUrlRef.current = horizonUrl;
+        serverRef.current = new Horizon.Server(effectiveHorizonUrl);
+        lastHorizonUrlRef.current = effectiveHorizonUrl;
       } catch (err) {
         console.error('Failed to initialize Horizon server:', err);
-        setError(new Error(`Invalid Horizon URL: ${horizonUrl}`));
+        setError(new Error(`Invalid Horizon URL: ${effectiveHorizonUrl}`));
       }
     }
-  }, [horizonUrl]);
+  }, [effectiveHorizonUrl]);
 
   /**
    * Validate Stellar public key format
