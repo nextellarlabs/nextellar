@@ -220,6 +220,70 @@ function History({ publicKey }) {
 }
 ```
 
+### `useAccountEffects(publicKey, options?)`
+
+Fetches, paginates, and optionally streams Horizon account effects (trades, trustline changes, signer changes, account credits/debits) for a specified account.
+
+**Signature:**
+```typescript
+function useAccountEffects(
+  publicKey?: string | null,
+  options?: UseAccountEffectsOptions,
+): AccountEffectsState
+```
+
+**Options:**
+- `horizonUrl` (string, optional): Horizon server URL. Falls back to `useWalletConfig()?.horizonUrl` or `'https://horizon-testnet.stellar.org'`.
+- `network` (`'TESTNET' | 'PUBLIC'`, optional): Selects the network passphrase. Defaults to `'TESTNET'`.
+- `pageSize` (number, optional): Number of effect records per page. Defaults to `10`.
+- `order` (`'asc' | 'desc'`, optional): Sort order. Defaults to `'desc'`.
+- `enableStreaming` (boolean, optional): When `true`, subscribes to live Horizon SSE effect updates via `useHorizonStreaming`. Defaults to `false`.
+- `pollIntervalMs` (number, optional): Polling fallback interval (ms) when SSE streaming is unavailable.
+
+**Returns:**
+An object containing:
+- `effects` (`AccountEffect[]`): Typed effect records (`trade`, `trustline_created`, `trustline_removed`, `trustline_updated`, `trustline_flags_updated`, `signer_created`, `signer_removed`, `signer_updated`, `account_created`, `account_credited`, `account_debited`, `account_thresholds_updated`, `account_flags_updated`, plus a fallback record type).
+- `loading` (boolean): True while fetching effects.
+- `error` (`Error | null`): Any error encountered during fetching.
+- `hasMore` (boolean): True when another page of effects can be loaded.
+- `streaming` (boolean): True when an active Horizon SSE stream is connected.
+- `polling` (boolean): True when live updates are using the polling fallback.
+- `networkPassphrase` (string): Active Stellar network passphrase.
+- `fetchNextPage` (`() => Promise<void>`): Loads the next page using Horizon cursor pagination.
+- `refresh` (`() => Promise<void>`): Re-fetches effects from the beginning.
+- `stopStreaming` (`() => void`): Stops the active stream or polling fallback.
+
+**Example:**
+```tsx
+import { useAccountEffects } from '@/hooks/useAccountEffects';
+
+function AccountEffectsFeed({ publicKey }: { publicKey?: string }) {
+  const { effects, loading, error, hasMore, fetchNextPage, refresh } =
+    useAccountEffects(publicKey, { pageSize: 10, enableStreaming: true });
+
+  if (loading && effects.length === 0) return <p>Loading effects...</p>;
+  if (error) return <p>Error: {error.message}</p>;
+
+  return (
+    <div>
+      <button onClick={refresh} disabled={loading}>Refresh</button>
+      <ul>
+        {effects.map((effect) => (
+          <li key={effect.id}>
+            {effect.type} — {effect.created_at}
+          </li>
+        ))}
+      </ul>
+      {hasMore && (
+        <button onClick={fetchNextPage} disabled={loading}>
+          Load More
+        </button>
+      )}
+    </div>
+  );
+}
+```
+
 ---
 
 ## Trustline Hooks
