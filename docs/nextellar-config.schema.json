@@ -14,7 +14,25 @@
     "createdAt": { "type": "string", "format": "date-time" },
     "horizonUrl": { "type": "string", "format": "uri" },
     "sorobanUrl": { "type": "string", "format": "uri" },
-    "wallets": { "type": "array", "items": { "type": "string" } }
+    "wallets": { "type": "array", "items": { "type": "string" } },
+    "contracts": {
+      "type": "array",
+      "description": "Soroban contracts registered in this project.",
+      "items": {
+        "type": "object",
+        "required": ["name", "path", "bindings", "hook", "docs"],
+        "properties": {
+          "name": { "type": "string" },
+          "path": { "type": "string" },
+          "bindings": { "type": "string" },
+          "hook": { "type": "string" },
+          "docs": { "type": "string" },
+          "template": { "type": "string" },
+          "addedAt": { "type": "string", "format": "date-time" }
+        },
+        "additionalProperties": true
+      }
+    }
   },
   "additionalProperties": true
 }

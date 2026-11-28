@@ -248,6 +248,55 @@ program
     },
   );
 
+// Add-contract subcommand: nextellar add-contract <name> [--kind hello|counter] [--dry-run]
+program
+  .command("add-contract <name>")
+  .description(
+    "Scaffold a new Soroban contract, register it in the Cargo workspace, and generate bindings, hooks, and docs",
+  )
+  .option(
+    "-k, --kind <kind>",
+    "contract starter template (hello, counter)",
+    "hello",
+  )
+  .option(
+    "--dry-run",
+    "simulate contract addition without writing files",
+    false,
+  )
+  .option("--verbose", "print additional diagnostic output on failure")
+  .option("--debug", "alias for --verbose")
+  .action(
+    async (
+      name: string,
+      cmdOpts: {
+        kind?: string;
+        dryRun?: boolean;
+        verbose?: boolean;
+        debug?: boolean;
+      },
+    ) => {
+      setVerbose(!!(cmdOpts.verbose || cmdOpts.debug));
+      try {
+        const { runAddContract } = await import("../src/lib/add-contract.js");
+        const result = await runAddContract(name, {
+          template: cmdOpts.kind as "hello" | "counter" | undefined,
+          dryRun: !!cmdOpts.dryRun,
+        });
+        if (!result.success) {
+          printError(result.message ?? "Failed to add contract.");
+          await exitWithTelemetry(1);
+        }
+      } catch (err: any) {
+        printError(`Add contract failed: ${err?.message || err}`);
+        logVerboseError(err);
+        await exitWithTelemetry(1);
+      } finally {
+        await flushTelemetry();
+      }
+    },
+  );
+
 program
   .command("telemetry <action>")
   .description("Manage anonymous telemetry settings")
